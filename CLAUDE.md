@@ -141,9 +141,10 @@ per browser). HTML emails keep the light tokens and sit on a light sheet in the 
 - **Icons**: line icons, 1.8px stroke, 15–17px, in `currentColor`.
 - **Motion**: subtle and purposeful, from the `--fast` (120ms) / `--medium` (200ms) / `--slow`
   (360ms) tokens with one soft ease. Menus, dialogs and notices fade and rise in; the email pane
-  slides in; rows glide into place when threads leave; toggles pop; inbox zero draws an ensō.
-  Nothing loops or delays work, and all of it is off under `prefers-reduced-motion`. Only
-  compact buttons shrink when pressed; wide, row-like ones (message headers, menu rows) don't.
+  slides in; a message expanded in a thread grows open; rows glide into place when threads
+  leave; toggles pop; inbox zero draws an ensō. Nothing loops or delays work, and all of it is
+  off under `prefers-reduced-motion`. Only compact buttons shrink when pressed; wide, row-like
+  ones (message headers, menu rows) don't.
 
 ## Architecture
 

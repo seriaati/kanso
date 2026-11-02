@@ -297,7 +297,13 @@ function ThreadView({ thread, myEmails, composer, onOpenDraft }: ThreadViewProps
       {messages.map((message) => {
         const expanded = (message.unread || message.id === lastId) !== flipped.has(message.id)
         return expanded ? (
-          <MessageView key={message.id} message={message} myEmails={myEmails} onCollapse={many ? () => flip(message.id) : undefined} />
+          <MessageView
+            key={message.id}
+            message={message}
+            myEmails={myEmails}
+            onCollapse={many ? () => flip(message.id) : undefined}
+            expanding={flipped.has(message.id)}
+          />
         ) : (
           <button key={message.id} type="button" className={styles.collapsed} onClick={() => flip(message.id)}>
             <Avatar name={senderName(message.sender)} />
@@ -338,7 +344,15 @@ function recipients(message: Message, myEmails: Set<string>) {
   return names.length ? `to ${names.join(', ')}` : ''
 }
 
-function MessageView({ message, myEmails, onCollapse }: { message: Message; myEmails: Set<string>; onCollapse?: () => void }) {
+type MessageViewProps = {
+  message: Message
+  myEmails: Set<string>
+  onCollapse?: () => void
+  /** Expanded by a click (not open from the start): its body grows open. */
+  expanding?: boolean
+}
+
+function MessageView({ message, myEmails, onCollapse, expanding }: MessageViewProps) {
   const [showImages, setShowImages] = useState(false)
   const html = message.body_html
   // Inline images the HTML shows aren't listed again as attachments.
@@ -357,34 +371,38 @@ function MessageView({ message, myEmails, onCollapse }: { message: Message; myEm
         </span>
       </button>
 
-      {html !== null && REMOTE.test(html) && !showImages && (
-        <p className={styles.imagesBar}>
-          Remote images are hidden.
-          <button type="button" onClick={() => setShowImages(true)}>
-            Show images
-          </button>
-        </p>
-      )}
+      <div className={expanding ? styles.expanding : undefined}>
+        <div className={styles.expandingInner}>
+          {html !== null && REMOTE.test(html) && !showImages && (
+            <p className={styles.imagesBar}>
+              Remote images are hidden.
+              <button type="button" onClick={() => setShowImages(true)}>
+                Show images
+              </button>
+            </p>
+          )}
 
-      <div className={styles.content}>
-        {html !== null ? (
-          <EmailFrame html={html} lang={message.lang} attachments={message.attachments} showImages={showImages} />
-        ) : (
-          <TextBody text={message.body_text ?? ''} lang={message.lang} />
-        )}
+          <div className={styles.content}>
+            {html !== null ? (
+              <EmailFrame html={html} lang={message.lang} attachments={message.attachments} showImages={showImages} />
+            ) : (
+              <TextBody text={message.body_text ?? ''} lang={message.lang} />
+            )}
+          </div>
+
+          {attachments.length > 0 && (
+            <ul className={styles.attachments} aria-label="Attachments">
+              {attachments.map((a) => (
+                <li key={a.id}>
+                  <a className={styles.attachment} href={`/api/attachments/${a.id}`} download={a.filename} title={`Download ${a.filename}`}>
+                    <b>{a.filename}</b> <span className={styles.meta}>{fileSize(a.size)}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
-
-      {attachments.length > 0 && (
-        <ul className={styles.attachments} aria-label="Attachments">
-          {attachments.map((a) => (
-            <li key={a.id}>
-              <a className={styles.attachment} href={`/api/attachments/${a.id}`} download={a.filename} title={`Download ${a.filename}`}>
-                <b>{a.filename}</b> <span className={styles.meta}>{fileSize(a.size)}</span>
-              </a>
-            </li>
-          ))}
-        </ul>
-      )}
     </section>
   )
 }

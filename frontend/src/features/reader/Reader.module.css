@@ -189,6 +189,30 @@
   }
 }
 
+/* A message expanded by a click: its body grows open under the sender line (a grid row from 0fr
+   to 1fr, which animates to the content's height), and an HTML email's frame eases to its height
+   as it loads. */
+.expanding {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--slow) var(--ease);
+}
+
+@starting-style {
+  .expanding {
+    grid-template-rows: 0fr;
+  }
+}
+
+.expanding > .expandingInner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.expanding .frame {
+  transition: height var(--slow) var(--ease);
+}
+
 .sender,
 .collapsed {
   width: 100%;
