@@ -95,11 +95,18 @@ export function Reader(props: Props) {
   else if (active && (draftOnly || !detail)) content = composer(active, false)
   else if (draftOnly && opened.isError) content = <p className={styles.placeholder}>Couldn’t open the draft: {opened.error.message}</p>
   else if (thread.isError)
-    content = (
-      <p className={styles.placeholder}>
-        {thread.error.message === 'Thread not found' ? 'This thread is no longer in your mail.' : `Couldn’t load the thread: ${thread.error.message}`}
-      </p>
-    )
+    content =
+      thread.error.message === 'Thread not found' ? (
+        <p className={styles.placeholder}>This thread is no longer in your mail.</p>
+      ) : (
+        // E.g. kanso was unreachable for a moment (a restart): it can be fetched again.
+        <p className={styles.placeholder}>
+          Couldn’t load the thread: {thread.error.message}{' '}
+          <button type="button" className={styles.retry} onClick={() => void thread.refetch()}>
+            Try again
+          </button>
+        </p>
+      )
   else if (detail && !draftOnly)
     content = (
       <ThreadView

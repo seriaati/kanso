@@ -151,6 +151,14 @@
   color: var(--muted);
 }
 
+.retry {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .subject {
   margin: 0;
   font-family: var(--font-heading);
