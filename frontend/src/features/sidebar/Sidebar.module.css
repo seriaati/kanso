@@ -34,6 +34,17 @@
   background: var(--hover);
 }
 
+.nav svg {
+  flex-shrink: 0;
+  color: var(--muted);
+  transition: color var(--fast) ease;
+}
+
+.nav:hover svg,
+.active svg {
+  color: var(--ink);
+}
+
 .active,
 .active:hover {
   background: var(--selected);
@@ -69,6 +80,7 @@
   flex-shrink: 0;
   width: 8px;
   height: 8px;
+  margin: 0 3.5px; /* as wide as the mailboxes' icons, so the names line up */
   border-radius: 50%;
 }
 

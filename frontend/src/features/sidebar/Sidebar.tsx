@@ -4,7 +4,7 @@ import type { Account } from '../../app/accounts'
 import type { Label, NamedLabel, SyncStatus } from '../../app/mail'
 import { href, sameView, type Mailbox, type Route, type View } from '../../app/nav'
 import { applyUpdate } from '../../app/update'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName } from '../../components/Icon'
 import { AccountSwitcher } from './AccountSwitcher'
 import { LabelEditor } from './LabelEditor'
 import styles from './Sidebar.module.css'
@@ -13,12 +13,12 @@ import styles from './Sidebar.module.css'
 export type Notice = { id: number; text: string; undo?: () => void }
 
 // Trash is quiet (muted), below the design's four. Spam is reachable by URL only (/spam).
-const mailboxes: { mailbox: Mailbox; name: string; quiet?: boolean }[] = [
-  { mailbox: 'inbox', name: 'Inbox' },
-  { mailbox: 'done', name: 'Done' },
-  { mailbox: 'sent', name: 'Sent' },
-  { mailbox: 'drafts', name: 'Drafts' },
-  { mailbox: 'trash', name: 'Trash', quiet: true },
+const mailboxes: { mailbox: Mailbox; name: string; icon: IconName; quiet?: boolean }[] = [
+  { mailbox: 'inbox', name: 'Inbox', icon: 'inbox' },
+  { mailbox: 'done', name: 'Done', icon: 'done' },
+  { mailbox: 'sent', name: 'Sent', icon: 'sent' },
+  { mailbox: 'drafts', name: 'Drafts', icon: 'draft' },
+  { mailbox: 'trash', name: 'Trash', icon: 'delete', quiet: true },
 ]
 
 type Props = {
@@ -61,7 +61,7 @@ export function Sidebar(props: Props) {
         Compose
       </button>
 
-      {mailboxes.map(({ mailbox, name, quiet }) => {
+      {mailboxes.map(({ mailbox, name, icon, quiet }) => {
         const view: View = { kind: 'mailbox', mailbox }
         const current = !route.settings && sameView(view, route.view)
         return (
@@ -71,6 +71,7 @@ export function Sidebar(props: Props) {
             className={`${styles.nav} ${current ? styles.active : ''} ${quiet ? styles.quiet : ''}`}
             aria-current={current ? 'page' : undefined}
           >
+            <Icon name={icon} size={15} />
             <span className={styles.name}>{name}</span>
             {mailbox === 'inbox' && inboxTotal > 0 && <span className={styles.count}>{inboxTotal}</span>}
           </Link>

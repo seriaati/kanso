@@ -10,6 +10,22 @@ const paths = {
     </>
   ),
   inbox: <path d="M3 13h5l2 3h4l2-3h5M5.5 5h13L21 13v6H3v-6z" />,
+  sent: <path d="M21 3L3 10.5l7.5 3M21 3l-7.5 18-3-7.5M21 3L10.5 13.5" />,
+  draft: <path d="M14 3H5v18h14V8zM14 3v5h5M8.5 13h7M8.5 17h4.5" />,
+  accounts: (
+    <>
+      <path d="M12 3L3 8l9 5 9-5z" />
+      <path d="M3 12.5l9 5 9-5M3 17l9 5 9-5" />
+    </>
+  ),
+  settings: (
+    <>
+      <path d="M4 7h9M17 7h3M4 17h3M11 17h9" />
+      <circle cx="15" cy="7" r="2" />
+      <circle cx="9" cy="17" r="2" />
+    </>
+  ),
+  logout: <path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9" />,
   sun: (
     <>
       <circle cx="12" cy="12" r="4" />

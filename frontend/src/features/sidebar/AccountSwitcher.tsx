@@ -16,8 +16,8 @@ type Props = {
 
 export function Avatar({ account }: { account: Account | null }) {
   return (
-    <span className={styles.avatar} style={account ? { background: account.color } : undefined} aria-hidden="true">
-      {account ? account.display_name.charAt(0).toUpperCase() : '∗'}
+    <span className={`${styles.avatar} ${account ? '' : styles.all}`} style={account ? { background: account.color } : undefined} aria-hidden="true">
+      {account ? account.display_name.charAt(0).toUpperCase() : <Icon name="accounts" size={14} strokeWidth={2} />}
     </span>
   )
 }
@@ -125,9 +125,11 @@ export function AccountSwitcher({ accounts, selected, ai, onSelect }: Props) {
             ))}
           </div>
           <Link to="/settings" className={styles.action} onClick={close}>
+            <Icon name="settings" size={15} />
             Settings
           </Link>
           <button type="button" className={styles.action} onClick={() => void logout()}>
+            <Icon name="logout" size={15} />
             Log out
           </button>
         </div>

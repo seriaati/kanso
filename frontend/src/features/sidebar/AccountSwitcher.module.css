@@ -28,6 +28,10 @@
   place-items: center;
 }
 
+.all {
+  color: var(--surface);
+}
+
 .text {
   flex: 1;
   min-width: 0;
@@ -133,6 +137,7 @@
 .action {
   display: flex;
   align-items: center;
+  gap: 9px;
   height: 32px;
   padding: 0 8px;
   border: 0;
