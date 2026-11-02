@@ -4,6 +4,7 @@ import { logout, useReorderAccounts, type Account } from '../../app/accounts'
 import { accents, setAccent, useAccent } from '../../app/accent'
 import { useAiUsage } from '../../app/ai'
 import { setDensity, useDensity, type Density } from '../../app/density'
+import { useDemoPassword } from '../../app/settings'
 import { setTheme, useTheme, type Theme } from '../../app/theme'
 import { Icon, type IconName } from '../../components/Icon'
 import styles from './AccountSwitcher.module.css'
@@ -50,6 +51,7 @@ function move(ids: number[], from: number, to: number): number[] {
 export function AccountSwitcher({ accounts, selected, ai, onSelect }: Props) {
   const [open, setOpen] = useState(false)
   const keyRejected = useAiUsage(open && ai).data?.key_rejected
+  const demo = useDemoPassword() !== null // true until known: no flash of Add account on a demo
   const reorder = useReorderAccounts()
   // While an account is dragged: the order shown, which follows the pointer.
   const [drag, setDrag] = useState<{ id: number; order: number[] } | null>(null)
@@ -124,6 +126,15 @@ export function AccountSwitcher({ accounts, selected, ai, onSelect }: Props) {
               </span>
             </button>
           ))}
+          {!demo && (
+            /* A full-page navigation: the backend redirects to Google's consent screen. */
+            <a href="/api/accounts/connect" className={`${styles.row} ${styles.add}`}>
+              <span className={styles.avatar} aria-hidden="true">
+                <Icon name="plus" size={14} strokeWidth={2} />
+              </span>
+              <span className={styles.text}>Add account</span>
+            </a>
+          )}
 
           <hr className={styles.divider} />
           {keyRejected && (

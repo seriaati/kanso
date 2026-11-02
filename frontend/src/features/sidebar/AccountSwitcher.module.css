@@ -124,6 +124,21 @@
   opacity: 0.45;
 }
 
+.add {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.add:hover {
+  color: var(--ink);
+}
+
+.add .avatar {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: inherit;
+}
+
 .divider {
   width: 100%;
   margin: 4px 0;

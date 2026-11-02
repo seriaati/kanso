@@ -85,7 +85,8 @@ The reference mockup is the "3 · Chosen — Koke + indigo, split view" artboard
 (https://claude.ai/artifact/V1JQgMWnzg11fKx9W61eUb). New screens and components follow it.
 
 **Layout: split view**
-- **Sidebar** (~200px; its edge can be dragged, 160–360px, remembered per browser): the account switcher at the top (one account at a time; the last used per browser), then
+- **Sidebar** (~200px; its edge can be dragged, 160–360px, remembered per browser): the account switcher at the top (one account at a time; the last used per browser; its
+  accounts can be dragged into any order, kept on the server, with "+ Add account" below them), then
   Compose (the primary button), mailboxes with line icons (Inbox, Starred, Done, Sent, Drafts,
   All mail, then Spam and Trash in muted text), labels with color dots, and "+ New label". A
   label's "⋯" opens a small "more actions" menu (Edit, Delete); editing, creating and deleting
