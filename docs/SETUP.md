@@ -63,6 +63,7 @@ This is the screen Google shows when you connect an account.
 5. Go to **Data Access → Add or remove scopes**. Tick (or paste under "Manually add scopes"):
    - `openid`
    - `.../auth/userinfo.email`
+   - `.../auth/userinfo.profile` (your profile photo, shown in the account switcher)
    - `https://www.googleapis.com/auth/gmail.modify`
 
    Click **Update**, then **Save**.

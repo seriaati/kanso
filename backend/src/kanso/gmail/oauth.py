@@ -19,7 +19,8 @@ TOKEN_URL = "https://oauth2.googleapis.com/token"
 REVOKE_URL = "https://oauth2.googleapis.com/revoke"
 # gmail.modify only lacks permanent deletion that bypasses Trash, which kanso never does.
 GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.modify"
-SCOPES = f"openid email {GMAIL_SCOPE}"
+# profile: the account's photo.
+SCOPES = f"openid email profile {GMAIL_SCOPE}"
 
 
 class OAuthError(Exception):
@@ -34,6 +35,7 @@ class ReconnectRequired(OAuthError):
 class Grant:
     email: str
     refresh_token: str
+    picture: str | None
 
 
 def _client() -> httpx.AsyncClient:
@@ -78,7 +80,9 @@ async def exchange_code(code: str) -> Grant:
     # Straight from Google's token endpoint over TLS, so per OpenID Connect no signature check.
     payload = body["id_token"].split(".")[1]
     claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
-    return Grant(email=claims["email"], refresh_token=body["refresh_token"])
+    return Grant(
+        email=claims["email"], refresh_token=body["refresh_token"], picture=claims.get("picture")
+    )
 
 
 # Per process: the app and worker each refresh their own.

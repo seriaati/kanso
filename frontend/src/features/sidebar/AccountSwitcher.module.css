@@ -26,6 +26,7 @@
   font-weight: 700;
   display: grid;
   place-items: center;
+  object-fit: cover;
 }
 
 .none {

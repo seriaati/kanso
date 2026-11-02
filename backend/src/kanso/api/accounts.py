@@ -28,6 +28,7 @@ class AccountOut(BaseModel):
     email: str
     display_name: str
     color: str
+    avatar_url: str | None
 
 
 class AccountUpdate(BaseModel):
@@ -105,6 +106,7 @@ async def callback(db: DB, state: str = "", code: str = "", error: str = "") -> 
     account = await db.scalar(select(Account).where(Account.email == grant.email))
     if account:  # reconnecting an existing account keeps its name, color and mail
         account.refresh_token = encrypt(grant.refresh_token)
+        account.avatar_url = grant.picture
     else:
         count = await db.scalar(select(func.count()).select_from(Account)) or 0
         db.add(
@@ -112,6 +114,7 @@ async def callback(db: DB, state: str = "", code: str = "", error: str = "") -> 
                 email=grant.email,
                 display_name=grant.email.split("@")[0],
                 color=COLORS[count % len(COLORS)],
+                avatar_url=grant.picture,
                 refresh_token=encrypt(grant.refresh_token),
             )
         )

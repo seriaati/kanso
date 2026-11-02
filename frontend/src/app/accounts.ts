@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, queryClient } from './api'
 
-export type Account = { id: number; email: string; display_name: string; color: string }
+export type Account = { id: number; email: string; display_name: string; color: string; avatar_url: string | null }
 
 // Matches the backend's COLORS.
 export const accountColors = [

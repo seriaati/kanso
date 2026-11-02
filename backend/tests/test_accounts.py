@@ -18,8 +18,12 @@ from kanso.gmail import oauth
 pytestmark = pytest.mark.usefixtures("db")
 
 
+PHOTO = "https://lh3.googleusercontent.com/a/photo=s96-c"
+
+
 def id_token(email: str) -> str:
-    payload = base64.urlsafe_b64encode(json.dumps({"email": email}).encode()).rstrip(b"=")
+    claims = {"email": email, "picture": PHOTO}
+    payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=")
     return f"header.{payload.decode()}.signature"
 
 
@@ -64,7 +68,7 @@ def connect(client: TestClient) -> httpx.Response:
     location = urlsplit(response.headers["location"])
     params = parse_qs(location.query)
     assert f"{location.netloc}{location.path}" == "accounts.google.com/o/oauth2/v2/auth"
-    assert params["scope"] == ["openid email https://www.googleapis.com/auth/gmail.modify"]
+    assert params["scope"] == ["openid email profile https://www.googleapis.com/auth/gmail.modify"]
     assert params["access_type"] == ["offline"]
     assert params["prompt"] == ["consent"]
     assert params["redirect_uri"] == ["http://testserver/api/accounts/callback"]
@@ -86,7 +90,13 @@ async def _stored_accounts() -> list[Account]:
 def test_connect_creates_account(logged_in: TestClient, google: FakeGoogle) -> None:
     assert connect(logged_in).headers["location"] == "/"
     assert logged_in.get("/api/accounts").json() == [
-        {"id": 1, "email": "me@gmail.com", "display_name": "me", "color": "#2F4B6E"}
+        {
+            "id": 1,
+            "email": "me@gmail.com",
+            "display_name": "me",
+            "color": "#2F4B6E",
+            "avatar_url": PHOTO,
+        }
     ]
     [stored] = asyncio.run(_stored_accounts())
     assert b"refresh-for" not in stored.refresh_token  # encrypted at rest

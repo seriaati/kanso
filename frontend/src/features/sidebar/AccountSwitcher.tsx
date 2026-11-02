@@ -16,6 +16,12 @@ type Props = {
 }
 
 export function Avatar({ account }: { account: Account | null }) {
+  // Falls back to the initial when the photo can't load (offline, or Google moved it).
+  const [failed, setFailed] = useState<string | null>(null)
+  const photo = account?.avatar_url
+  if (photo && photo !== failed) {
+    return <img className={styles.avatar} src={photo} alt="" referrerPolicy="no-referrer" onError={() => setFailed(photo)} />
+  }
   return (
     <span className={`${styles.avatar} ${account ? '' : styles.none}`} style={account ? { background: account.color } : undefined} aria-hidden="true">
       {account ? account.display_name.charAt(0).toUpperCase() : <Icon name="accounts" size={14} strokeWidth={2} />}

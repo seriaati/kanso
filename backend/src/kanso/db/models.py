@@ -32,6 +32,8 @@ class Account(Base):
     email: Mapped[str] = mapped_column(String(320), unique=True)
     display_name: Mapped[str] = mapped_column(String(100))
     color: Mapped[str] = mapped_column(String(7))
+    # Google's profile photo, refreshed on every (re)connect.
+    avatar_url: Mapped[str | None] = mapped_column(Text)
     # Fernet-encrypted.
     refresh_token: Mapped[bytes] = mapped_column(LargeBinary)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
