@@ -92,8 +92,8 @@ The reference mockup is the "3 · Chosen — Koke + indigo, split view" artboard
   labels happen in a small centered dialog, never inline.
 - **Thread list** (~500px, left; **the full width while nothing is open**): search at the top. Threads are grouped into sections by AI label
   (Home, Personal, Work…), each with a count and "Done all". Bundles (Newsletters, Receipts,
-  Notifications) are collapsed rows at the bottom. Rows are compact single lines (~31px; 40px
-  with the account menu's Density set to Comfortable, per browser): unread dot, sender,
+  Notifications) are collapsed rows at the bottom. Rows are compact single lines (40px by default;
+  ~31px with the account menu's Density set to Compact, per browser): unread dot, sender,
   subject — snippet, star, time. **On hover, the time is replaced by quick-action
   icons**: Done, Delete, Star, Important. A right-click on a row opens its actions menu (Done,
   Delete, Star, Important, Mark unread, Label…, Select, each with its shortcut); a click

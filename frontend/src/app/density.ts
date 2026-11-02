@@ -9,9 +9,9 @@ const listeners = new Set<() => void>()
 
 function stored(): Density {
   try {
-    return localStorage.getItem(KEY) === 'comfortable' ? 'comfortable' : 'compact'
+    return localStorage.getItem(KEY) === 'compact' ? 'compact' : 'comfortable'
   } catch {
-    return 'compact' // storage blocked
+    return 'comfortable' // storage blocked
   }
 }
 
@@ -20,7 +20,7 @@ let density = stored()
 export function setDensity(next: Density) {
   density = next
   try {
-    if (next === 'compact') localStorage.removeItem(KEY)
+    if (next === 'comfortable') localStorage.removeItem(KEY)
     else localStorage.setItem(KEY, next)
   } catch {
     // storage blocked: kept until the page reloads
