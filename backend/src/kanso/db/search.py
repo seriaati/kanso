@@ -1,16 +1,7 @@
-"""Full-text search over the mirror: the indexed text and the query language.
+"""Postgres doesn't split CJK into words, so CJK runs are indexed as overlapping bigrams, like
+Lucene's CJK analyzer: "明天开会" -> "明天 天开 开会 会". A CJK query is the phrase of its bigrams.
 
-Postgres's parsers don't split Chinese or Japanese into words (a whole run of Han characters
-becomes one token), so CJK runs are indexed as overlapping bigrams, as Lucene's CJK analyzer
-does: "明天开会" -> "明天 天开 开会 会". A CJK query becomes the phrase of its bigrams, which finds
-it anywhere inside a run. Everything else uses the `simple` configuration (no stemming, any
-language), with prefix matching on each word.
-
-Operators: from: to: label: is:unread is:starred has:attachment before: after: (dates as
-YYYY/MM/DD or YYYY-MM-DD, in UTC), and "quoted phrases". from: and to: match the start of a word in
-a name, or of an address or any of its parts, as in Gmail: from:ana finds Ana Lopes, not Mika
-Tanaka; from:reyes finds daniel.reyes@example.com. A CJK name has no word breaks, so a CJK value
-matches anywhere in it. Both use pg_trgm indexes (migrations 0003 and 0010).
+from: and to: match the start of a word in a name or address, as in Gmail; CJK matches anywhere.
 """
 
 import re
@@ -42,8 +33,7 @@ MAX_INDEXED_CHARS = 200_000
 
 
 def cjk_bigrams(text: str, query: bool = False) -> str:
-    """Split each CJK run into bigrams. Indexed text also ends each run with its last character,
-    so a one-character query (a prefix match) finds every character."""
+    """Indexed text also ends each run with its last character, for one-character queries."""
 
     def split(match: re.Match[str]) -> str:
         run = match.group()
@@ -109,7 +99,7 @@ def parse(q: str) -> Query:
             query.has_attachment = True
         elif key in ("before", "after") and (when := _date(value)):
             setattr(query, key, when)
-        else:  # not an operator after all: search for the text
+        else:  # not an operator after all
             _add_term(query, match.group(0))
     return query
 
@@ -121,7 +111,6 @@ def _add_term(query: Query, text: str) -> None:
 
 
 def _tsquery(term: str) -> ColumnElement[object]:
-    """One word or phrase as a tsquery: words match as prefixes, CJK as bigram phrases."""
     words = term.split()
     if len(words) == 1 and not _CJK_RUN.search(term):
         return func.to_tsquery("simple", "'" + term.replace("\\", "").replace("'", "''") + "':*")
@@ -136,16 +125,14 @@ def _like(value: str) -> str:
 
 
 def _matches(column: ColumnElement[str], value: str) -> ColumnElement[bool]:
-    """`value` at the start of a word in `column` (case-insensitive); anywhere for CJK."""
     if _CJK_RUN.search(value):
         return column.ilike(_like(value), escape="\\")
-    # A Postgres regular expression: \m is the start of a word; a backslash makes any other
-    # character literal.
+    # \m is the start of a word; a backslash makes any other character literal.
     pattern = "".join(c if c.isalnum() else "\\" + c for c in value)
     return column.op("~*")(("\\m" if value[0].isalnum() else "") + pattern)
 
 
-# The names and addresses of a message's To and Cc, as indexed (messages_recipients_trgm_idx).
+# As indexed by messages_recipients_trgm_idx.
 RECIPIENTS = cast(
     func.jsonb_path_query_array(
         Message.to_addrs.op("||")(Message.cc_addrs), literal_column("'$[*].*'::jsonpath")

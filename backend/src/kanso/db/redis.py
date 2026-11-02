@@ -7,11 +7,11 @@ from kanso.core.settings import settings
 
 redis = Redis.from_url(settings.redis_url)
 
-# Live updates: the worker publishes here and the API streams them to the browser (api/events.py).
+# The API streams these to the browser.
 EVENTS_CHANNEL = "kanso:events"
-# The API publishes here after queueing a write-back, to wake the worker's outbox processor.
+# Wakes the worker's outbox processor.
 OUTBOX_CHANNEL = "kanso:outbox"
-# The sync and the API publish here after queueing threads for AI labeling, to wake the worker.
+# Wakes the worker's AI labeling.
 AI_CHANNEL = "kanso:ai"
 
 

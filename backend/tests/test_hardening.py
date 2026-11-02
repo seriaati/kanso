@@ -1,8 +1,4 @@
-"""Security headers and CSP, CSRF protection on state-changing API routes, and no API docs.
-
-Acceptance with the header is also covered by every other test: the `client` fixture sends it
-like kanso's frontend does, so the SSE POST streams (test_summaries, test_assistant) and the
-attachment upload (test_compose) all go through it."""
+"""Every other test also covers CSRF acceptance: the `client` fixture sends the header."""
 
 from pathlib import Path
 

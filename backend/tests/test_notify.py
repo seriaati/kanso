@@ -1,5 +1,4 @@
-"""Notifications of new inbox mail: Web Push encryption against RFC 8291's example, the VAPID
-signature, the subscription API, and what an incremental sync pushes."""
+"""Web Push encryption is checked against the example in RFC 8291, Appendix A."""
 
 import hashlib
 import hmac
@@ -63,7 +62,7 @@ def test_vapid_header_is_a_valid_es256_jwt() -> None:
 
 
 class Browser:
-    """A subscribed browser: its keys, and the notifications its push service received."""
+    """A subscribed browser and its push service."""
 
     def __init__(self, endpoint: str = "https://push.example.net/send/abc") -> None:
         self.endpoint = endpoint
@@ -102,9 +101,6 @@ class Browser:
         assert request.headers["authorization"].startswith("vapid t=")
         self.received.append(self.decrypt(request.content))
         return httpx.Response(self.status)
-
-
-# The API.
 
 
 @pytest.mark.usefixtures("db")
@@ -150,9 +146,6 @@ def test_notifications_need_a_session(client: TestClient) -> None:
 async def _subscriptions() -> list[PushSubscription]:
     async with Session() as db:
         return list(await db.scalars(select(PushSubscription)))
-
-
-# What a sync pushes.
 
 
 async def _setup(browser: Browser) -> None:

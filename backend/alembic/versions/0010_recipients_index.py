@@ -1,4 +1,4 @@
-"""A trigram index on the names and addresses in To and Cc, for to: searches.
+"""trigram index on To and Cc for to: searches
 
 Revision ID: 0010
 Revises: 0009

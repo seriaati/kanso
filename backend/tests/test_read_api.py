@@ -1,6 +1,3 @@
-"""The read API over the demo mailbox: thread lists, search, detail, labels, sync status, live
-events and compression."""
-
 import asyncio
 from typing import Any
 
@@ -120,7 +117,6 @@ def test_me_and_recipients(demo: TestClient) -> None:
     account_id = demo.get("/api/accounts").json()[0]["id"]
     assert people(account_id=account_id)["Re: Dinner on Saturday?"] == (["Demo"], None)
     assert people(q="trail")["Trail map"] == (["Demo"], None)
-    # In the grouped inbox too.
     grouped = demo.get("/api/threads", params={"mailbox": "inbox", "grouped": "true"}).json()
     dinner = next(t for t in grouped["threads"] if t["subject"] == "Re: Dinner on Saturday?")
     assert dinner["me"] == ["Demo"]

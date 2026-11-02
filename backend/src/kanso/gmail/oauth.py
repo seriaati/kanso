@@ -1,5 +1,3 @@
-"""Google OAuth 2.0 web flow and access tokens for connected Gmail accounts."""
-
 import base64
 import json
 import logging
@@ -19,8 +17,7 @@ log = logging.getLogger(__name__)
 AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 REVOKE_URL = "https://oauth2.googleapis.com/revoke"
-# gmail.modify covers reading, labels, history, watch, drafts and send. It only lacks permanent
-# deletion that bypasses Trash, which kanso never does.
+# gmail.modify only lacks permanent deletion that bypasses Trash, which kanso never does.
 GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.modify"
 SCOPES = f"openid email {GMAIL_SCOPE}"
 
@@ -30,7 +27,7 @@ class OAuthError(Exception):
 
 
 class ReconnectRequired(OAuthError):
-    """Google rejected the refresh token (revoked, or expired): the account must reconnect."""
+    """The refresh token was revoked or expired."""
 
 
 @dataclass
@@ -78,19 +75,17 @@ async def exchange_code(code: str) -> Grant:
         raise OAuthError("Gmail access was not granted. Connect again and allow access to Gmail.")
     if "refresh_token" not in body:
         raise OAuthError("Google did not return a refresh token.")
-    # The ID token comes straight from Google's token endpoint over TLS, so per OpenID Connect
-    # its signature needn't be checked.
+    # Straight from Google's token endpoint over TLS, so per OpenID Connect no signature check.
     payload = body["id_token"].split(".")[1]
     claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
     return Grant(email=claims["email"], refresh_token=body["refresh_token"])
 
 
-# account id -> (access token, expiry). Per process: the app and worker each refresh their own.
+# Per process: the app and worker each refresh their own.
 _access_tokens: dict[int, tuple[str, float]] = {}
 
 
 async def access_token(account: Account) -> str:
-    """A valid access token for the account, refreshed from its refresh token when needed."""
     cached = _access_tokens.get(account.id)
     if cached and cached[1] > time.time():
         return cached[0]
@@ -107,7 +102,6 @@ def forget_access_token(account: Account) -> None:
 
 
 async def revoke(account: Account) -> None:
-    """Best effort: remove kanso's access from the Google account."""
     forget_access_token(account)
     try:
         async with _client() as client:

@@ -1,5 +1,4 @@
-"""Recipient autocomplete: the `contacts` materialized view (see migration 0005) ranks everyone
-you wrote to, and everyone who wrote to you a little lower, by how often and how recently."""
+"""The `contacts` materialized view (migration 0005) ranks people by how often and how recently."""
 
 import logging
 
@@ -32,7 +31,6 @@ _refreshed_at_id: int | None = None
 
 
 async def refresh(db: AsyncSession, if_changed: bool = False) -> bool:
-    """Recompute the view (a few seconds on a very large mailbox; reads go on meanwhile)."""
     global _refreshed_at_id
     newest = await db.scalar(select(func.max(Message.id)))
     if if_changed and newest == _refreshed_at_id:

@@ -24,7 +24,7 @@ from kanso.db.session import get_session
 router = APIRouter(prefix="/auth")
 DB = Annotated[AsyncSession, Depends(get_session)]
 
-# Failed logins allowed per client IP within the window before it gets 429s.
+# Failed logins per client IP and window before 429s.
 MAX_FAILURES = 5
 WINDOW_SECONDS = 15 * 60
 MIN_PASSWORD = 8  # as kanso.hash_password
@@ -44,8 +44,8 @@ class PasswordChange(BaseModel):
 
 
 async def _check_password(request: Request, password: str) -> str:
-    """Check the password against the login rate limit; returns the current hash. The attempt
-    counts before the (slow) check, so parallel guesses can't get past the limit."""
+    """Returns the current hash. The attempt counts before the slow check, so parallel guesses
+    can't get past the limit."""
     key = f"login-failures:{request.client.host if request.client else 'unknown'}"
     attempts = await redis.incr(key)
     if attempts == 1:
@@ -86,8 +86,8 @@ async def logout(response: Response) -> None:
 async def change_password(
     body: PasswordChange, request: Request, response: Response, db: DB
 ) -> None:
-    """Change the login password. It is stored in the database (PASSWORD_HASH in .env stays the
-    starting value). Every session is signed out, except this browser, which gets a new one."""
+    """Stored in the database (PASSWORD_HASH in .env is the starting value). Every session is
+    signed out, except this browser, which gets a new one."""
     if settings.demo_mode:  # visitors share the password shown on the login page
         raise HTTPException(status_code=403, detail="The demo's password can't be changed")
     try:
@@ -106,8 +106,7 @@ async def change_password(
 
 @router.post("/logout-everywhere", status_code=204, dependencies=[Depends(require_session)])
 async def logout_everywhere(response: Response, db: DB) -> None:
-    """Sign out every session, this browser's too: the session generation goes up by one, so
-    every cookie signed before no longer matches."""
+    """The session generation goes up, so every cookie signed before no longer matches."""
     epoch = await session_epoch() + 1
     await prefs.put(db, prefs.SESSION_EPOCH, epoch)
     await db.commit()

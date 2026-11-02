@@ -1,4 +1,4 @@
-"""Thread summaries, one per thread, keyed by the thread's latest message
+"""thread summaries
 
 Revision ID: 0007
 Revises: 0006

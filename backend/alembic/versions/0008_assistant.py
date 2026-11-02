@@ -1,5 +1,4 @@
-"""The assistant's conversations and their messages (with tool calls, tool results and the
-changes it proposed)
+"""assistant conversations and messages
 
 Revision ID: 0008
 Revises: 0007

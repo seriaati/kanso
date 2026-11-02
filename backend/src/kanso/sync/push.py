@@ -1,6 +1,4 @@
-"""Gmail push: pull notifications from the Pub/Sub subscription and sync the account each one
-names. A notification is acknowledged only after that sync succeeds; otherwise Pub/Sub
-redelivers it."""
+"""A notification is acknowledged only after its sync succeeds; otherwise Pub/Sub redelivers it."""
 
 import asyncio
 import base64
@@ -22,10 +20,9 @@ from kanso.sync.scheduler import Scheduler
 log = logging.getLogger(__name__)
 
 PUBSUB_API = "https://pubsub.googleapis.com/v1/"
-# A self-signed service account JWT with this audience authorizes Pub/Sub calls directly, with no
-# token exchange (Google's "service account authorization without OAuth").
+# A self-signed service account JWT with this audience needs no token exchange.
 AUDIENCE = "https://pubsub.googleapis.com/"
-# How long a notification waits for its sync before giving up (Pub/Sub then redelivers it).
+# After this, Pub/Sub redelivers the notification.
 SYNC_TIMEOUT = 300.0
 
 
@@ -57,7 +54,7 @@ class PubSub:
         return response.json() if response.content else {}
 
     async def pull(self) -> list[dict[str, Any]]:
-        """Waits (long poll) until notifications arrive or the server returns empty."""
+        """Long poll."""
         body = await self._post("pull", {"maxMessages": 100}, wait=90)
         return body.get("receivedMessages", [])
 
@@ -98,7 +95,7 @@ async def _handle_logged(pubsub: PubSub, scheduler: Scheduler, received: dict[st
 
 
 async def run(http: httpx.AsyncClient, scheduler: Scheduler) -> None:
-    """Pull notifications forever. Each is handled in its own task, so pulling never waits."""
+    """Each notification is handled in its own task, so pulling never waits."""
     pubsub = PubSub(http, settings.google_pubsub_credentials, settings.google_pubsub_subscription)
     tasks: set[asyncio.Task[None]] = set()
     failures = 0

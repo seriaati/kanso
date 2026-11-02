@@ -1,6 +1,5 @@
-"""Labels: the list with counts, and label management (create, rename, recolor, delete). Label
-changes go to Gmail directly, while you wait, rather than through the outbox: they are rare, and
-Gmail's answer (a name it refuses, a clash) shows at once."""
+"""Label changes go to Gmail directly, not through the outbox: they are rare, and Gmail's answer
+(a name it refuses, a clash) shows at once."""
 
 import logging
 import secrets
@@ -23,9 +22,8 @@ router = APIRouter()
 DB = Annotated[AsyncSession, Depends(get_session)]
 
 
-# kanso's label colors (CLAUDE.md) and the Gmail palette color written for each: Gmail accepts
-# only its own palette. The mirror stores Gmail's color, as a sync would, and the UI draws the
-# nearest kanso color (frontend mail.ts); each choice here maps back to the color picked.
+# Gmail accepts only its own palette. The mirror stores Gmail's color and the UI draws the
+# nearest kanso color, which maps back to the one picked.
 KansoColor = Literal["#A07338", "#4F6E8C", "#6B6B66", "#556B3F", "#87607E", "#A35A3A", "#B8B3A2"]
 GMAIL_COLORS: dict[str, str] = {
     "#A07338": "#aa8831",  # Home, ochre
@@ -100,7 +98,6 @@ GROUP BY ml.label_id
 
 @router.get("/labels")
 async def list_labels(db: DB, account_id: int | None = None) -> list[LabelOut]:
-    """System and user labels with thread and message counts."""
     stmt = select(Label).order_by(Label.account_id, Label.type, Label.name)
     if account_id is not None:
         stmt = stmt.where(Label.account_id == account_id)
@@ -179,7 +176,7 @@ async def _user_label(db: AsyncSession, label_id: int) -> tuple[Label, Account]:
 
 @router.post("/labels", status_code=201)
 async def create_label(body: LabelCreate, db: DB) -> list[LabelOut]:
-    """Create the label in each account (one label per account, merged by name in the UI)."""
+    """One label per account, merged by name in the UI."""
     stmt = select(Account).order_by(Account.id)
     if body.account_ids is not None:
         stmt = stmt.where(Account.id.in_(body.account_ids))
@@ -223,8 +220,6 @@ async def create_label(body: LabelCreate, db: DB) -> list[LabelOut]:
 
 @router.patch("/labels/{label_id}")
 async def update_label(label_id: int, body: LabelUpdate, db: DB) -> LabelOut:
-    """Rename and/or recolor a user label, in Gmail and the mirror; change its kanso-local
-    settings (description, AI-managed, bundle)."""
     label, account = await _user_label(db, label_id)
     request: dict[str, Any] = {}
     if body.name is not None and body.name != label.name:
@@ -254,7 +249,6 @@ async def update_label(label_id: int, body: LabelUpdate, db: DB) -> LabelOut:
 
 @router.delete("/labels/{label_id}", status_code=204)
 async def delete_label(label_id: int, db: DB) -> None:
-    """Delete a user label in Gmail and the mirror. Its mail stays, without the label."""
     label, account = await _user_label(db, label_id)
     if not account.demo:
         async with gmail_client.http_client() as http:

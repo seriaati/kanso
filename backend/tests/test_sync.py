@@ -1,6 +1,3 @@
-"""Sync logic against a fake Gmail: backfill (and resuming it), history replay, the expired
-history fallback, retries, and push notifications."""
-
 import asyncio
 import base64
 import json
@@ -101,7 +98,6 @@ def test_backfill_mirrors_the_whole_mailbox(gmail: FakeGmail, fake_redis: Any) -
     assert s["threads"]["t2"].starred and not s["threads"]["t2"].unread
     assert not s["threads"]["t3"].in_inbox
     assert s["threads"]["t4"].in_trash
-    # The user label kept its Gmail name and color.
     labels = run(_labels())
     assert labels["Label_1"] == ("Work", "user", "#6b6b66")
     assert labels["INBOX"] == ("INBOX", "system", None)
@@ -322,9 +318,6 @@ def test_attachments_are_metadata_only_and_downloadable(
 async def _attachments() -> list[Attachment]:
     async with Session() as db:
         return list(await db.scalars(select(Attachment)))
-
-
-# Push notifications.
 
 
 def _service_account() -> str:

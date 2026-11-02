@@ -13,7 +13,7 @@ from kanso.main import app
 
 PASSWORD_HASH = os.environ["PASSWORD_HASH"]
 EXPIRED = int(time.time()) - 60
-# /api/auth/demo: a demo instance shows its password on the login page (null elsewhere).
+# /api/auth/demo gives the login page a demo instance's password (null elsewhere).
 PUBLIC = {"/api/health", "/api/auth/login", "/api/auth/demo"}
 
 

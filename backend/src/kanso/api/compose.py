@@ -1,6 +1,3 @@
-"""Writing mail: drafts (autosaved as Gmail drafts), attachments, sending, and recipient
-autocomplete. The work is in kanso.sync.drafts; this maps it to HTTP."""
-
 import logging
 from typing import Annotated, Literal
 
@@ -70,8 +67,7 @@ class DraftOut(BaseModel):
 
 
 class SendOut(BaseModel):
-    # "pending": Gmail's answer didn't arrive; kanso retries in the background and never sends
-    # the message twice.
+    # "pending": Gmail's answer didn't arrive; kanso retries and never sends the message twice.
     status: Literal["sent", "pending"]
     thread_id: int | None
 
@@ -125,7 +121,6 @@ GMAIL_ERRORS = (gmail_client.GmailError, oauth.OAuthError, drafts.DraftError)
 async def search_contacts(
     db: DB, q: str = "", limit: Annotated[int, Query(ge=1, le=20)] = 8
 ) -> list[Address]:
-    """People to write to, best match first: whom you write to most, and most recently."""
     return [Address(**c) for c in await contacts.search(db, q, limit)]
 
 
@@ -159,7 +154,6 @@ async def get_draft(draft_id: int, db: DB) -> DraftOut:
 
 @router.put("/drafts/{draft_id}")
 async def save_draft(draft_id: int, body: DraftIn, db: DB) -> DraftOut:
-    """Autosave: the content goes to the Gmail draft at once."""
     async with drafts.lock(draft_id), gmail_client.http_client() as http:
         draft = await _get(db, draft_id)
         try:
@@ -225,7 +219,6 @@ async def remove_attachment(draft_id: int, attachment_id: str, db: DB) -> DraftO
 
 @router.post("/drafts/{draft_id}/send")
 async def send_draft(draft_id: int, body: DraftIn, db: DB) -> SendOut:
-    """Save the latest content, then send it through Gmail (drafts.send)."""
     async with drafts.lock(draft_id), gmail_client.http_client() as http:
         draft = await _get(db, draft_id)
         if draft.sending_since is None:  # else: a retry, the final message is in Gmail already

@@ -1,6 +1,3 @@
-"""A demo instance (DEMO_MODE, docker-compose.demo.yml): no secrets to set, the password shown on
-the login page, no Gmail, and the reset back to the starting state."""
-
 from typing import Any
 
 import pytest
@@ -70,7 +67,6 @@ def test_reset_goes_back_to_the_starting_state(logged_in: TestClient) -> None:
     start = run(_state())
     assert len(start["threads"]) == len(demo_seed.THREADS)
 
-    # A visitor archives, deletes, stars and adds a label.
     inbox = [t for t in start["threads"] if t.in_inbox]
     for action, thread in (("done", inbox[0]), ("delete", inbox[1]), ("star", inbox[2])):
         response = logged_in.post(

@@ -1,7 +1,3 @@
-"""Triage actions and write-back: each action's local effect and outbox entry, the processor's
-Gmail calls, retries and giving up, crashes mid-send, bounce-back prevention, undo, bulk actions,
-label management and the demo account (local only)."""
-
 import asyncio
 import sys
 import time
@@ -28,8 +24,7 @@ pytestmark = pytest.mark.usefixtures("db", "unpooled")
 
 @pytest.fixture
 def unpooled(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Connections that aren't pooled: some tests run the API (TestClient's event loop) while
-    their own loop talks to the database, and pooled asyncpg connections can't cross loops."""
+    """Some tests mix TestClient's event loop with their own; asyncpg connections can't cross."""
     maker = async_sessionmaker(
         create_async_engine(TEST_DATABASE_URL or "", poolclass=NullPool), expire_on_commit=False
     )
@@ -238,9 +233,6 @@ def test_bulk_across_accounts_including_demo(synced: TestClient, gmail: FakeGmai
     assert sorted(gmail.writes[0][1]["ids"]) == ["m1", "m3"]
 
 
-# Retries and failures.
-
-
 def test_retries_with_backoff_then_sends(synced: TestClient, gmail: FakeGmail) -> None:
     act(synced, "done", "t1")
     act(synced, "star", "t1")
@@ -291,9 +283,6 @@ def test_permanent_error_fails_at_once(synced: TestClient, gmail: FakeGmail) -> 
     [entry] = entries()
     assert (entry.status, entry.attempts) == ("failed", 1)
     assert threads()["t2"].in_inbox
-
-
-# Crashes: the worker dies mid-send and restarts.
 
 
 def test_crash_after_gmail_applied_is_resent_once_without_duplicating(
@@ -363,9 +352,6 @@ def test_worker_loop_wakes_on_new_entries(
     assert run(scenario()) == ["sent"]
 
 
-# Bounce-back: a sync must not undo a change Gmail hasn't received yet.
-
-
 def test_history_replay_does_not_bounce_a_pending_change(
     synced: TestClient, gmail: FakeGmail
 ) -> None:
@@ -395,9 +381,6 @@ def test_full_resync_does_not_bounce_a_pending_change(synced: TestClient, gmail:
     assert threads()["t2"].in_trash
     assert not threads()["t1"].unread
     assert "GET /messages/m3 minimal" in gmail.requests  # it did refresh the labels
-
-
-# Undo.
 
 
 def test_undo_before_send_cancels_the_entry(synced: TestClient, gmail: FakeGmail) -> None:
@@ -452,9 +435,6 @@ def test_pending_undo_is_not_bounced_by_sync(synced: TestClient, gmail: FakeGmai
     assert threads()["t1"].in_inbox
 
 
-# The Done mailbox and label management.
-
-
 def test_drafts_only_threads_are_not_in_done(logged_in: TestClient) -> None:
     run(demo_seed.seed())
     done = logged_in.get("/api/threads", params={"mailbox": "done", "limit": 200}).json()
@@ -494,7 +474,6 @@ def test_label_create_rename_recolor_delete(synced: TestClient, gmail: FakeGmail
     assert gmail_label["name"] == "Trips"
     assert gmail_label["color"]["backgroundColor"] == "#cc3a21"
     assert run(_labels())[gmail_label["id"]] == ("Trips", "#cc3a21")
-    # A sync afterwards keeps the new name.
     sync(gmail)
     assert run(_labels())[gmail_label["id"]] == ("Trips", "#cc3a21")
 

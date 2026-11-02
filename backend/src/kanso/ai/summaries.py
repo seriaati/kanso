@@ -1,21 +1,3 @@
-"""Thread summaries: a few sentences on who wants what, by when, and what is still open.
-
-- When: on open, for a thread long enough to be worth it (LONG_MESSAGES messages, or LONG_TEXT
-  characters of trimmed text, a Chinese, Japanese or Korean character counting as three), and on
-  demand from the assistant panel's button for shorter ones. Never in the background.
-- Stored per thread with the Gmail id of its latest message (drafts left out, since autosave
-  replaces them all the time). Reopening reads the stored row; a new message makes it stale and
-  the next open makes a fresh one.
-- Made once: a Redis lock per thread and latest message. A second request meanwhile waits for
-  the first one's row instead of calling Claude again. The call runs in its own task, so a reader
-  who moves on before it ends still gets the stored summary later, and the tokens aren't wasted.
-- What is sent: the subject, and per message the sender ("me" for the user's own), the date and
-  the body trimmed by ai/trim.py, newest first up to TOTAL_LIMIT. Never recipients or
-  attachments. Demo threads get a canned summary (DEMO DATA) and are never sent, except on a
-  demo instance (DEMO_MODE), where all mail is made up and summarized like real mail.
-- Streamed: the text goes to the browser as it arrives (Server-Sent Events).
-"""
-
 import asyncio
 import logging
 import re
@@ -42,15 +24,15 @@ log = logging.getLogger(__name__)
 
 FEATURE = "summary"
 LONG_MESSAGES = 4  # a thread with this many messages is summarized on open
-LONG_TEXT = 4000  # ...or with this much trimmed text (about two minutes of reading)
-BODY_LIMIT = 2000  # characters of each trimmed body sent
-TOTAL_LIMIT = 24000  # characters of bodies sent in all; older messages beyond it are left out
+LONG_TEXT = 4000  # ...or this much trimmed text (about two minutes of reading)
+BODY_LIMIT = 2000
+TOTAL_LIMIT = 24000  # older messages beyond it are left out
 MAX_TOKENS = 2048  # a short summary plus room for a little thinking
 LOCK_SECONDS = 120  # longer than a call can take (30 s timeout, one retry)
 WAIT_POLL = 0.25
 DEMO_DELAY = 0.04  # between the canned summary's chunks, to show the streaming
 
-# Han, kana and Hangul: one such character carries about as much as a short word.
+# Han, kana and Hangul: each carries about as much as a short word.
 _CJK = re.compile(r"[぀-ヿ㐀-䶿一-鿿가-힯豈-﫿]")
 
 INSTRUCTIONS = """You summarize an email thread for the person reading it, who appears in it as \
@@ -79,7 +61,7 @@ class Context:
     thread_id: int
     subject: str
     lang: str | None
-    latest: str | None  # Gmail id of the latest message; None when there is none
+    latest: str | None  # Gmail id of the latest message
     entries: list[Entry]  # oldest first
     demo: bool
 
@@ -99,7 +81,7 @@ def is_long(entries: list[Entry]) -> bool:
 
 
 async def load(db: AsyncSession, thread_id: int) -> Context | None:
-    """The thread's messages (drafts left out) as the prompt needs them."""
+    """Drafts are left out: autosave replaces them all the time."""
     thread = await db.get(Thread, thread_id)
     if thread is None:
         return None
@@ -135,13 +117,12 @@ async def load(db: AsyncSession, thread_id: int) -> Context | None:
 
 
 async def fresh(db: AsyncSession, context: Context) -> Summary | None:
-    """The stored summary, if it covers the thread's latest message."""
     row = await db.get(Summary, context.thread_id, populate_existing=True)
     return row if row is not None and row.message_id == context.latest else None
 
 
 def prompt(context: Context) -> str:
-    """The thread, newest messages first in the budget but in reading order in the text."""
+    """Newest messages get the budget first; the text is in reading order."""
     parts: list[str] = []
     budget = TOTAL_LIMIT
     for entry in reversed(context.entries):
@@ -160,7 +141,6 @@ def prompt(context: Context) -> str:
 
 
 def request(context: Context) -> dict[str, Any]:
-    """The Messages API request (keyword arguments for messages.stream)."""
     return {
         "model": settings.summary_model,
         "max_tokens": MAX_TOKENS,
@@ -265,8 +245,7 @@ def _start(work: Coroutine[Any, Any, None]) -> None:
 
 
 async def stream(context: Context) -> AsyncGenerator[dict[str, Any]]:
-    """Events for the browser: "delta" (more text), then "done" (the stored summary) or
-    "error". A stored summary is sent at once; one being made elsewhere is waited for."""
+    """Events: "delta"s, then "done" or "error". A summary being made elsewhere is waited for."""
     lock = f"kanso:summary:{context.thread_id}:{context.latest}"
     deadline = time.monotonic() + LOCK_SECONDS
     while True:
@@ -288,9 +267,10 @@ async def stream(context: Context) -> AsyncGenerator[dict[str, Any]]:
         if time.monotonic() >= deadline:
             yield {"type": "error", "message": "Claude didn’t answer in time"}
             return
-        # Another request is making it. Should that one fail, its lock goes and this one tries.
+        # Another request is making it; should it fail, its lock goes and this one tries.
         await asyncio.sleep(WAIT_POLL)
     queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+    # Its own task, so the summary is still made and stored if the reader leaves.
     _start(_generate(context, lock, queue))
     while True:
         event = await queue.get()

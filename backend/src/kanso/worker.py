@@ -13,11 +13,10 @@ from kanso.sync.scheduler import Scheduler
 
 log = logging.getLogger("kanso.worker")
 
-# Touched while the main loop runs; the compose healthcheck reads its age.
+# The compose healthcheck reads its age.
 HEARTBEAT = Path("/tmp/kanso-worker-heartbeat")
-# How often the worker looks for connected or disconnected accounts.
 ACCOUNTS_REFRESH_SECONDS = 15
-# The safety-net poll behind push notifications; without Pub/Sub, polling is all there is.
+# The safety-net poll behind push; without Pub/Sub, polling is all there is.
 POLL_WITH_PUSH_SECONDS = 15 * 60
 POLL_WITHOUT_PUSH_SECONDS = 2 * 60
 
@@ -40,18 +39,14 @@ async def run() -> None:
             "worker started: Pub/Sub not configured, polling Gmail every 2 min only "
             "(set GOOGLE_PUBSUB_* in .env for instant updates, see docs/SETUP.md)"
         )
-    # Write-backs to Gmail (archive, labels, read state…) queued by the API.
     writes = asyncio.create_task(outbox.run(http))
-    # Sends left unfinished by a crash, and the contacts for recipient autocomplete.
     housekeeping = asyncio.create_task(drafts.run(http))
-    # AI labeling of new inbox mail, only with an Anthropic API key.
     if settings.ai_enabled:
         classify = asyncio.create_task(labeling.run())
         log.info("AI labeling on (%s)", settings.ai_label_model)
     else:
         classify = None
         log.info("AI labeling off (no ANTHROPIC_API_KEY)")
-    # A demo instance goes back to its starting state every day.
     if settings.demo_mode:
         demo_reset = asyncio.create_task(demo_seed.reset_daily())
         log.info("demo instance: the mailbox resets every day at midnight UTC")

@@ -1,7 +1,3 @@
-"""Thread summaries: the length threshold, what is sent to Claude, storing by the latest message
-(a reopen makes no call, a new reply makes a fresh one), one call for requests at once, the
-streamed events, failures, usage, the demo mailbox and AI off."""
-
 import asyncio
 import json
 import sys
@@ -135,8 +131,6 @@ def claude(monkeypatch: pytest.MonkeyPatch) -> FakeClaude:
     return fake
 
 
-# Building a mailbox without Gmail.
-
 NOW = datetime(2026, 11, 2, 9, 0, tzinfo=UTC)
 
 
@@ -237,9 +231,6 @@ def rows(model: Any) -> list[Any]:
     return run(_rows(model))
 
 
-# The threshold.
-
-
 def _entries(*bodies: str) -> list[summaries.Entry]:
     return [summaries.Entry("A <a@example.com>", NOW, b) for b in bodies]
 
@@ -264,9 +255,6 @@ def test_long_is_judged_on_trimmed_text(ai_on: None, thread: int, logged_in: Tes
     assert not logged_in.get(f"/api/threads/{thread}/summary").json()["long"]
     add("m4", _raw("Kenji <kenji@example.com>", "One more thing."), 1)
     assert logged_in.get(f"/api/threads/{thread}/summary").json()["long"]  # four messages
-
-
-# What is sent.
 
 
 def test_prompt_sends_sender_date_and_trimmed_bodies_only(
@@ -340,9 +328,6 @@ def test_text_of_reads_text_blocks_and_rejects_unusable_answers() -> None:
             summaries.text_of(bad)
 
 
-# Stored by the latest message.
-
-
 def test_streams_then_stores_and_reopening_makes_no_call(
     ai_on: None, thread: int, logged_in: TestClient, claude: FakeClaude
 ) -> None:
@@ -410,9 +395,6 @@ def test_reader_leaving_mid_stream_still_stores_it(
     run(go())
     [row] = rows(Summary)
     assert row.text == SUMMARY
-
-
-# Failures, usage, demo, AI off.
 
 
 def test_failure_is_quiet_and_can_be_retried(

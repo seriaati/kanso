@@ -18,9 +18,7 @@ down_revision: str | Sequence[str] | None = "0004"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-# Everyone you wrote to (weight 1) or who wrote to you (weight 0.2), ranked by how often and how
-# recently: each message counts 1 plus up to 9 more the more recent it is (60-day decay). Drafts
-# don't count. Refreshed by the worker when new mail has arrived (kanso.compose.contacts).
+# Refreshed by the worker when new mail has arrived (kanso.compose.contacts).
 CONTACTS = """
 CREATE MATERIALIZED VIEW contacts AS
 WITH mine AS (

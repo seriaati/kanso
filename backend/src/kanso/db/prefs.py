@@ -1,11 +1,6 @@
-"""Settings changed in kanso itself, stored in the `settings` table (key → JSON value). `.env`
-holds everything else; these few are changed from the settings page:
+"""Settings changed in kanso itself; `.env` holds everything else.
 
-- `password_hash`: the login password, once changed in kanso. PASSWORD_HASH in .env is the
-  starting value, and `python -m kanso.reset_password` goes back to it.
-- `assistant_confirm`: whether the assistant asks before it changes mail (default: it asks).
-- `session_epoch`: the login session generation; "Log out everywhere" adds one (default 0).
-- `ai_key_rejected`: Anthropic refused the API key (kanso.ai.usage); gone after a call works.
+`password_hash` overrides PASSWORD_HASH from .env until `python -m kanso.reset_password`.
 """
 
 from typing import Any

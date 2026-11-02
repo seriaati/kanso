@@ -1,8 +1,3 @@
-"""The assistant: its tools (lean, local, no demo mail), the agentic loop (several tool calls, the
-step cap, streamed events), proposals that wait for Confirm or Cancel (and survive a reload),
-confirmed changes going through the outbox with undo, prompt injection, stored conversations,
-no way to send mail, usage, failures and AI off."""
-
 import asyncio
 import json
 import re
@@ -61,9 +56,8 @@ def tool(name: str, **data: Any) -> dict[str, Any]:
 
 
 class FakeClaude:
-    """The streaming Messages API behind an httpx2 MockTransport, through the real SDK client.
-    Each answer is a list of blocks (a str is text, `tool(...)` a tool call), an HTTP status, or
-    ("refusal", text). Every answer starts with a thinking block, which must come back unchanged."""
+    """Each answer is a list of blocks (a str is text, `tool(...)` a tool call), an HTTP status, or
+    ("refusal", text). Each starts with a thinking block, which must come back unchanged."""
 
     def __init__(self) -> None:
         self.answers: list[Any] = []
@@ -164,8 +158,7 @@ def claude(monkeypatch: pytest.MonkeyPatch) -> FakeClaude:
     return fake
 
 
-# A mailbox: a Lisbon booking (archived, with an attachment and recipients that must not leak),
-# a lease thread in the inbox and a newsletter, plus labels.
+# The Lisbon booking's attachment and recipients must never leak to Claude.
 
 SECRET_BODY = "Booking reference LIS-4471. Check-in from 15:00." + mail.QUOTED
 
@@ -265,9 +258,6 @@ def results_in(request: dict[str, Any]) -> list[dict[str, Any]]:
     return [b for b in last["content"] if b["type"] == "tool_result"]
 
 
-# The tools.
-
-
 async def _call(name: str, data: Any) -> Any:
     async with Session() as db:
         return await tools.read(db, name, data, assistant.zone(ZONE))
@@ -338,9 +328,6 @@ def test_bodies_are_capped() -> None:
     assert sum(len(m["text"]) for m in read["messages"]) <= tools.THREAD_LIMIT + 10
     assert read["earlier_messages_left_out"] == 12 - len(read["messages"])
     assert read["messages"][-1]["text"].startswith("part 11 ")  # the newest kept
-
-
-# The loop.
 
 
 def test_answers_with_several_tool_calls_streamed(
@@ -499,9 +486,6 @@ def test_rejected_key_is_noted_until_a_call_works(
     assert logged_in.get("/api/ai/usage").json()["key_rejected"] is True
     assert ask(logged_in, "again", conversation=failed[0]["id"])[-1]["type"] == "done"
     assert logged_in.get("/api/ai/usage").json()["key_rejected"] is False
-
-
-# Proposals and confirmation.
 
 
 def test_change_waits_for_confirm_then_goes_through_the_outbox(
@@ -751,9 +735,6 @@ def test_there_is_no_way_to_send_mail(
     assert sent["is_error"] and sent["content"] == "There is no tool named send_email"
     assert deleted["is_error"]
     assert rows(Draft) == [] and rows(Outbox) == []
-
-
-# Conversations.
 
 
 def test_conversations_are_kept_listed_and_deleted(

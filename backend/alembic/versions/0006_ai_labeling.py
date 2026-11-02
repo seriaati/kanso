@@ -1,5 +1,4 @@
-"""AI labeling and bundles: label settings, the manual-label marker, the classification queue and
-AI usage
+"""AI labeling: label settings, manual-label marker, classification queue, AI usage
 
 Revision ID: 0006
 Revises: 0005
@@ -65,7 +64,6 @@ def upgrade() -> None:
         ),
         sa.Column("finished_at", sa.DateTime(timezone=True)),
     )
-    # A thread waits in the queue at most once.
     op.create_index(
         "ai_queue_pending_thread",
         "ai_queue",

@@ -1,5 +1,4 @@
-"""Settings changed in kanso itself: a changed login password and the assistant's confirmation
-opt-out. One row per key.
+"""settings changed in kanso itself
 
 Revision ID: 0009
 Revises: 0008

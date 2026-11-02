@@ -1,6 +1,3 @@
-"""The settings page's backend: changing the password (stored in the database, every other
-session signed out, reset from the CLI) and the assistant's confirmation opt-out."""
-
 import pytest
 from conftest import PASSWORD, TEST_DATABASE_URL, run
 from fastapi.testclient import TestClient
@@ -54,7 +51,7 @@ def test_change_password(logged_in: TestClient) -> None:
     assert login(PASSWORD).get("/api/accounts").status_code == 401
     assert login(NEW).get("/api/accounts").status_code == 200
 
-    # The stored password outlives a restart (the hash is read from the database again).
+    # The stored hash outlives a restart.
     security.remember_password_hash(None)
     assert login(NEW).get("/api/accounts").status_code == 200
     assert login(PASSWORD).get("/api/accounts").status_code == 401
@@ -73,17 +70,15 @@ def test_log_out_everywhere(logged_in: TestClient) -> None:
         with_cookie(old_cookie, csrf=False).post("/api/auth/logout-everywhere").status_code == 403
     )
     assert logged_in.post("/api/auth/logout-everywhere").status_code == 204
-    # Every session is signed out, this browser's too, and its old cookie is refused.
     assert logged_in.get("/api/accounts").status_code == 401
     assert other.get("/api/accounts").status_code == 401
     assert with_cookie(old_cookie).get("/api/accounts").status_code == 401
-    # Logging in again works, also after a restart (the generation is read from the database).
+    # Logging in again works, also after a restart (the epoch is read from the database).
     again = login(PASSWORD)
     assert again.get("/api/accounts").status_code == 200
     security.remember_session_epoch(None)
     assert again.get("/api/accounts").status_code == 200
     assert with_cookie(old_cookie).get("/api/accounts").status_code == 401
-    # Changing the password still signs the others out.
     assert change(again, PASSWORD, NEW) == 204
     assert again.get("/api/accounts").status_code == 200
     assert login(NEW).get("/api/accounts").status_code == 200

@@ -1,23 +1,5 @@
-"""The assistant: a chat docked under the email that answers questions about the user's mail and
-proposes changes to it, through the tools in ai/tools.py.
-
-- Loop: one user message starts a manual agentic loop (stream a reply; run its read tools; send
-  the results back; repeat), at most MAX_STEPS requests. Text streams to the browser as it
-  arrives, with a short line per tool call ("Searched “lisbon” · 3 threads").
-- Confirmation: a change tool (archive, apply_label, star, mark_read) never runs from the model.
-  The turn pauses with the proposal stored; the user's Confirm (or Cancel) in the browser decides
-  it (`decide`), and only then are the tool results sent back and the loop continues. A new
-  message instead of a decision counts as "not confirmed". Email content is data: the system
-  prompt says so, and this gate holds whatever the model is talked into.
-  Only when the user has turned confirmation off (settings page, kanso.db.prefs) does a change
-  apply at once; it is still stored on the turn, shown in the chat and can be undone.
-- Stored: every turn exactly as sent or received (thinking blocks included, since they must go
-  back unchanged), so a conversation resumes after a reload, and the history is append-only (the
-  date and the open thread go in each user message, not in the system prompt). The system prompt
-  and tools never change, and are cached; so is the conversation so far.
-- Sent to Claude: the user's words, the date, the open thread's id and subject, and what the
-  tools return (lean JSON, see ai/tools.py). Never demo mail, except on a demo instance.
-"""
+"""Change tools never run from the model: the turn pauses until the user decides (`decide`).
+Turns are stored exactly as sent (thinking blocks must go back unchanged) and append-only."""
 
 import asyncio
 import copy
@@ -49,7 +31,7 @@ FEATURE = "assistant"
 MAX_STEPS = 8  # model requests per question; then it stops and says so
 MAX_TOKENS = 8192
 KEEP_CONVERSATIONS = 50  # older ones are deleted when a new one starts
-LOCK_SECONDS = 300  # one run per conversation at a time
+LOCK_SECONDS = 300
 TITLE_LIMIT = 80
 
 INSTRUCTIONS = """You are the assistant in kanso, the user's email client. You help the user \
@@ -86,9 +68,8 @@ def client() -> anthropic.AsyncAnthropic:
 
 
 def request(messages: list[dict[str, Any]]) -> dict[str, Any]:
-    """The Messages API request (keyword arguments for messages.stream). Tools and the system
-    prompt never change, so the cache breakpoint on the system prompt covers both; the top-level
-    breakpoint caches the conversation so far for the next step."""
+    """Tools and the system prompt never change, so the system breakpoint caches both; the
+    top-level one caches the conversation so far."""
     return {
         "model": settings.ai_model,
         "max_tokens": MAX_TOKENS,
@@ -138,8 +119,6 @@ def _calls(row: AssistantMessage) -> list[dict[str, Any]]:
 
 
 def _results(row: AssistantMessage) -> list[dict[str, Any]]:
-    """Tool results for every call of an assistant turn, in order: the held results of read
-    tools, the outcome of each decided proposal, and "not run" for anything else."""
     held = row.pending or {}
     actions = {a["id"]: a for a in row.actions}
     results = []
@@ -154,8 +133,7 @@ def _results(row: AssistantMessage) -> list[dict[str, Any]]:
 
 
 def _close(last: AssistantMessage | None) -> list[dict[str, Any]]:
-    """Before a new user message: answer the previous turn's open tool calls. A proposal still
-    waiting is "skipped": the user moved on without confirming it."""
+    """The API needs the previous turn's tool calls answered; a waiting proposal is "skipped"."""
     if last is None or last.role != "assistant" or not _calls(last):
         return []
     actions = copy.deepcopy(last.actions)
@@ -190,8 +168,7 @@ def _title(text: str) -> str:
 async def ask(
     db: AsyncSession, conversation_id: int | None, text: str, thread_id: int | None, timezone: str
 ) -> int:
-    """Store the user's message (a new conversation when there is none) and return the
-    conversation id. The caller commits, then runs the loop."""
+    """The caller commits, then runs the loop."""
     if conversation_id is None:
         conversation = AssistantConversation(title=_title(text))
         db.add(conversation)
@@ -222,9 +199,6 @@ async def ask(
 
 
 async def _apply(db: AsyncSession, action: dict[str, Any]) -> dict[int, set[int]]:
-    """Make a proposed change through the actions path and the outbox, like a click in the app;
-    the proposal becomes "confirmed" (with its outbox entries, for undo) or "failed". Returns
-    the touched threads."""
     ids = [t["id"] for t in action["threads"]]
     try:
         async with db.begin_nested():
@@ -241,9 +215,8 @@ async def _apply(db: AsyncSession, action: dict[str, Any]) -> dict[int, set[int]
 async def decide(
     db: AsyncSession, conversation_id: int, action_id: str, confirm: bool
 ) -> tuple[dict[str, Any], bool, dict[int, set[int]]]:
-    """Confirm or cancel a proposal. A confirmed change goes through the actions path and the
-    outbox, like a click in the app. Returns the proposal, whether the turn can continue (every
-    proposal of it decided), and the touched threads. The caller commits."""
+    """Returns the proposal, whether the turn can continue (every proposal decided) and the
+    touched threads. The caller commits."""
     conversation = await db.get(AssistantConversation, conversation_id, with_for_update=True)
     if conversation is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -274,7 +247,6 @@ async def decide(
 
 
 async def undo(db: AsyncSession, conversation_id: int, action_id: str) -> dict[int, set[int]]:
-    """Undo a confirmed change through the outbox (cancelled if not sent yet, else reversed)."""
     for row in await _rows(db, conversation_id):
         actions = copy.deepcopy(row.actions)
         action = next((a for a in actions if a["id"] == action_id), None)
@@ -296,8 +268,7 @@ def public(action: dict[str, Any]) -> dict[str, Any]:
 
 
 def items(rows: list[AssistantMessage]) -> list[dict[str, Any]]:
-    """The conversation as the chat shows it: the user's words, the assistant's text, a line per
-    read tool call, and the proposals with their state."""
+    """The conversation as the chat shows it."""
     results: dict[str, Any] = {}
     for row in rows:
         blocks = list(row.content) + list((row.pending or {}).values())
@@ -338,9 +309,6 @@ async def conversation(db: AsyncSession, conversation_id: int) -> dict[str, Any]
         "items": items(rows),
         "pending": bool(rows) and rows[-1].pending is not None,
     }
-
-
-# The loop.
 
 
 async def _step(conversation_id: int, queue: asyncio.Queue[dict[str, Any]], last: bool) -> bool:
@@ -479,9 +447,7 @@ def _start(work: Coroutine[Any, Any, None]) -> None:
 
 
 async def run(conversation_id: int, lock: str) -> AsyncGenerator[dict[str, Any]]:
-    """Run the loop and yield its events: "text" (more of the answer), "activity" (a tool call),
-    "action" (a proposal), then "done" (`pending`: proposals wait) or "error". The loop runs in
-    its own task, so a reader who leaves still gets the stored answer later."""
+    """The loop runs in its own task, so a reader who leaves still gets the stored answer."""
     queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
     _start(_run(conversation_id, lock, queue))
     while True:

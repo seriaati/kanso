@@ -29,7 +29,7 @@ def _account_fk() -> sa.Column:
 
 
 def upgrade() -> None:
-    # Trigram matching for from: searches (a trusted extension: the database owner may create it).
+    # For from: searches. A trusted extension, so the database owner may create it.
     op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
 
     for column in (
@@ -89,7 +89,6 @@ def upgrade() -> None:
         sa.Column("lang", sa.String(16)),
         sa.UniqueConstraint("account_id", "gmail_id"),
     )
-    # Thread lists are newest first, unified or per account, optionally by label.
     op.execute("CREATE INDEX threads_list_idx ON threads (last_message_at DESC, id DESC)")
     op.execute(
         "CREATE INDEX threads_account_list_idx "

@@ -22,13 +22,12 @@ os.environ |= {
     "GOOGLE_PUBSUB_SUBSCRIPTION": "",
     "GOOGLE_PUBSUB_CREDENTIALS": "",
 }
-# A stand-in for the built frontend, so the SPA routes behave the same whether or not
-# `bun run build` has run (CI's backend job doesn't build it).
+# A stand-in for the built frontend, which CI's backend job doesn't build.
 _dist = tempfile.mkdtemp(prefix="kanso-dist-")
 with open(os.path.join(_dist, "index.html"), "w") as index:
     index.write("<!doctype html><title>kanso</title>")
 os.environ["FRONTEND_DIST"] = _dist
-# Database tests need a real, disposable Postgres (its tables are dropped and recreated), e.g.
+# Database tests drop and recreate the schema, so use a disposable Postgres, e.g.
 # TEST_DATABASE_URL=postgresql+asyncpg://postgres:test@localhost:55432/postgres
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
 if TEST_DATABASE_URL:
@@ -66,8 +65,6 @@ def fake_redis(monkeypatch: pytest.MonkeyPatch) -> fakeredis.FakeAsyncRedis:
 
 @pytest.fixture(autouse=True)
 def no_pacing(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Gmail request pacing doesn't wait in tests (tests/test_sync.py checks the pacer itself)."""
-
     async def no_wait(_seconds: float) -> None:
         pass
 
@@ -76,15 +73,12 @@ def no_pacing(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture(autouse=True)
 def env_password() -> None:
-    """The password is PASSWORD_HASH from the environment and the session generation 0 (as after
-    a restart with nothing stored), so tests without a database don't look for them."""
+    """So tests without a database don't look up the password hash or session epoch."""
     security.remember_password_hash(settings.password_hash)
     security.remember_session_epoch(0)
 
 
 def run[T](coro: Coroutine[Any, Any, T]) -> T:
-    """Run async code in a fresh event loop, then drop the pooled connections bound to it."""
-
     async def wrapper() -> T:
         # Connections a TestClient left in the pool belong to its loop: forget, don't close them.
         await session.engine.dispose(close=False)
@@ -103,7 +97,6 @@ def password() -> str:
 
 @pytest.fixture
 def client() -> Iterator[TestClient]:
-    """A browser running kanso's frontend, which sends the CSRF header with every request."""
     with TestClient(app, headers={CSRF_HEADER: CSRF_VALUE}) as c:
         yield c
 
@@ -124,7 +117,6 @@ async def _execute(*statements: str) -> None:
 
 @pytest.fixture(scope="session")
 def migrated() -> None:
-    """Rebuild the test database from the migrations, once per test run."""
     if not TEST_DATABASE_URL:
         pytest.skip("set TEST_DATABASE_URL to run database tests")
     asyncio.run(_execute("DROP SCHEMA public CASCADE", "CREATE SCHEMA public"))
@@ -133,6 +125,5 @@ def migrated() -> None:
 
 @pytest.fixture
 def db(migrated: None) -> None:
-    """Empty tables in the test database; skips the test when none is configured."""
     tables = ", ".join(Base.metadata.tables)
     asyncio.run(_execute(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))

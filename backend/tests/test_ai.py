@@ -1,8 +1,3 @@
-"""AI labeling and the grouped inbox: what is sent to Claude, parsing its structured answer, the
-confidence threshold, applying labels through the outbox, manual labels being final (from kanso
-and from Gmail), surviving a worker crash, "Label existing inbox", usage, AI off, and the
-sections and bundles of the grouped inbox with "Done all"."""
-
 import json
 import sys
 import time
@@ -233,9 +228,6 @@ def label_names(thread: Thread) -> set[str]:
     return run(go())
 
 
-# The prompt and the answer.
-
-
 def test_trim_drops_quotes_signature_and_caps_length() -> None:
     expected = "Hi,\n\nYour October bill is $64.20, due by Nov 15.\n\nThanks,\nHarbor"
     assert trim.trim(BILL, 1500) == expected
@@ -325,9 +317,6 @@ def test_parse_structured_output() -> None:
             labeling.parse(bad, names)
 
 
-# Classifying new mail.
-
-
 def test_new_inbox_mail_is_labeled_through_the_outbox(
     ai_on: None, synced: TestClient, gmail: FakeGmail, claude: FakeClaude
 ) -> None:
@@ -378,9 +367,6 @@ def test_usage_is_recorded_and_priced(
     assert feature["input_tokens"] == 600
     expected = (600 * 0.10 + 40 * 0.50) / 1_000_000
     assert usage["cost_usd"] == pytest.approx(expected) and usage["complete"]
-
-
-# Manual labels are final.
 
 
 def test_label_set_in_kanso_is_final(
@@ -448,9 +434,6 @@ def test_thread_labeled_while_claude_thinks_is_left_alone(
     process(claude)
     assert queued() == {"t6": "skipped"}
     assert label_names(threads()["t6"]) == {"INBOX", "UNREAD", "Work"}
-
-
-# Durability and errors.
 
 
 def test_worker_crash_mid_call_loses_nothing(
@@ -522,9 +505,6 @@ async def _due_now() -> None:
         await db.commit()
 
 
-# "Label existing inbox".
-
-
 def test_label_existing_inbox_covers_unlabeled_inbox_threads_only(
     ai_on: None, synced: TestClient, gmail: FakeGmail, claude: FakeClaude
 ) -> None:
@@ -584,9 +564,6 @@ def test_a_demo_instance_sends_its_demo_mail_to_claude(
     assert len(claude.requests) == eligible
 
 
-# AI off.
-
-
 def test_ai_off_hides_and_runs_nothing(
     synced: TestClient, gmail: FakeGmail, claude: FakeClaude
 ) -> None:
@@ -599,9 +576,6 @@ def test_ai_off_hides_and_runs_nothing(
 
 def test_config_with_a_key(ai_on: None, logged_in: TestClient) -> None:
     assert logged_in.get("/api/config").json() == {"ai": True}
-
-
-# The grouped inbox.
 
 
 def _grouped(api: TestClient, query: str = "") -> dict[str, Any]:

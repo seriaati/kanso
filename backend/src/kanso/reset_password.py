@@ -1,9 +1,7 @@
 """Forget a password changed in kanso, so PASSWORD_HASH from .env is the login password again:
 
-    docker compose exec app python -m kanso.reset_password
-    docker compose restart app
-
-The restart makes the running app read the password again. Every session is signed out.
+docker compose exec app python -m kanso.reset_password
+docker compose restart app
 """
 
 import asyncio
@@ -13,7 +11,6 @@ from kanso.db.session import Session, engine
 
 
 async def reset() -> bool:
-    """Remove the stored password; returns whether there was one."""
     async with Session() as db:
         had = await prefs.get(db, prefs.PASSWORD_HASH) is not None
         await prefs.remove(db, prefs.PASSWORD_HASH)

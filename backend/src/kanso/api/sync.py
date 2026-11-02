@@ -26,7 +26,7 @@ class SyncStatus(BaseModel):
 
 @router.get("/sync")
 async def sync_status(db: DB) -> list[SyncStatus]:
-    """Per-account sync progress. The worker also streams changes as "sync" events."""
+    """The worker also streams changes as "sync" events."""
     now = datetime.now(UTC)
     return [
         SyncStatus(

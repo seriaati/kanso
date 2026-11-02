@@ -1,23 +1,3 @@
-"""AI labeling: Claude sorts incoming inbox mail into the user's AI-managed labels.
-
-- What is queued: threads of new inbox mail, by the incremental sync (never the backfill), and
-  the inbox threads of an explicit "Label existing inbox" run. Queue rows live in Postgres
-  (ai_queue), so a worker restart loses nothing: a row is claimed with FOR UPDATE SKIP LOCKED and
-  finished in the same transaction; a crash in between leaves it pending.
-- What is sent: the AI-managed labels (name and description), and the thread's latest inbox
-  message cut down to sender, subject and a trimmed body (no quotes, no signature, capped).
-  Never recipients, other messages or attachments.
-- What comes back: one label name (or none) and a confidence, as structured output. Below
-  CONFIDENCE the thread stays unlabeled. A label goes on as a real Gmail label through the
-  outbox, like a label the user picks.
-- Manual labels are final: a thread the user labeled or unlabeled by hand (labels_manual), or that
-  already has a user label, is skipped.
-- API errors: the SDK retries 429/5xx a couple of times; after that a transient failure is
-  retried later with backoff, a permanent one marks the row failed. Sync never waits on this.
-  A rejected API key fails no row: the queue pauses (one try every KEY_PAUSE) and the settings
-  page and account menu say so (kanso.ai.usage).
-"""
-
 import asyncio
 import json
 import logging
@@ -44,12 +24,10 @@ from kanso.sync import outbox
 log = logging.getLogger(__name__)
 
 FEATURE = "labeling"
-CONFIDENCE = 0.7  # below this, the thread stays unlabeled
-BODY_LIMIT = 1500  # characters of the trimmed body sent
+CONFIDENCE = 0.7
+BODY_LIMIT = 1500
 MAX_TOKENS = 1024  # room for some thinking plus the short JSON answer
-# Prompt caching pays off only when the label list reaches the model's minimum cacheable prefix
-# (512 tokens on Claude Haiku 5.5, roughly this many characters) and more requests follow within
-# the cache's 5 minutes: a backlog, e.g. "Label existing inbox". Single new mails don't cache.
+# ~512 tokens, Haiku 5.5's minimum cacheable prefix. Caching only pays off for a backlog.
 CACHE_MIN_CHARS = 1600
 CONCURRENCY = 3
 MAX_ATTEMPTS = 5
@@ -97,7 +75,6 @@ def user_prompt(email: Email) -> str:
 
 
 def request(labels: list[tuple[str, str]], email: Email, cache: bool) -> dict[str, Any]:
-    """The Messages API request (keyword arguments for messages.create)."""
     system = system_prompt(labels)
     block: dict[str, Any] = {"type": "text", "text": system}
     if cache and len(system) >= CACHE_MIN_CHARS:
@@ -122,7 +99,6 @@ def request(labels: list[tuple[str, str]], email: Email, cache: bool) -> dict[st
 
 
 def parse(response: Any, names: list[str]) -> tuple[str | None, float]:
-    """The label (None for none) and confidence in a response."""
     if response.stop_reason == "refusal":
         return None, 0.0
     if response.stop_reason == "max_tokens":
@@ -148,9 +124,6 @@ def transient(error: Exception) -> bool:
     if isinstance(error, anthropic.APIStatusError):
         return error.status_code in (408, 409, 429) or error.status_code >= 500
     return False
-
-
-# Queueing.
 
 
 def _has_ai_labels(account_id: Any) -> Any:
@@ -182,9 +155,7 @@ async def _enqueue(db: AsyncSession, rows: list[dict[str, Any]]) -> int:
 
 
 async def enqueue_new(db: AsyncSession, account_id: int, gmail_ids: set[str]) -> int:
-    """Queue the threads of newly synced messages that arrived in the inbox (not sent by the
-    user, not drafts). Does nothing with AI off or without AI-managed labels. The caller
-    commits, then calls wake()."""
+    """The caller commits, then calls wake()."""
     if not settings.ai_enabled or not gmail_ids:
         return 0
     if not await db.scalar(select(_has_ai_labels(account_id))):
@@ -207,8 +178,7 @@ async def enqueue_new(db: AsyncSession, account_id: int, gmail_ids: set[str]) ->
 
 
 def eligible() -> Any:
-    """Inbox threads "Label existing inbox" would classify: no user label yet, not labeled by
-    hand, in an account with AI-managed labels."""
+    """Inbox threads a "Label existing inbox" run would classify."""
     user_label = exists().where(Label.id == Thread.label_ids.any_(), Label.type == "user")
     return select(Thread.id, Thread.account_id).where(
         Thread.in_inbox.is_(True),
@@ -222,8 +192,7 @@ def eligible() -> Any:
 
 
 async def enqueue_inbox(db: AsyncSession, account_id: int | None) -> tuple[int, int]:
-    """Queue a "Label existing inbox" run. Returns its id and how many threads it holds. The
-    caller commits, then calls wake()."""
+    """Returns the run id and its thread count. The caller commits, then calls wake()."""
     stmt = eligible()
     if account_id is not None:
         stmt = stmt.where(Thread.account_id == account_id)
@@ -240,9 +209,6 @@ async def wake() -> None:
         await events.redis.publish(events.AI_CHANNEL, "1")
 
 
-# Classifying.
-
-
 async def _skip_reason(db: AsyncSession, thread: Thread) -> str | None:
     if thread.labels_manual:
         return "labeled by hand"
@@ -256,7 +222,6 @@ async def _skip_reason(db: AsyncSession, thread: Thread) -> str | None:
 
 
 async def _email(db: AsyncSession, thread_id: int) -> Email | None:
-    """The thread's latest inbox message (not a draft), trimmed for the prompt."""
     message = await db.scalar(
         select(Message)
         .where(
@@ -280,8 +245,7 @@ async def _email(db: AsyncSession, thread_id: int) -> Email | None:
 async def classify(
     db: AsyncSession, ai: anthropic.AsyncAnthropic, row: AiQueue
 ) -> tuple[str, set[int]]:
-    """Classify one queued thread and apply the label. Returns the row's new status and the
-    threads changed."""
+    """Returns the row's new status and the threads changed."""
     thread = await db.get(Thread, row.thread_id)
     account = await db.get(Account, row.account_id)
     if thread is None or account is None:
@@ -322,8 +286,7 @@ async def classify(
     if label is None or confidence < CONFIDENCE:
         return "unlabeled", set()
 
-    # The user may have labeled the thread while Claude was thinking: check again, under the
-    # account lock that actions take.
+    # The user may have labeled it meanwhile: check again under the account lock actions take.
     await outbox.lock_account(db, row.account_id)
     await db.refresh(thread)
     if reason := await _skip_reason(db, thread):
@@ -333,14 +296,13 @@ async def classify(
     return "labeled", touched.get(row.account_id, set())
 
 
-# Until when the queue waits, after Anthropic rejected the key (time.monotonic()). In memory: a
-# new key means a restart, which tries again at once.
+# time.monotonic() until which a rejected key pauses the queue. A new key means a restart.
 _paused_until = 0.0
 
 
 async def process_one(ai: anthropic.AsyncAnthropic) -> bool:
-    """Classify one due queue row. Returns False when there is nothing to do (or the queue is
-    paused for a rejected key)."""
+    """Returns False when there is nothing to do. A row is claimed and finished in one
+    transaction, so a crash in between leaves it pending."""
     global _paused_until
     if time.monotonic() < _paused_until:
         return False
@@ -413,7 +375,6 @@ async def _seconds_until_due() -> float:
 
 
 async def _listen(wake_up: asyncio.Event) -> None:
-    """Set `wake_up` whenever the sync or the API queues threads (Redis pub/sub)."""
     while True:
         try:
             async with events.redis.pubsub() as pubsub:
@@ -428,8 +389,6 @@ async def _listen(wake_up: asyncio.Event) -> None:
 
 
 async def run() -> None:
-    """Work through the queue with a few requests in flight, then sleep until woken, a retry is
-    due or the fallback interval passes."""
     ai = client()
     wake_up = asyncio.Event()
     listener = asyncio.create_task(_listen(wake_up))

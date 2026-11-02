@@ -1,5 +1,3 @@
-"""The few Gmail REST endpoints kanso uses, with retries and backoff on rate limits and errors."""
-
 import asyncio
 import base64
 import json
@@ -16,18 +14,16 @@ from kanso.gmail import oauth
 log = logging.getLogger(__name__)
 
 API = "https://gmail.googleapis.com/gmail/v1/users/me"
-# Media uploads (drafts with attachments, up to 35 MB).
+# Drafts with attachments, up to 35 MB.
 UPLOAD = "https://gmail.googleapis.com/upload/gmail/v1/users/me"
 RETRY_STATUSES = {429, 500, 502, 503, 504}
 # 403s that mean "slow down" rather than "not allowed".
 RATE_LIMIT_REASONS = {"rateLimitExceeded", "userRateLimitExceeded"}
 MAX_ATTEMPTS = 7  # backoff 1+2+4+8+16+32 s ≈ a minute before giving up
 MAX_BACKOFF = 32.0
-# Gmail's quota is 6,000 units per user per minute (100 a second), and calls cost very different
-# amounts: fetching one full message costs 60. Requests for one account are spaced by their cost
-# at 90 units a second, leaving headroom. That caps a backfill at about 90 messages a minute.
+# Gmail's quota is 6,000 units per user per minute (100 a second); 90 leaves headroom.
 UNITS_PER_SECOND = 90
-# Quota units per call, from Gmail's "Usage limits" page. "*" stands for an id.
+# From Gmail's "Usage limits" page. "*" stands for an id.
 COSTS = {
     ("GET", "/profile"): 1,
     ("GET", "/labels"): 1,
@@ -55,7 +51,6 @@ pace_sleep = asyncio.sleep
 
 
 def cost(method: str, path: str, params: dict[str, Any] | None = None) -> int:
-    """Gmail quota units a call uses."""
     if method == "GET" and path.startswith("/messages/"):
         # 60 for format full (the default), raw or html; 20 for minimal or metadata.
         return 20 if (params or {}).get("format") in ("minimal", "metadata") else 60
@@ -65,9 +60,6 @@ def cost(method: str, path: str, params: dict[str, Any] | None = None) -> int:
 
 
 class Pacer:
-    """Spaces one account's requests by their quota cost, and holds them all back after a rate
-    limit."""
-
     def __init__(self) -> None:
         self.next = 0.0
 
@@ -97,7 +89,6 @@ class NotFound(GmailError):
 
 
 def http_client() -> httpx.AsyncClient:
-    """One pooled client per process; tests swap in a MockTransport."""
     return httpx.AsyncClient(timeout=60, limits=httpx.Limits(max_connections=20))
 
 
@@ -179,7 +170,6 @@ class Gmail:
         return await self.request("GET", "/messages", params=params)
 
     async def message_raw(self, gmail_id: str) -> tuple[dict[str, Any], bytes]:
-        """Metadata (threadId, labelIds, snippet, internalDate…) and the RFC 822 bytes."""
         body = await self.request("GET", f"/messages/{gmail_id}", params={"format": "raw"})
         raw = body.pop("raw", "")
         return body, base64.urlsafe_b64decode(raw + "=" * (-len(raw) % 4))
@@ -194,13 +184,12 @@ class Gmail:
         return await self.request("GET", "/history", params=params)
 
     async def watch(self, topic: str) -> dict[str, Any]:
-        """Push notifications for every change in the mailbox to the Pub/Sub topic."""
         return await self.request("POST", "/watch", json={"topicName": topic})
 
-    # Write-back (kanso.sync.outbox). Each call is idempotent: repeating it changes nothing.
+    # Write-backs are idempotent: repeating one changes nothing.
 
     async def batch_modify(self, ids: list[str], add: list[str], remove: list[str]) -> None:
-        """Add and remove labels on up to 1000 messages."""
+        """Up to 1000 messages."""
         body = {"ids": ids, "addLabelIds": add, "removeLabelIds": remove}
         await self.request("POST", "/messages/batchModify", json=body)
 
@@ -209,8 +198,6 @@ class Gmail:
 
     async def untrash(self, gmail_id: str) -> None:
         await self.request("POST", f"/messages/{gmail_id}/untrash")
-
-    # Label management (kanso.api.labels).
 
     async def create_label(self, body: dict[str, Any]) -> dict[str, Any]:
         return await self.request("POST", "/labels", json=body)
@@ -221,13 +208,10 @@ class Gmail:
     async def delete_label(self, gmail_id: str) -> None:
         await self.request("DELETE", f"/labels/{gmail_id}")
 
-    # Drafts and sending (kanso.compose).
-
     async def _upload_draft(
         self, method: str, path: str, raw: bytes, thread_id: str | None
     ) -> dict[str, Any]:
-        """drafts.create / drafts.update as a multipart upload: JSON metadata plus the RFC 822
-        message, so a draft with attachments isn't limited by the JSON request size."""
+        """Multipart, so a draft with attachments isn't limited by the JSON request size."""
         boundary = f"kanso-{secrets.token_hex(12)}"
         metadata: dict[str, Any] = {"message": {"threadId": thread_id} if thread_id else {}}
         body = (
@@ -248,21 +232,19 @@ class Gmail:
         )
 
     async def create_draft(self, raw: bytes, thread_id: str | None) -> dict[str, Any]:
-        """Returns the draft: {id, message: {id, threadId, labelIds}}."""
         return await self._upload_draft("POST", "/drafts", raw, thread_id)
 
     async def update_draft(
         self, draft_id: str, raw: bytes, thread_id: str | None
     ) -> dict[str, Any]:
-        """Replaces the draft's message (it gets a new message id)."""
+        """The draft's message gets a new id."""
         return await self._upload_draft("PUT", f"/drafts/{draft_id}", raw, thread_id)
 
     async def delete_draft(self, draft_id: str) -> None:
         await self.request("DELETE", f"/drafts/{draft_id}")
 
     async def send_draft(self, draft_id: str) -> dict[str, Any]:
-        """Sends the draft as it is in Gmail and deletes it. Returns the sent message (a new
-        id). A draft that was sent already no longer exists: NotFound."""
+        """Returns the sent message (a new id). A draft sent already raises NotFound."""
         return await self.request("POST", "/drafts/send", json={"id": draft_id})
 
     async def list_drafts(self, page_token: str | None) -> dict[str, Any]:
@@ -272,5 +254,4 @@ class Gmail:
         return await self.request("GET", "/drafts", params=params)
 
     async def send_as(self) -> list[dict[str, Any]]:
-        """The account's From addresses with their display names."""
         return (await self.request("GET", "/settings/sendAs")).get("sendAs", [])

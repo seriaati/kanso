@@ -1,6 +1,3 @@
-"""The assistant chat (kanso.ai.assistant): conversations, questions, and the user's decisions on
-proposed changes. Answers stream as Server-Sent Events. Everything answers 409 with AI off."""
-
 import json
 from collections.abc import AsyncIterator
 from datetime import datetime
@@ -95,9 +92,6 @@ async def delete_conversation(conversation_id: int, db: DB) -> None:
 
 @router.post("/messages")
 async def ask(body: AskIn, db: DB) -> Response:
-    """Ask a question, streamed as Server-Sent Events: {"type": "conversation", "id", "title"}
-    first, then "text", "activity" and "action" events, then {"type": "done", "pending"} or
-    {"type": "error", "message"}."""
     lock = None
     if body.conversation_id is not None:
         lock = await assistant.acquire(body.conversation_id)
@@ -120,9 +114,6 @@ async def ask(body: AskIn, db: DB) -> Response:
 
 @router.post("/conversations/{conversation_id}/actions/{action_id}")
 async def decide(conversation_id: int, action_id: str, body: DecideIn, db: DB) -> Response:
-    """Confirm or cancel a proposed change, streamed like a question: {"type": "action"} with
-    the decided proposal first; once every proposal of that turn is decided, the assistant goes on
-    with the outcome. A confirmed change can be undone (see below)."""
     lock = await assistant.acquire(conversation_id)
     try:
         action, finished, touched = await assistant.decide(

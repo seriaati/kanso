@@ -1,16 +1,9 @@
-"""Write-back to Gmail. A kanso action changes the mirror at once and queues an outbox entry in the
-same transaction (kanso.api.actions); this processor, in the worker, sends the entries.
-
-- Order: each account's entries go out one at a time, oldest first, so "Done" and its undo can't
-  overtake each other. An entry waiting for a retry holds back that account's later entries.
-- Crash safety: an entry is claimed with FOR UPDATE SKIP LOCKED and marked sent in the same
-  transaction as the Gmail call. If the worker dies in between, the row is still pending and is
-  sent again on restart; every entry is idempotent (a label delta on fixed message ids), so a
-  repeat changes nothing in Gmail.
-- Retries: transient failures back off (5 s, 15 s, 45 s… up to MAX_ATTEMPTS); 400 and 404 fail
-  at once. A failed entry is reconciled: the messages' real Gmail labels go back into the mirror.
-- No bounce-back: a sync can write Gmail's state from before an entry landed, so after every sync
-  commit the pending entries are re-applied over it (reapply).
+"""- Each account's entries go out one at a time, oldest first, so "Done" and its undo can't
+  overtake each other.
+- An entry is marked sent in the same transaction as the Gmail call; a resend after a crash is
+  harmless, as every entry is idempotent.
+- A sync can write Gmail's state from before an entry landed, so pending entries are re-applied
+  after every sync commit (reapply).
 """
 
 import asyncio
@@ -35,7 +28,6 @@ log = logging.getLogger(__name__)
 MAX_ATTEMPTS = 6
 RETRY_BASE, RETRY_MAX = 5.0, 900.0  # 5 s tripling to 15 min
 PERMANENT = {400, 404}  # Gmail won't accept this entry, however often it is sent
-# Without a Redis wake-up, the processor still looks for work this often.
 FALLBACK_SECONDS = 30.0
 KEEP_FINISHED = timedelta(days=7)
 BATCH_SIZE = 1000  # messages.batchModify takes up to 1000 ids
@@ -44,8 +36,7 @@ _LOCK_NAMESPACE = 4  # pg_advisory_xact_lock(namespace, account id)
 
 
 async def lock_account(db: AsyncSession, account_id: int) -> None:
-    """Serialize writes to one account's mirror between user actions and the re-apply step,
-    until the transaction ends."""
+    """Serializes user actions and the re-apply step on one account, until the transaction ends."""
     await db.execute(
         text("SELECT pg_advisory_xact_lock(:ns, :id)"), {"ns": _LOCK_NAMESPACE, "id": account_id}
     )
@@ -71,9 +62,8 @@ def enqueue(
 
 
 async def reapply(db: AsyncSession, account_id: int) -> set[int]:
-    """Re-apply the account's pending entries over the mirror and commit. Called by the sync
-    after it commits, in its own transaction under the account lock: an action that raced the
-    sync's writes has committed by then, so its entry is seen. Returns the touched threads."""
+    """Called after the sync commits: under the account lock, an action that raced the sync's
+    writes has committed by then, so its entry is seen."""
     await lock_account(db, account_id)
     entries = await db.scalars(
         select(Outbox)
@@ -91,9 +81,8 @@ async def reapply(db: AsyncSession, account_id: int) -> set[int]:
 
 
 async def undo(db: AsyncSession, entry_ids: list[int]) -> dict[int, set[int]]:
-    """Undo entries: a pending one that isn't being sent right now is cancelled; otherwise the
-    inverse is queued (never waiting for an entry in flight). Either way the mirror changes back
-    at once. Returns the touched thread ids by account. The caller commits."""
+    """A pending entry not being sent right now is cancelled; otherwise the inverse is queued.
+    The caller commits."""
     touched: dict[int, set[int]] = {}
     entries = await db.scalars(
         select(Outbox).where(Outbox.id.in_(entry_ids)).order_by(Outbox.id.desc())
@@ -118,11 +107,7 @@ async def undo(db: AsyncSession, entry_ids: list[int]) -> dict[int, set[int]]:
     return touched
 
 
-# Sending.
-
-
 async def _each(call: Callable[[str], Awaitable[None]], ids: list[str]) -> None:
-    """messages.trash / untrash for each message; one already gone from Gmail is skipped."""
     semaphore = asyncio.Semaphore(TRASH_CONCURRENCY)
 
     async def one(gmail_id: str) -> None:
@@ -169,7 +154,6 @@ def _due_head() -> Select[Outbox]:
 
 
 async def process_one(http: httpx.AsyncClient) -> bool:
-    """Send one due entry. Returns False when there is nothing to do."""
     async with Session() as db:
         entry = await db.scalar(_due_head())
         if entry is None:
@@ -179,7 +163,7 @@ async def process_one(http: httpx.AsyncClient) -> bool:
         gmail = Gmail(account, http)
         entry.attempts += 1
         try:
-            if not account.demo:  # the demo mailbox has no Gmail copy: local only
+            if not account.demo:  # local only
                 await send(gmail, entry)
         except Exception as error:
             entry.last_error = (str(error) or type(error).__name__)[:500]
@@ -227,8 +211,7 @@ async def process_one(http: httpx.AsyncClient) -> bool:
 
 
 async def _reconcile(db: AsyncSession, gmail: Gmail, entry: Outbox) -> None:
-    """After giving up on an entry, put the messages' real Gmail labels back in the mirror, so
-    kanso doesn't show a change Gmail never got. Best effort: the next full sync also fixes it."""
+    """So kanso doesn't show a change Gmail never got. Best effort: a full sync also fixes it."""
     account_id = entry.account_id
     thread_ids: set[int] = set()
     try:
@@ -257,9 +240,6 @@ async def _reconcile(db: AsyncSession, gmail: Gmail, entry: Outbox) -> None:
         )
 
 
-# The loop.
-
-
 async def _seconds_until_due() -> float:
     async with Session() as db:
         await db.execute(
@@ -277,7 +257,6 @@ async def _seconds_until_due() -> float:
 
 
 async def _listen(wake: asyncio.Event) -> None:
-    """Set `wake` whenever the API queues an entry (Redis pub/sub)."""
     while True:
         try:
             async with events.redis.pubsub() as pubsub:
@@ -296,8 +275,6 @@ async def _listen(wake: asyncio.Event) -> None:
 
 
 async def run(http: httpx.AsyncClient) -> None:
-    """Send entries as they are queued, then sleep until woken, a retry is due or the fallback
-    interval passes."""
     wake = asyncio.Event()
     listener = asyncio.create_task(_listen(wake))
     try:

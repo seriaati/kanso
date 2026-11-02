@@ -1,5 +1,4 @@
-"""Live updates over Server-Sent Events: everything the worker publishes to Redis (see
-kanso.db.redis), e.g. {"type": "threads_changed", "account_id": 1, "thread_ids": [4, 9]}."""
+"""Live updates over Server-Sent Events: everything the worker publishes to Redis."""
 
 from collections.abc import AsyncGenerator
 

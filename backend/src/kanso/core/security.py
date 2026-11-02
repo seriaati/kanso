@@ -1,5 +1,3 @@
-"""Login session cookie, password check and encryption of Gmail tokens at rest."""
-
 import base64
 import hashlib
 import hmac
@@ -27,10 +25,7 @@ def _derive_key(purpose: bytes) -> bytes:
     return hkdf.derive(settings.secret_key.encode())
 
 
-# The login password's hash: PASSWORD_HASH from .env, or the one stored when the password was
-# changed in kanso (kanso.db.prefs). Kept in memory once read; the app is a single process, and
-# it is updated here when the password changes. `python -m kanso.reset_password` needs an app
-# restart to be seen.
+# Cached in memory (the app is a single process); reset_password needs an app restart to be seen.
 _password_hash: str | None = None
 
 
@@ -43,13 +38,11 @@ async def password_hash() -> str:
 
 
 def remember_password_hash(value: str | None) -> None:
-    """The hash changed (or, with None, must be read again)."""
     global _password_hash
     _password_hash = value
 
 
-# The session generation: "Log out everywhere" adds one, which signs every session out. Kept in
-# memory like the password hash.
+# "Log out everywhere" bumps it, which signs every session out.
 _session_epoch: int | None = None
 
 
@@ -62,7 +55,6 @@ async def session_epoch() -> int:
 
 
 def remember_session_epoch(value: int | None) -> None:
-    """The generation changed (or, with None, must be read again)."""
     global _session_epoch
     _session_epoch = value
 
@@ -74,9 +66,8 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-# The session cookie is "<expiry>.<hmac>". The password hash and the session generation are part
-# of the signed message, so changing the password or "Log out everywhere" signs every existing
-# session out. Generation 0 signs what kanso signed before it existed, so upgrading keeps you in.
+# Signing the password hash and epoch means changing either signs every session out.
+# Epoch 0 signs the same message as cookies made before epochs existed.
 def _sign(expires: int, password_hash: str, epoch: int) -> str:
     message = f"{expires}.{password_hash}" + (f".{epoch}" if epoch else "")
     return hmac.new(_derive_key(b"kanso session"), message.encode(), hashlib.sha256).hexdigest()

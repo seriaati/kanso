@@ -1,18 +1,6 @@
-"""Drafts and sending. A draft row (models.Draft) holds what you are writing; every save writes
-it to a real Gmail draft (drafts.create / drafts.update) and mirrors the draft's message, so it
-shows in Drafts here and in Gmail. The demo account has no Gmail: its drafts live in the mirror.
-
-Attachments: the row keeps metadata only. The bytes go into the Gmail draft with every save; a
-file cache on disk (settings.upload_dir) saves fetching them back, and anything missing from it
-is fetched again from the Gmail message that holds it (`src`: the current draft message, or the
-original being forwarded). The cache is cleaned up as drafts are sent, discarded or left alone.
-
-Sending never duplicates. The final message is saved to the Gmail draft, the row is marked
-`sending_since` (committed), and only then is drafts.send called. Gmail deletes a draft when
-it sends it, so retrying drafts.send after a crash or a lost answer either sends it now or gets
-404, which means it was sent already. A marked draft is never saved (or re-created) again. If
-Gmail refuses the send (a 4xx answer), nothing went out: the mark is cleared and the draft stays.
-If the outcome is unknown, the mark stays and the worker retries (resume_sends).
+"""Sending never duplicates: `sending_since` is committed before drafts.send, and Gmail deletes a
+draft when it sends it, so a retry either sends it or gets 404 (sent already). A 4xx refusal
+clears the mark; an unknown outcome keeps it for resume_sends.
 """
 
 import asyncio
@@ -45,11 +33,11 @@ from kanso.sync import store
 log = logging.getLogger(__name__)
 
 ATTACHMENTS_LIMIT = 25 * 1024 * 1024  # Gmail's limit for a message's attachments
-CACHE_KEEP = timedelta(days=1)  # cached attachment files of a saved draft, since last use
+CACHE_KEEP = timedelta(days=1)  # since last use
 ORPHAN_AFTER = timedelta(days=1)  # drafts opened but never saved
 RESUME_AFTER = timedelta(minutes=1)  # a send left unfinished this long is resumed by the worker
 LOOP_SECONDS = 60
-CONTACTS_EVERY = 5  # loops: the contacts view is refreshed at most every 5 minutes
+CONTACTS_EVERY = 5  # loops
 _LOCK_NAMESPACE = 5  # pg_advisory_xact_lock(namespace, draft id)
 
 
@@ -62,14 +50,12 @@ class DraftError(Exception):
 
 
 class SendPending(Exception):
-    """Gmail's answer to drafts.send never arrived: it may or may not have been sent. The draft
-    stays marked and is resumed (never sent twice)."""
+    """Gmail's answer to drafts.send never arrived; the draft stays marked and is resumed."""
 
 
 @asynccontextmanager
 async def lock(draft_id: int, wait: bool = True) -> AsyncGenerator[bool]:
-    """Serialize saving and sending one draft (API requests and the worker). Held by its own
-    transaction, so the work itself can commit as it goes; a crash releases it."""
+    """Held by its own transaction, so the work can commit as it goes; a crash releases it."""
     async with Session() as session:
         args = {"ns": _LOCK_NAMESPACE, "id": draft_id}
         if wait:
@@ -89,14 +75,10 @@ def _msgid(account: Account) -> str:
     return make_msgid(domain=account.email.rpartition("@")[2] or "kanso.local")
 
 
-# Creating and opening drafts.
-
-
 async def create(
     db: AsyncSession, mode: str, message_id: int | None, account_id: int | None, tz: str | None
 ) -> Draft:
-    """A new draft, prefilled for a reply, reply all or forward of `message_id`. Nothing goes to
-    Gmail until the first save. The caller commits."""
+    """Nothing goes to Gmail until the first save. The caller commits."""
     accounts = list(await db.scalars(select(Account).order_by(Account.id)))
     if not accounts:
         raise DraftError(400, "Connect a Gmail account first.")
@@ -157,9 +139,7 @@ def _entry(attachment: Attachment, account_id: int, gmail_id: str) -> dict[str, 
 
 
 async def open_message(db: AsyncSession, message_id: int, http: httpx.AsyncClient) -> Draft:
-    """The draft behind a mirrored draft message. A draft written elsewhere (in Gmail, or the
-    demo seed) is taken over: its content comes from the mirror, its attachments stay in Gmail.
-    The caller commits."""
+    """A draft written elsewhere (in Gmail, or the demo seed) is taken over. The caller commits."""
     message = await db.get(Message, message_id)
     if message is None:
         raise DraftError(404, "That draft is no longer in your mail.")
@@ -227,9 +207,6 @@ async def _find_gmail_draft(gmail: Gmail, gmail_message_id: str) -> str | None:
             return None
 
 
-# Attachments.
-
-
 def _path(draft_id: int, attachment_id: str) -> Path:
     return settings.upload_dir / str(draft_id) / attachment_id
 
@@ -284,8 +261,6 @@ def remove_attachment(draft: Draft, attachment_id: str) -> None:
 
 
 async def _parts(db: AsyncSession, draft: Draft, http: httpx.AsyncClient) -> list[compose.Part]:
-    """Every attachment's bytes: from the cache, else from the Gmail message holding them (one
-    fetch per message), which refills the cache."""
     raws: dict[tuple[int, str], bytes | None] = {}
     parts = []
     for entry in draft.attachments:
@@ -317,7 +292,7 @@ async def _fetch(
     account = await db.get(Account, src["account_id"])
     if account is None:
         return None
-    if account.demo:  # demo mail has no Gmail copy; its attachments are fixed files
+    if account.demo:  # demo mail has no Gmail copy
         return demo_seed.DEMO_FILES.get(entry["mime_type"])
     key = (account.id, src["gmail_id"])
     if key not in raws:
@@ -330,8 +305,7 @@ async def _fetch(
 
 
 def _point_at(draft: Draft, account_id: int, gmail_id: str, raw: bytes) -> None:
-    """After a save, every attachment's bytes are in the new draft message: point `src` there,
-    so the cache can go."""
+    """After a save, every attachment's bytes are in the new draft message, so the cache can go."""
     pool = list(mime.parse(raw).attachments)
     entries = []
     for entry in draft.attachments:
@@ -346,15 +320,12 @@ def _point_at(draft: Draft, account_id: int, gmail_id: str, raw: bytes) -> None:
     draft.attachments = entries
 
 
-# Saving.
-
-# account id -> the From display name (Gmail's default send-as), per process.
+# Gmail's default send-as display name, per process.
 _sender_names: dict[int, str] = {}
 
 
 async def _sender(account: Account, gmail: Gmail) -> dict[str, str] | None:
-    """The From header. Without a display name in Gmail, it is left out and Gmail fills in the
-    account's own address and name."""
+    """Without a display name in Gmail, From is left out and Gmail fills it in."""
     if account.demo:
         return {"name": account.display_name, "email": account.email}
     if account.id not in _sender_names:
@@ -398,7 +369,7 @@ async def _mirror(
     raw: bytes,
     sender: dict[str, str] | None,
 ) -> int:
-    """Put a message kanso just wrote into the mirror at once (the sync then finds it known)."""
+    """Mirrored at once, so the sync then finds it known."""
     parsed = await asyncio.to_thread(mime.parse, raw)
     if not parsed.from_email:
         parsed.from_email = account.email
@@ -415,8 +386,7 @@ async def _mirror(
 
 
 async def push(db: AsyncSession, draft: Draft, http: httpx.AsyncClient) -> set[int]:
-    """Write the draft to Gmail (update; create if it isn't there yet or was deleted in Gmail
-    meanwhile) and mirror its message. Returns the touched thread ids. The caller commits."""
+    """The caller commits."""
     account = await db.get(Account, draft.account_id)
     assert account is not None
     raw, sender = await _build(db, draft, account, http)
@@ -446,7 +416,7 @@ async def push(db: AsyncSession, draft: Draft, http: httpx.AsyncClient) -> set[i
 async def save(
     db: AsyncSession, draft: Draft, fields: dict[str, Any], http: httpx.AsyncClient
 ) -> set[int]:
-    """Apply what the editor sent and write it to Gmail. The caller commits."""
+    """The caller commits."""
     if draft.sending_since:
         raise DraftError(409, "This message is being sent.")
     touched: set[int] = set()
@@ -464,8 +434,7 @@ async def save(
 async def _move(
     db: AsyncSession, draft: Draft, account_id: int, http: httpx.AsyncClient
 ) -> set[int]:
-    """Send from another account: the Gmail draft moves to that mailbox. The reply headers
-    stay, so recipients still see it threaded; the Gmail thread (per mailbox) doesn't."""
+    """The reply headers stay, so recipients still see it threaded; the Gmail thread doesn't."""
     if await db.get(Account, account_id) is None:
         raise DraftError(404, "That account is no longer connected.")
     await _parts(db, draft, http)  # cache the attachments while their source is reachable
@@ -489,7 +458,7 @@ async def _drop_gmail_copy(db: AsyncSession, draft: Draft, http: httpx.AsyncClie
 
 
 async def discard(db: AsyncSession, draft: Draft, http: httpx.AsyncClient) -> set[int]:
-    """Delete the draft here and in Gmail. The caller commits."""
+    """The caller commits."""
     if draft.sending_since:
         raise DraftError(409, "This message is being sent.")
     touched = await _drop_gmail_copy(db, draft, http)
@@ -498,13 +467,8 @@ async def discard(db: AsyncSession, draft: Draft, http: httpx.AsyncClient) -> se
     return touched
 
 
-# Sending.
-
-
 async def send(db: AsyncSession, draft: Draft, http: httpx.AsyncClient) -> int | None:
-    """Send the draft (already saved with the latest content). Returns the kanso thread id of
-    the sent message. Raises DraftError if it wasn't sent, SendPending if that isn't known.
-    Commits."""
+    """Raises DraftError if it wasn't sent, SendPending if that isn't known. Commits."""
     account = await db.get(Account, draft.account_id)
     assert account is not None
     if draft.sending_since is None:
@@ -523,7 +487,6 @@ async def send(db: AsyncSession, draft: Draft, http: httpx.AsyncClient) -> int |
 async def _deliver(
     db: AsyncSession, draft: Draft, account: Account, http: httpx.AsyncClient
 ) -> int | None:
-    """drafts.send for a draft marked sending, then the sent message into the mirror."""
     touched: set[int] = set()
     if account.demo:  # no Gmail: the draft message becomes the sent one
         assert draft.gmail_message_id is not None
@@ -595,12 +558,8 @@ async def publish(account_id: int, touched: set[int]) -> None:
         log.warning("could not publish to Redis: %s", error)
 
 
-# Housekeeping.
-
-
 async def sweep(db: AsyncSession) -> None:
-    """Drop drafts opened but never saved, cache directories of drafts that are gone, and cached
-    files of saved drafts unused for a day (they can be fetched back from Gmail)."""
+    """Cached files of saved drafts can be fetched back from Gmail."""
     await db.execute(
         delete(Draft).where(
             Draft.gmail_message_id.is_(None),
@@ -629,8 +588,7 @@ def _sweep_files(existing: set[int], keep: set[int]) -> None:
 
 
 async def resume_sends(http: httpx.AsyncClient) -> None:
-    """Finish sends left unfinished (a crash, or Gmail's answer lost). Each only calls
-    drafts.send again, which can't send twice."""
+    """Each only calls drafts.send again, which can't send twice."""
     async with Session() as db:
         stale = list(
             await db.scalars(
@@ -659,7 +617,6 @@ async def resume_sends(http: httpx.AsyncClient) -> None:
 
 
 async def run(http: httpx.AsyncClient) -> None:
-    """Worker loop: resume unfinished sends and keep the contacts for autocomplete current."""
     loops = 0
     while True:
         try:

@@ -1,5 +1,3 @@
-"""MIME parsing fixtures: raw messages as mailers really send them."""
-
 import base64
 
 from kanso.gmail import mime

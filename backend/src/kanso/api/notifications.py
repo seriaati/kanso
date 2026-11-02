@@ -1,6 +1,3 @@
-"""Notifications of new inbox mail (kanso.sync.notify): the browser subscribes with the push
-service of its vendor, then hands kanso the subscription here."""
-
 import binascii
 from typing import Annotated
 

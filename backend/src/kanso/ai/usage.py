@@ -1,6 +1,3 @@
-"""Token usage per day, feature and model, and what it roughly cost; and whether Anthropic
-rejected the API key, for a quiet notice (cleared by the next call that works)."""
-
 import hashlib
 from datetime import UTC, datetime, timedelta
 from typing import Any, TypeIs
@@ -14,9 +11,7 @@ from kanso.core.settings import settings
 from kanso.db import prefs
 from kanso.db.models import AiUsage
 
-# Anthropic's list prices in USD per million tokens: input, output, cache read, cache write
-# (5-minute TTL, 1.25x input). Checked 2026-11-02. Haiku 5.5 costs more above 100K-token prompts,
-# which labeling never sends. A model missing here is counted but not priced.
+# USD per million tokens: input, output, cache read, cache write (5-minute TTL). Checked 2026-11-02.
 PRICES: dict[str, tuple[float, float, float, float]] = {
     "claude-haiku-5-5": (0.10, 0.50, 0.01, 0.125),
     "claude-sonnet-5-5": (2.00, 10.00, 0.20, 2.50),
@@ -41,8 +36,7 @@ def cost(model: str, input_: int, output: int, cache_read: int, cache_write: int
 
 
 async def record(db: AsyncSession, feature: str, model: str, usage: Any) -> None:
-    """Add one response's `usage` to today's row. A response means the key works, so a notice
-    that it was rejected goes. The caller commits."""
+    """A response means the key works, so this clears the rejected notice. The caller commits."""
     await prefs.remove(db, prefs.AI_KEY_REJECTED)
     values = {
         "requests": 1,
@@ -63,7 +57,6 @@ async def record(db: AsyncSession, feature: str, model: str, usage: Any) -> None
 
 
 async def summary(db: AsyncSession, days: int) -> dict[str, Any]:
-    """Usage of the last `days` days (today included), per feature and model."""
     since = datetime.now(UTC).date() - timedelta(days=days - 1)
     rows = await db.scalars(select(AiUsage).where(AiUsage.day >= since))
     totals: dict[tuple[str, str], dict[str, Any]] = {}
@@ -98,17 +91,16 @@ KEY_REJECTED = "Anthropic API key was rejected; check ANTHROPIC_API_KEY"
 
 
 def key_rejected(error: BaseException) -> TypeIs[anthropic.APIStatusError]:
-    """Anthropic refused the key: invalid (401) or not allowed (403)."""
     return isinstance(error, anthropic.AuthenticationError | anthropic.PermissionDeniedError)
 
 
 def _key_id() -> str:
-    """Tells keys apart without storing one: a notice about an old key doesn't outlive it."""
+    """Tells keys apart without storing one."""
     return hashlib.sha256(settings.anthropic_api_key.encode()).hexdigest()[:12]
 
 
 async def reject_key(db: AsyncSession, error: anthropic.APIStatusError) -> None:
-    """Remember that the key was refused, for the notice. The caller commits."""
+    """The caller commits."""
     value = {"key": _key_id(), "status": error.status_code, "at": datetime.now(UTC).isoformat()}
     await prefs.put(db, prefs.AI_KEY_REJECTED, value)
 

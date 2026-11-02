@@ -1,17 +1,7 @@
-"""Security headers on every response, and CSRF protection for the API.
+"""CSRF: another site can't add a custom header without a CORS preflight, which kanso never grants.
 
-CSRF: every state-changing API request (anything but GET, HEAD and OPTIONS) must carry the
-header `X-Requested-With: kanso`, which kanso's own frontend always sends. A page on another
-site can't add a custom header to a request to kanso: a form can't set headers at all, and a
-cross-origin fetch with one needs a CORS preflight, which kanso never grants. This sits on top
-of the SameSite=Lax session cookie.
-
-CSP: no inline scripts and nothing from other origins, except images (see IMG_SRC). An email's
-sandboxed srcdoc frame inherits this policy on top of its own stricter one, so:
-- img-src allows https: and http:, or "Show images" couldn't load an email's remote images. The
-  frame's own policy still blocks them until the user asks (kanso.frontend EmailFrame).
-- style-src allows 'unsafe-inline', which email HTML depends on. Scripts are what matter, and
-  there are none: script-src is 'self' only, and the frame has no allow-scripts.
+CSP: email frames inherit it, so img-src allows remote images ("Show images") and style-src
+'unsafe-inline' (email HTML needs it); scripts stay 'self' only.
 """
 
 from starlette.datastructures import Headers, MutableHeaders
@@ -50,7 +40,7 @@ HEADERS = {
     "Cross-Origin-Opener-Policy": "same-origin",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
 }
-if settings.secure_cookies:  # served over HTTPS (PUBLIC_URL)
+if settings.secure_cookies:
     HEADERS["Strict-Transport-Security"] = "max-age=31536000"
 
 

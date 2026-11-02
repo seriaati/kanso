@@ -1,6 +1,3 @@
-"""Writing mail: the outgoing RFC 822 message, reply recipients and subjects, quoting, and the
-plain-text alternative of the HTML you wrote. Pure functions; kanso.sync.drafts does the I/O."""
-
 import html
 import re
 from collections.abc import Iterable
@@ -16,14 +13,13 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import nh3
 
-from kanso.db.models import Message as Original  # what is replied to or forwarded
+from kanso.db.models import Message as Original
 from kanso.gmail import mime
 
-# Address = {"name": ..., "email": ...}, as the mirror stores them.
+# {"name": ..., "email": ...}, as the mirror stores them.
 Addr = dict[str, Any]
 
-# What the editor may produce: plain rich text and nothing more. Blockquote stays for drafts
-# written in Gmail, which keep their quote in the body.
+# Blockquote stays for drafts written in Gmail, which keep their quote in the body.
 BODY_TAGS = {"p", "div", "br", "b", "strong", "i", "em", "a", "ul", "ol", "li", "blockquote"}
 
 
@@ -60,8 +56,8 @@ def _unique(addresses: Iterable[Addr], skip: set[str]) -> list[Addr]:
 
 
 def reply_recipients(original: Original, mine: set[str], reply_all: bool) -> tuple[list, list]:
-    """To and Cc of a reply. `mine` holds the addresses of every connected account (lowercase):
-    they are never copied in. Replying to your own message writes to its recipients again."""
+    """`mine` (every connected account, lowercase) is never copied in. Replying to your own
+    message writes to its recipients again."""
     from_me = original.from_email.lower() in mine
     if from_me:
         to = original.to_addrs
@@ -75,7 +71,6 @@ def reply_recipients(original: Original, mine: set[str], reply_all: bool) -> tup
 
 
 def references(original: Original) -> str | None:
-    """The References of a reply: the original's chain plus its Message-ID (at most 20 ids)."""
     chain = (original.references or original.in_reply_to or "").split()
     if original.message_id_header:
         chain.append(original.message_id_header)
@@ -101,8 +96,8 @@ def _who(name: str, email: str) -> str:
 
 
 def _original_html(original: Original, keep_cid: bool) -> str:
-    """The original's (already sanitized) HTML, safe to embed in another message: no <style>
-    that would restyle the whole reply, and in replies no cid: images (not attached there)."""
+    """No <style> that would restyle the whole reply, and in replies no cid: images (not attached
+    there)."""
     if original.body_html is None:
         return html.escape(original.body_text).replace("\n", "<br>")
 
@@ -122,8 +117,7 @@ def _original_html(original: Original, keep_cid: bool) -> str:
 
 
 def reply_quote(original: Original, tz: str | None) -> tuple[str, str]:
-    """The quoted original below a reply, as HTML (Gmail's markup, so Gmail collapses it) and
-    as text with "> " lines."""
+    """Gmail's markup, so Gmail collapses the quote."""
     line = f"On {when(original.internal_date, tz)} {_who(original.from_name, original.from_email)}"
     quote_html = (
         f'<div class="gmail_quote"><div dir="ltr" class="gmail_attr">{html.escape(line)} wrote:'
@@ -136,8 +130,6 @@ def reply_quote(original: Original, tz: str | None) -> tuple[str, str]:
 
 
 def forward_quote(original: Original, tz: str | None) -> tuple[str, str]:
-    """The forwarded message's header block and body, as HTML and text."""
-
     def people(addresses: list[Addr]) -> str:
         return ", ".join(_who(a.get("name", ""), a["email"]) for a in addresses)
 
@@ -160,8 +152,7 @@ def forward_quote(original: Original, tz: str | None) -> tuple[str, str]:
 
 
 class _Text(HTMLParser):
-    """Plain text from the editor's HTML: lines and paragraphs, "- " and "1. " list items,
-    links as "text <url>"."""
+    """Plain text with "- " and "1. " list items and links as "text <url>"."""
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
@@ -225,8 +216,7 @@ def html_to_text(body: str) -> str:
 
 @dataclass
 class Part:
-    """An attachment of the outgoing message. With a content_id it is an inline image of the
-    HTML (a forwarded original's), related to the HTML part."""
+    """With a content_id it is an inline image, related to the HTML part."""
 
     filename: str
     mime_type: str
@@ -262,9 +252,7 @@ def build_message(
     attachments: list[Part],
     date: datetime | None = None,
 ) -> bytes:
-    """The RFC 822 message: UTF-8 text and HTML alternatives (non-ASCII headers as RFC 2047
-    encoded words, filenames as RFC 2231), inline images related to the HTML, then attachments.
-    Without a sender Gmail fills in the account's own From. Bcc stays in: Gmail delivers to it
+    """Without a sender Gmail fills in the account's own From. Bcc stays in: Gmail delivers to it
     and removes the header when sending."""
     msg = EmailMessage(policy=policy.default)
     if sender:

@@ -1,6 +1,5 @@
-"""Triage actions on threads: Done, Delete, Star, Important, read/unread, labels, and undo. Each
-action changes the mirror at once (so every read is current) and queues the write-back to Gmail
-in the outbox, in one transaction. Thread ids may span accounts (the unified view)."""
+"""Each action changes the mirror at once and queues the Gmail write-back in the outbox, in one
+transaction."""
 
 import logging
 from datetime import datetime
@@ -37,8 +36,7 @@ Action = Literal[
 ]
 
 # action -> (add or remove, Gmail label id (None: the named user label), which messages).
-# "latest" adds the label to the thread's latest message only, as Gmail does for stars and
-# "mark unread", and only when no message has it yet. Drafts never get labels added.
+# "latest": the latest message only, as Gmail does for stars and "mark unread".
 ACTIONS: dict[str, tuple[Literal["add", "remove"], str | None, Literal["all", "latest"]]] = {
     "done": ("remove", "INBOX", "all"),
     "inbox": ("add", "INBOX", "all"),
@@ -104,8 +102,7 @@ async def publish(touched: dict[int, set[int]], wake: bool) -> None:
 async def apply_action(
     db: AsyncSession, action: str, thread_ids: list[int], label: str | None = None
 ) -> tuple[list[int], dict[int, set[int]]]:
-    """Apply an action to the mirror and queue it for Gmail. Returns the outbox entry ids and the
-    touched thread ids by account. The caller commits."""
+    """Returns the outbox entry ids and the touched thread ids by account. The caller commits."""
     mode, gmail_label, which = ACTIONS[action]
     threads = list(await db.scalars(select(Thread).where(Thread.id.in_(thread_ids))))
     if not threads:
@@ -201,7 +198,6 @@ async def thread_action(body: ActionIn, db: DB) -> ActionOut:
 
 @router.post("/undo")
 async def undo(body: UndoIn, db: DB) -> UndoOut:
-    """Undo actions by their outbox entries (cancelled if not sent yet, else reversed)."""
     touched = await outbox.undo(db, body.entries)
     await db.commit()
     await publish(touched, wake=True)

@@ -1,6 +1,3 @@
-"""Settings changed on the settings page (kanso.db.prefs). The password has its own route
-(POST /api/auth/password)."""
-
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -15,8 +12,7 @@ DB = Annotated[AsyncSession, Depends(get_session)]
 
 
 class SettingsOut(BaseModel):
-    # The assistant asks before it changes mail (archive, label, star, mark read). Off: it
-    # changes mail at once; each change is still shown in the chat and can be undone.
+    # Off: the assistant changes mail at once; each change is still shown and can be undone.
     assistant_confirm: bool
 
 

@@ -1,5 +1,3 @@
-"""Reading the mirror: thread lists (with search), thread detail and attachment downloads."""
-
 import asyncio
 import base64
 import json
@@ -172,12 +170,8 @@ MAILBOXES: dict[str, Any] = {
 }
 
 
-# The grouped inbox. Each inbox thread is placed under exactly one of its user labels: labels that
-# aren't bundles come first, then by name (case-insensitive), and the first one wins. A thread
-# whose label is a bundle goes in that bundle; any other labeled thread goes in its label's
-# section, but only with AI on: without it the inbox stays one date-ordered list (bundles still
-# collapse, they aren't AI). The unlabeled section ("Other") comes first, then the sections by
-# their newest thread; threads newest first.
+# Each inbox thread goes under one user label, non-bundles first. Label sections only with AI on;
+# without it the inbox is one date-ordered list, but bundles still collapse.
 
 
 def _placed(account_id: int | None) -> Any:
@@ -208,7 +202,6 @@ def _placed(account_id: int | None) -> Any:
 async def section_thread_ids(
     db: AsyncSession, name: str | None, bundle: bool, account_id: int | None, until: datetime
 ) -> list[int]:
-    """The threads of one section or bundle (for "Done all"), up to `until`."""
     placed = _placed(account_id)
     if bundle:
         where = placed.c.bundle == name
@@ -254,8 +247,7 @@ async def _sections(db: AsyncSession, account_id: int | None) -> list[SectionOut
 async def _grouped(
     db: AsyncSession, account_id: int | None, cursor: str | None, limit: int
 ) -> ThreadPage:
-    """The inbox outside bundles, section by section. The cursor holds the sort key of the last
-    thread: (unlabeled, section's newest time, section name, thread time, id)."""
+    """The inbox outside bundles, section by section."""
     placed = _placed(account_id)
     ranked = (
         select(
@@ -314,12 +306,8 @@ async def list_threads(
     cursor: str | None = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> ThreadPage:
-    """Threads newest first. Filter by account, mailbox, labels (any of them; the unified view
-    passes the same-named label of each account) and/or a search query. Trash and Spam are left
-    out unless asked for (mailbox, label or label: in the query).
-
-    The inbox can be grouped (`grouped`: the threads outside bundles, by section, with the
-    sections and bundles on the first page) or show one bundle's threads (`bundle`)."""
+    """The unified view passes the same-named label of each account. Trash and Spam are left out
+    unless asked for (mailbox, label or label: in the query)."""
     if grouped or bundle is not None:
         if mailbox != "inbox" or label_id or q.strip():
             raise HTTPException(status_code=400, detail="Only the inbox is grouped")
@@ -423,7 +411,7 @@ INLINE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 
 @router.get("/attachments/{attachment_id}")
 async def download_attachment(attachment_id: int, db: DB) -> Response:
-    """The attachment's content, fetched from Gmail on demand (the mirror keeps only metadata)."""
+    """Fetched from Gmail on demand: the mirror keeps only metadata."""
     row = (
         await db.execute(
             select(Attachment, Message.gmail_id, Account)
@@ -453,8 +441,7 @@ async def download_attachment(attachment_id: int, db: DB) -> Response:
         headers={
             "Content-Disposition": f"{disposition}; filename*=UTF-8''{quote(attachment.filename)}",
             "X-Content-Type-Options": "nosniff",
-            # An attachment never changes (a new message gets new attachment ids), so the
-            # browser keeps it: inline images and repeat downloads cost no Gmail fetch.
+            # An attachment never changes (a new message gets new ids): no repeat Gmail fetch.
             "Cache-Control": "private, max-age=31536000, immutable",
         },
     )

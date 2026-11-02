@@ -17,7 +17,6 @@ from kanso.gmail import oauth
 router = APIRouter(prefix="/accounts")
 DB = Annotated[AsyncSession, Depends(get_session)]
 
-# New accounts take the next of these colors; the user can recolor them.
 COLORS = ("#2F4B6E", "#A07338", "#556B3F", "#87607E", "#A35A3A", "#4F6E8C", "#6B6B66")
 STATE_TTL_SECONDS = 10 * 60
 

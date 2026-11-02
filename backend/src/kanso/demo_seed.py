@@ -1,14 +1,7 @@
 # ruff: noqa: E501 (the demo mails are long one-line strings)
-"""Fill the database with a fake mailbox (DEMO DATA) for UI work without Google credentials:
-`python -m kanso.demo_seed`. Safe to run again: it replaces the previous demo account.
+"""Fill the database with a fake mailbox (DEMO DATA): `python -m kanso.demo_seed`.
 
-On a demo instance (DEMO_MODE, docker-compose.demo.yml) the same command resets everything
-instead: every table is emptied and the demo mailbox seeded again. The app does that on start and
-the worker every day at midnight UTC.
-
-The demo account is flagged `demo`, so the worker never syncs it and disconnecting it doesn't
-call Google. The mails are built as real MIME (some in GB2312, Big5 and ISO-2022-JP) and stored
-through the same parser and store functions as synced mail.
+Safe to run again. On a demo instance (DEMO_MODE) it empties every table first.
 """
 
 import asyncio
@@ -46,7 +39,6 @@ USER_LABELS = {
     "Receipts": "#B8B3A2",
     "Notifications": "#B8B3A2",
 }
-# kanso's label settings: every label is AI-managed with a description, the last three are bundles.
 DESCRIPTIONS = {
     "Home": "the apartment, the landlord, utilities at home, the library and the neighborhood",
     "Personal": "friends and family: plans, photos, invitations",
@@ -66,9 +58,7 @@ def _person(name: str) -> tuple[str, str]:
     return name, f"{local}@example.com"
 
 
-# (label, [(sender, hours ago, body)], subject, flags, charset). Flags: unread, starred,
-# done (archived), sent (the last message is from me), draft, trash, attachment, html (an HTML
-# part too, in the same charset), images (an inline cid: image and remote images in the HTML).
+# (label, [(sender, hours ago, body)], subject, flags, charset)
 DemoThread = tuple[str | None, list[tuple[tuple[str, str], float, str]], str, set[str], str]
 # fmt: off
 THREADS: list[DemoThread] = [
@@ -83,7 +73,7 @@ THREADS: list[DemoThread] = [
     ("Work", [(_person("Lena Fischer"), 74, "Main open question is hiring. Notes attached below.\n\n- Two backend roles\n- One designer")], "Q4 planning notes", set(), "utf-8"),
     ("Work", [(("Fernwood Recruiting", "talent@fernwood.example.com"), 120, "Thanks for your time. Next is a short take-home.")], "Interview follow-up", set(), "utf-8"),
     ("Work", [(("王芳", "wang.fang@example.cn"), 6, "大家好，\n\n周五下午三点在三楼会议室开项目会议，请提前准备好本周的进度报告。\n\n谢谢！\n王芳")], "周五的项目会议安排", {"unread"}, "gb2312"),
-    # Long threads: summarized on open (with AI on; the summary is canned, see SUMMARIES).
+    # Long threads, with canned summaries in SUMMARIES.
     ("Work", [(_person("Lena Fischer"), 100, "Hi all,\n\nI'd like to plan a three-day team offsite in March. Two options: March 10–12 or March 17–19. Lisbon is the front-runner for the venue, since flights are cheap from everywhere.\n\nPlease tell me which dates work for you.\n\nLena"), (_person("Kenji Mori"), 80, "March 10–12 works for me. Do we have budget approval for travel, or is that still pending with finance?"), (_person("Lena Fischer"), 30, "Thanks Kenji. Finance approved the travel budget this morning, so we're good. Let's go with March 10–12 in Lisbon.\n\nI'm holding a venue near Cais do Sodré, but I need a final headcount by Friday to confirm it."), (_person("Kenji Mori"), 9, "Great. One open question: do the remote folks in Berlin join in person, or do we set up a video link for them? That changes the headcount.")], "Team offsite in March", {"unread"}, "utf-8"),
     ("Work", [(("李伟", "li.wei@example.cn"), 110, "王芳你好，\n\n新版官网的设计稿已经定稿，开发这边预计下周三完成。测试需要两三天，所以最早下下周一可以上线。\n\n李伟"), (("王芳", "wang.fang@example.cn"), 90, "收到。市场部希望配合十一月底的活动一起上线，下下周一可以接受。翻译稿什么时候能到？"), (("李伟", "li.wei@example.cn"), 50, "翻译稿还在等供应商，他们说周四前给。如果周四拿不到，日文版可能要晚一周。"), (("王芳", "wang.fang@example.cn"), 20, "好的。请在周四下午告诉我翻译稿的情况，我再决定是否把日文版单独推迟。")], "新版官网上线时间", set(), "utf-8"),
     ("Work", [(("陳志明", "chen.zhiming@example.tw"), 52, "各位同事好：\n\n台北辦公室將於下個月搬遷至信義區新大樓，詳細時間表請見附件。\n\n陳志明")], "台北辦公室搬遷通知", {"html"}, "big5"),
@@ -100,10 +90,9 @@ THREADS: list[DemoThread] = [
     ("Receipts", [(("Cloud Notes", "billing@cloudnotes.example.com"), 60, "Subscription receipt: $4.00 for November.")], "Subscription receipt", {"attachment"}, "utf-8"),
     ("Notifications", [(("GitHub", "notifications@github.example.com"), 1, "kanso: PR #12 Gmail history sync — review requested.")], "PR #12: Gmail history sync", {"unread"}, "utf-8"),
     ("Notifications", [(("CI", "ci@example.com"), 1.5, "All checks passed on main.")], "CI passed", set(), "utf-8"),
-    # Not labeled yet: "Label existing inbox" would sort these.
+    # Not labeled yet.
     (None, [(_person("Hana Ito"), 7, "Are you around next week for a coffee? Tuesday or Wednesday works for me.")], "Coffee next week?", {"unread"}, "utf-8"),
     (None, [(("Parcel Point", "notices@parcelpoint.example.com"), 12, "We tried to deliver your parcel today. It is waiting at the pickup point on 3rd Street.")], "Delivery attempt", set(), "utf-8"),
-    # Archived (Done), sent, a draft and one in Trash.
     ("Travel", [(_person("Ana Lopes"), 900, "Booked the Alfama apartment for Dec 12–16. Confirmation attached.")], "Lisbon apartment booking", {"done", "attachment"}, "utf-8"),
     ("Finance", [(("Northwind Bank", "statements@northwind.example.com"), 800, "Your September statement is ready.")], "Your September statement is ready", {"done"}, "utf-8"),
     ("Personal", [(ME, 40, "Hi Priya, attaching the trail map for next time.")], "Trail map", {"sent", "done"}, "utf-8"),
@@ -113,8 +102,7 @@ THREADS: list[DemoThread] = [
 # fmt: on
 
 
-# Canned thread summaries (DEMO DATA): with AI on, a demo thread is never sent to Claude; the
-# assistant panel shows these instead (kanso.ai.summaries).
+# A demo thread is never sent to Claude; it gets these summaries instead.
 SUMMARIES = {
     "Team offsite in March": "Lena is holding a venue in Lisbon for the offsite on March 10–12 and needs the final headcount by Friday; finance approved the travel budget. Still open: whether the Berlin team joins in person or by video, which changes the headcount.",
     "新版官网上线时间": "新版官网预计下下周一上线，配合十一月底的市场活动；开发下周三完成，之后测试两三天。翻译稿供应商承诺周四前交付，李伟需在周四下午向王芳确认，再决定日文版是否推迟一周。",
@@ -122,7 +110,6 @@ SUMMARIES = {
 
 
 def demo_summary(subject: str, bodies: list[str]) -> str:
-    """The canned summary of a demo thread, or a plain stand-in for the others."""
     if subject in SUMMARIES:
         return SUMMARIES[subject]
     latest = " ".join(bodies[-1].split()) if bodies else ""
@@ -133,8 +120,6 @@ def demo_summary(subject: str, bodies: list[str]) -> str:
 
 
 def _png(width: int, height: int, rgb: tuple[int, int, int]) -> bytes:
-    """A plain one-color PNG."""
-
     def chunk(kind: bytes, data: bytes) -> bytes:
         body = kind + data
         return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body))
@@ -149,11 +134,9 @@ def _png(width: int, height: int, rgb: tuple[int, int, int]) -> bytes:
     )
 
 
-# The demo newsletters' remote images: photos on Unsplash's image CDN.
 UNSPLASH = "https://images.unsplash.com"
 
-# The content of the demo attachments, served by the attachment endpoint for demo accounts (the
-# mirror keeps only metadata, and demo mail has no Gmail copy to fetch from).
+# Demo mail has no Gmail copy, so the attachment endpoint serves these.
 DEMO_FILES = {
     "image/png": _png(120, 24, (0x2F, 0x4B, 0x6E)),
     "application/pdf": b"%PDF-1.4\n% kanso demo attachment (DEMO DATA)\n%%EOF\n",
@@ -184,8 +167,7 @@ def _mime(
                 f"<html><body>{paragraphs}</body></html>", subtype="html", charset=charset
             )
         else:
-            # Remote images (an <img> and a CSS background, real photos hotlinked from Unsplash)
-            # that the reader blocks until "Show images"; only then does the browser fetch them.
+            # Remote images (an <img> and a CSS background) the reader blocks until "Show images".
             msg.add_alternative(
                 f'<html><body style="font-family:Georgia,serif"><img src="cid:logo@kanso.demo" '
                 f'alt="logo" width="120"><h1>{subject}</h1>'
@@ -278,8 +260,7 @@ async def seed() -> int:
                 .where(Label.account_id == account.id, Label.name == name)
                 .values(description=description, ai_managed=True, is_bundle=name in BUNDLES)
             )
-        # AI usage as if Claude had labeled the demo mail (DEMO DATA: no request was made). Not
-        # on a demo instance: with a key, its usage is real.
+        # Fake AI usage; not on a demo instance, where usage is real.
         today = now.date()
         if not settings.demo_mode:
             await db.execute(
@@ -300,7 +281,7 @@ async def seed() -> int:
                 )
         await db.commit()
         account_id = account.id
-        await contacts.refresh(db)  # autocomplete knows the demo people at once
+        await contacts.refresh(db)
     try:
         await events.threads_changed(account_id, thread_ids)
         await events.sync_changed(account_id)
@@ -310,8 +291,7 @@ async def seed() -> int:
 
 
 async def reset() -> int:
-    """Back to the demo instance's starting state: every table emptied, then seeded. Ids start
-    over, so a browser left open finds the same threads under the same ids again."""
+    """Ids start over, so a browser left open finds the same threads under the same ids."""
     async with Session() as db:
         if await db.scalar(select(exists().where(Account.demo.is_(False)))):
             raise RuntimeError("Not resetting: this database has a connected Gmail account.")
@@ -322,7 +302,6 @@ async def reset() -> int:
 
 
 async def reset_daily() -> None:
-    """The worker's loop on a demo instance: reset every day at midnight UTC."""
     while True:
         now = datetime.now(UTC)
         midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)

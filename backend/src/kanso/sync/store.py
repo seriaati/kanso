@@ -1,5 +1,5 @@
-"""Writes to the mail mirror. Every change to messages or their labels goes through here and ends
-with refresh_threads(), which keeps the derived thread columns consistent."""
+"""Every change to messages or their labels ends with refresh_threads(), which keeps the derived
+thread columns consistent."""
 
 import html
 from collections.abc import Iterable
@@ -19,7 +19,6 @@ LabelMap = dict[str, int]
 
 
 async def save_labels(db: AsyncSession, account_id: int, labels: list[dict[str, Any]]) -> LabelMap:
-    """Mirror the account's labels (from labels.list); labels gone from Gmail are removed."""
     for label in labels:
         values = {
             "name": label["name"],
@@ -44,7 +43,6 @@ async def save_labels(db: AsyncSession, account_id: int, labels: list[dict[str, 
 async def save_label(
     db: AsyncSession, account_id: int, gmail_id: str, name: str, color: str | None
 ) -> None:
-    """Insert or update one user label (label management; a sync may have added it already)."""
     values = {"name": name, "type": "user", "color": color}
     await db.execute(
         insert(Label)
@@ -61,8 +59,7 @@ async def label_map(db: AsyncSession, account_id: int) -> LabelMap:
 async def _label_ids(
     db: AsyncSession, account_id: int, labels: LabelMap, gmail_ids: Iterable[str]
 ) -> list[int]:
-    """kanso ids for Gmail label ids. A label we haven't seen yet gets a placeholder row that the
-    next label sync names properly."""
+    """A label not seen yet gets a placeholder row that the next label sync names properly."""
     result = []
     for gmail_id in gmail_ids:
         if gmail_id not in labels:
@@ -94,8 +91,7 @@ async def save_message(
     parsed: ParsedMessage,
     labels: LabelMap,
 ) -> int:
-    """Insert or replace one message. `meta` is Gmail's message resource without `raw`
-    (id, threadId, labelIds, snippet, internalDate, sizeEstimate). Returns the thread id."""
+    """`meta` is Gmail's message resource without `raw`. Returns the thread id."""
     thread_id = await db.scalar(
         insert(Thread)
         .values(account_id=account_id, gmail_id=meta["threadId"])
@@ -162,8 +158,6 @@ async def save_message(
 async def set_labels(
     db: AsyncSession, account_id: int, gmail_id: str, gmail_label_ids: list[str], labels: LabelMap
 ) -> int | None:
-    """Replace a known message's labels (from a format=minimal fetch). Returns its thread id, or
-    None if the message isn't in the mirror."""
     row = (
         await db.execute(
             update(Message)
@@ -186,9 +180,8 @@ async def change_labels(
     remove: list[str],
     labels: LabelMap,
 ) -> tuple[int, set[int]] | None:
-    """Apply a History API label change. Returns the thread id and the kanso label ids that
-    actually changed (a change the mirror already has, such as the echo of kanso's own
-    write-back, changes none), or None for an unknown message."""
+    """Returns the label ids that actually changed: the echo of kanso's own write-back changes
+    none."""
     row = (
         await db.execute(
             select(Message.id, Message.thread_id).where(
@@ -225,9 +218,6 @@ async def apply_delta(
     add: list[str],
     remove: list[str],
 ) -> set[int]:
-    """Add and remove Gmail labels on messages (by Gmail id) in the mirror: a kanso action, or a
-    pending one re-applied over synced state. Messages no longer mirrored are skipped. Returns
-    the affected thread ids (for refresh_threads)."""
     rows = (
         await db.execute(
             select(Message.id, Message.thread_id).where(
@@ -256,13 +246,11 @@ async def apply_delta(
 
 
 async def mark_manual(db: AsyncSession, thread_ids: Iterable[int]) -> None:
-    """The user labeled or unlabeled these threads by hand: AI labeling leaves them alone."""
     if ids := list(set(thread_ids)):
         await db.execute(update(Thread).where(Thread.id.in_(ids)).values(labels_manual=True))
 
 
 async def delete_messages(db: AsyncSession, account_id: int, gmail_ids: Iterable[str]) -> set[int]:
-    """Remove messages; returns the affected thread ids (for refresh_threads)."""
     gmail_ids = list(gmail_ids)
     if not gmail_ids:
         return set()
@@ -275,7 +263,7 @@ async def delete_messages(db: AsyncSession, account_id: int, gmail_ids: Iterable
 
 
 async def delete_unsynced(db: AsyncSession, account_id: int, since: datetime) -> set[int]:
-    """After a full pass over the mailbox: remove messages the pass didn't see."""
+    """After a full pass: remove messages it didn't see."""
     result = await db.scalars(
         delete(Message)
         .where(Message.account_id == account_id, Message.synced_at < since)
@@ -353,7 +341,6 @@ WHERE t.id = agg.thread_id
 
 
 async def refresh_threads(db: AsyncSession, thread_ids: Iterable[int]) -> None:
-    """Recompute the derived thread columns from their messages; drop threads left empty."""
     ids = list(set(thread_ids))
     if not ids:
         return

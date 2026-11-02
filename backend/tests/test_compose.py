@@ -1,8 +1,3 @@
-"""Writing mail: MIME building (headers, threading, CJK, attachments), reply recipients and
-subjects, drafts saved as Gmail drafts (create, update, delete, take over one written in Gmail),
-attachments, sending through drafts.send (including crashes and retries, never twice), the demo
-account (local only) and the contacts autocomplete."""
-
 import email
 import email.policy
 import sys
@@ -54,9 +49,6 @@ def build(**overrides: Any) -> bytes:
         "attachments": [],
     }
     return compose.build_message(**(fields | overrides))
-
-
-# MIME building.
 
 
 def test_headers_and_threading() -> None:
@@ -159,9 +151,6 @@ def test_body_is_sanitized_to_plain_rich_text() -> None:
     assert "kept text" in clean
 
 
-# Replies and forwards.
-
-
 def original(**fields: Any) -> Message:
     values: dict[str, Any] = {
         "from_name": "Daniel Reyes",
@@ -253,9 +242,6 @@ def test_quotes_and_references() -> None:
     assert "---------- Forwarded message ---------" in forward_html
     assert 'src="cid:logo@x"' in forward_html  # the image is forwarded with the attachments
     assert "Subject: Dinner on Saturday?" in forward_text
-
-
-# Drafts and sending against the fake Gmail.
 
 
 @pytest.fixture
@@ -510,8 +496,7 @@ def saved_draft(api: TestClient) -> int:
 def test_crash_mid_send_is_resumed_without_a_duplicate(
     synced: TestClient, gmail: FakeGmail, monkeypatch: pytest.MonkeyPatch, crash: str
 ) -> None:
-    """The worker dies right before Gmail gets drafts.send, or right after Gmail sent it but
-    before kanso recorded it. Either way the resumed send leaves exactly one sent message."""
+    """The worker dies just before drafts.send, or after Gmail sent it but before kanso knew."""
     draft_id = saved_draft(synced)
     (gmail.crash_before if crash == "before" else gmail.crash_after).add("POST /drafts/send")
     with pytest.raises(Crash):
@@ -540,8 +525,7 @@ def test_crash_mid_send_is_resumed_without_a_duplicate(
 def test_unanswered_send_is_pending_then_retried_once(
     synced: TestClient, gmail: FakeGmail, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Gmail keeps answering 500 (it may have sent it): kanso reports "pending", and the user's
-    retry (or the worker) finishes it without a second copy."""
+    """Gmail keeps answering 500, so it may have sent the message."""
     draft_id = saved_draft(synced)
     gmail.failures["POST /drafts/send"] = [500] * client.MAX_ATTEMPTS
     body = {
@@ -641,9 +625,6 @@ def test_draft_written_in_gmail_opens_in_the_composer(synced: TestClient, gmail:
     assert gmail.drafts == {}
 
 
-# The demo account: drafts and sending stay local.
-
-
 @pytest.fixture
 def demo(logged_in: TestClient) -> TestClient:
     run(demo_seed.seed())
@@ -676,9 +657,6 @@ def test_demo_account_drafts_and_sends_locally(demo: TestClient) -> None:
     detail = demo.get(f"/api/threads/{seeded['id']}").json()
     opened = demo.post("/api/drafts/open", json={"message_id": detail["messages"][0]["id"]}).json()
     assert opened["subject"] == "Notes on the contract" and opened["saved"]
-
-
-# Contacts.
 
 
 @db_test

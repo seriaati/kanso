@@ -1,9 +1,5 @@
-"""Parse raw RFC 822 messages (Gmail's format=raw) into what kanso stores: decoded headers, a
-plain-text body, sanitized HTML, attachment metadata and a language hint.
-
-Uses the stdlib parser with the compat32 policy and decodes headers and bodies itself, because
-real mail mislabels charsets all the time (GB2312 that is really GBK, unencoded 8-bit headers…).
-"""
+"""Decodes headers and bodies itself: real mail mislabels charsets all the time (GB2312 that is
+really GBK, unencoded 8-bit headers…)."""
 
 import email
 import email.errors
@@ -45,7 +41,6 @@ _CHARSET_SUPERSETS = {
     "ks_c_5601-1987": "cp949",
 }
 
-# Charsets that tell the language of the text.
 _CHARSET_LANGS = {
     **dict.fromkeys(("gb2312", "gbk", "x-gbk", "gb18030", "cp936", "euc-cn"), "zh-Hans"),
     **dict.fromkeys(("hz-gb-2312",), "zh-Hans"),
@@ -61,7 +56,6 @@ _HANGUL = re.compile(r"[가-힯ᄀ-ᇿ]")
 
 
 def decode_bytes(data: bytes, charset: str | None) -> str:
-    """Decode text in a declared charset, falling back to supersets, then UTF-8."""
     name = (charset or "").strip().strip("\"'").lower()
     attempts = [(data, _CHARSET_SUPERSETS.get(name, name)), (data, name)]
     if name == "iso-2022-jp":
@@ -85,7 +79,6 @@ def _unfold(value: str) -> str:
 
 
 def decode_header(value: str | None, fallback_charset: str | None = None) -> str:
-    """Decode RFC 2047 encoded words, or raw 8-bit bytes in the message's charset."""
     if not value:
         return ""
     value = _unfold(value)
@@ -133,7 +126,7 @@ class ParsedMessage:
 
 
 def _leaves(part: Message) -> Iterator[Message]:
-    """Leaf parts in document order. Attached messages (message/rfc822) count as one leaf."""
+    """Attached messages (message/rfc822) count as one leaf."""
     payload = part.get_payload()
     if part.get_content_maintype() == "multipart" and isinstance(payload, list):
         for sub in payload:
@@ -265,14 +258,13 @@ def _header_or_none(msg: Message, name: str) -> str | None:
 
 
 def attachment_content(raw: bytes, part_index: int) -> bytes | None:
-    """The decoded content of one leaf part, located like parse() numbered it."""
+    """`part_index` as parse() numbered it."""
     leaves = list(_leaves(email.message_from_bytes(raw)))
     return _leaf_bytes(leaves[part_index]) if 0 <= part_index < len(leaves) else None
 
 
 def detect_lang(text: str, content_language: str | None, charset: str | None) -> str | None:
-    """A BCP 47 hint so the UI picks Chinese or Japanese fonts (`:lang()`). The script decides
-    whether the text is CJK at all; the charset and Content-Language refine it."""
+    """A BCP 47 hint so the UI picks Chinese or Japanese fonts (`:lang()`)."""
     declared = (content_language or "").split(",")[0].strip() or None
     by_charset = _CHARSET_LANGS.get((charset or "").lower())
     if _KANA.search(text):
@@ -287,9 +279,7 @@ def detect_lang(text: str, content_language: str | None, charset: str | None) ->
     return declared
 
 
-# Email HTML relies on inline styles, <style> blocks and old presentational attributes, so those
-# are kept; scripts, event handlers, forms and javascript: URLs are not. Phase 3 renders the
-# result in a sandboxed iframe without scripts and with a CSP that blocks remote content.
+# Email HTML relies on inline styles, <style> blocks and old presentational attributes.
 _TAGS = nh3.ALLOWED_TAGS | {"font", "style", "tfoot"}
 _ATTRIBUTES = deepcopy(nh3.ALLOWED_ATTRIBUTES)
 _ATTRIBUTES["*"] = {
@@ -352,7 +342,6 @@ class _TextExtractor(HTMLParser):
 
 
 def html_to_text(body: str) -> str:
-    """Readable text from HTML, for search and for HTML-only mail."""
     parser = _TextExtractor()
     parser.feed(body)
     parser.close()

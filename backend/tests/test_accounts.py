@@ -24,8 +24,6 @@ def id_token(email: str) -> str:
 
 
 class FakeGoogle:
-    """Stands in for Google's token and revoke endpoints."""
-
     def __init__(self, email: str = "me@gmail.com", scope: str = oauth.SCOPES) -> None:
         self.email = email
         self.scope = scope

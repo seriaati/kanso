@@ -1,7 +1,4 @@
-"""A small in-memory Gmail (and Pub/Sub) behind an httpx2 MockTransport. Responses follow the
-shapes of the real REST API (users.messages, users.history, users.labels, users.watch,
-users.drafts with multipart uploads, users.settings.sendAs and the Pub/Sub pull/acknowledge
-calls)."""
+"""An in-memory Gmail and Pub/Sub behind an httpx2 MockTransport, shaped like the REST API."""
 
 import base64
 import json
@@ -13,7 +10,7 @@ import httpx2 as httpx
 
 
 class Crash(BaseException):
-    """The worker dies (like SIGKILL): not an Exception, so no handler in kanso catches it."""
+    """Like SIGKILL: not an Exception, so no handler in kanso catches it."""
 
 
 SYSTEM = ["INBOX", "SENT", "DRAFT", "TRASH", "SPAM", "UNREAD", "STARRED", "IMPORTANT"]
@@ -51,7 +48,7 @@ class FakeGmail:
         self.crash_before: set[str] = set()
         self.crash_after: set[str] = set()
         self.writes: list[tuple[str, Any]] = []  # (key, JSON body) of every write request
-        # Drafts: draft id -> its current message id. Sent messages' raw bytes, in order.
+        # draft id -> its current message id
         self.drafts: dict[str, str] = {}
         self.sent: list[bytes] = []
         self.display_name = "Me Myself"
@@ -59,8 +56,6 @@ class FakeGmail:
         # Pub/Sub
         self.pubsub_queue: list[dict[str, Any]] = []
         self.acked: list[str] = []
-
-    # Mailbox changes, recorded in history like Gmail does.
 
     def _record(self, **change: Any) -> None:
         self.history_id += 1
@@ -117,7 +112,6 @@ class FakeGmail:
             self._record(labelsRemoved=[{"message": self._ref(gmail_id), "labelIds": list(remove)}])
 
     def notify(self, email: str = "me@gmail.com") -> str:
-        """Queue a Gmail push notification on the Pub/Sub subscription."""
         ack_id = f"ack-{len(self.pubsub_queue) + len(self.acked)}"
         data = json.dumps({"emailAddress": email, "historyId": self.history_id}).encode()
         self.pubsub_queue.append(
@@ -135,8 +129,6 @@ class FakeGmail:
 
     def raw_fetches(self, gmail_id: str) -> int:
         return self.requests.count(f"GET /messages/{gmail_id} raw")
-
-    # HTTP
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         url = request.url
@@ -267,8 +259,7 @@ class FakeGmail:
         return httpx.Response(404, json={"error": {"message": f"fake: no route {method} {path}"}})
 
     def _draft(self, method: str, draft_id: str, body: Any) -> httpx.Response:
-        """drafts.create / update (multipart uploads), delete and send. Like Gmail, an update
-        replaces the draft's message, and sending deletes the draft and creates a new message."""
+        """Like Gmail: an update replaces the draft's message; send deletes it, adds a new one."""
         not_found = httpx.Response(
             404, json={"error": {"message": "Requested entity was not found."}}
         )
@@ -304,7 +295,6 @@ class FakeGmail:
 
 
 def _multipart(request: httpx.Request) -> dict[str, Any]:
-    """The JSON metadata and the RFC 822 message of a multipart/related upload."""
     boundary = request.headers["content-type"].split("boundary=", 1)[1].encode()
     parts = request.content.split(b"--" + boundary)
     metadata = parts[1].split(b"\r\n\r\n", 1)[1].strip()

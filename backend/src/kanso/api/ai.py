@@ -1,6 +1,3 @@
-"""What the browser needs to know about AI: whether it is on, its token usage, the explicit
-"Label existing inbox" run (count first, then progress), and thread summaries."""
-
 import json
 from collections.abc import AsyncIterator
 from datetime import date, datetime
@@ -114,7 +111,7 @@ async def label_inbox_status(db: DB, account_id: int | None = None) -> LabelInbo
 
 @router.post("/ai/label-inbox")
 async def label_inbox(body: LabelInboxIn, db: DB) -> LabelInboxOut:
-    """Classify the threads in the inbox now (only those: there is no AI pass over history)."""
+    """Only the inbox: there is no AI pass over history."""
     if not settings.ai_enabled:
         raise HTTPException(status_code=409, detail="AI is off: set ANTHROPIC_API_KEY")
     await labeling.enqueue_inbox(db, body.account_id)
@@ -147,8 +144,7 @@ async def _summary_context(db: AsyncSession, thread_id: int) -> summaries.Contex
 
 @router.get("/threads/{thread_id}/summary")
 async def thread_summary(thread_id: int, db: DB) -> SummaryState:
-    """The stored summary and whether the thread is long enough to summarize on open. Never
-    calls Claude."""
+    """Never calls Claude."""
     context = await _summary_context(db, thread_id)
     row = await summaries.fresh(db, context)
     return SummaryState(
@@ -161,9 +157,6 @@ async def thread_summary(thread_id: int, db: DB) -> SummaryState:
 
 @router.post("/threads/{thread_id}/summary")
 async def summarize(thread_id: int, db: DB) -> StreamingResponse:
-    """Summarize the thread, streamed as Server-Sent Events: {"type": "delta", "text"} while it
-    is written, then {"type": "done", "summary"} or {"type": "error", "message"}. A stored
-    summary of the latest message comes back at once, without a call."""
     context = await _summary_context(db, thread_id)
     if not context.entries:
         raise HTTPException(status_code=409, detail="Nothing to summarize")

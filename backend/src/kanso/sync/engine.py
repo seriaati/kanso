@@ -1,6 +1,5 @@
-"""Mirror a Gmail account: a resumable backfill of the whole history, then incremental syncs
-through the History API. After each commit, changes still waiting in the outbox are re-applied
-over the synced state, so a sync never undoes a kanso action that Gmail hasn't received yet."""
+"""Outbox changes are re-applied after each commit, so a sync never undoes a kanso action that
+Gmail hasn't received yet."""
 
 import asyncio
 import logging
@@ -22,17 +21,14 @@ from kanso.sync import notify, outbox, store
 
 log = logging.getLogger(__name__)
 
-# Messages fetched in parallel per account. The Gmail client paces each account's requests to
-# stay under Gmail's per-user quota; this only bounds how many are in flight.
+# Only bounds how many are in flight; the Gmail client paces requests to the quota.
 FETCH_CONCURRENCY = 8
-# Backfill messages saved per commit.
 BACKFILL_CHUNK = 100
 # Gmail asks to renew users.watch daily; it expires after 7 days.
 WATCH_RENEW_BEFORE = timedelta(days=6)
 
 
 async def sync_account(account_id: int, http: httpx.AsyncClient) -> None:
-    """One sync step: finish (or resume) the backfill if needed, then catch up from history."""
     async with Session() as db:
         account = await db.get(Account, account_id)
         if account is None or account.demo:
@@ -52,9 +48,7 @@ async def _now(db: AsyncSession) -> datetime:
 
 
 async def backfill(db: AsyncSession, gmail: Gmail, account: Account) -> None:
-    """Page through every message id (newest first) and mirror each message. Progress is
-    committed after every page, so a restart continues from the last page. Also used for a full
-    resync: messages already mirrored only get their labels refreshed, and messages the pass
+    """Also a full resync: known messages only get their labels refreshed, and messages the pass
     didn't see are removed at the end."""
     if account.backfill_started_at is None:
         profile = await gmail.profile()
@@ -84,8 +78,7 @@ async def backfill(db: AsyncSession, gmail: Gmail, account: Account) -> None:
             continue
         ids = [m["id"] for m in page.get("messages", [])]
         thread_ids: set[int] = set()
-        # Commit in chunks: if a fetch keeps failing, the chunks before it stay saved and the
-        # retried page skips them, so the backfill always moves forward.
+        # Commit in chunks, so a fetch that keeps failing doesn't lose the chunks before it.
         for i in range(0, len(ids), BACKFILL_CHUNK):
             chunk_threads, _ = await import_messages(
                 db, gmail, account.id, ids[i : i + BACKFILL_CHUNK], labels, started
@@ -121,9 +114,8 @@ async def import_messages(
     labels: store.LabelMap,
     synced_since: datetime | None = None,
 ) -> tuple[set[int], set[str]]:
-    """Mirror messages by Gmail id: new ones are fetched in full; known ones synced before
-    `synced_since` only get their labels refreshed; the rest are skipped. Returns the changed
-    thread ids and the Gmail ids fetched in full."""
+    """Known messages synced before `synced_since` only get their labels refreshed. Returns the
+    changed thread ids and the Gmail ids fetched in full."""
     if not gmail_ids:
         return set(), set()
     rows = await db.execute(
@@ -174,8 +166,6 @@ async def import_messages(
 
 
 async def incremental(db: AsyncSession, gmail: Gmail, account: Account) -> None:
-    """Replay the History API from the stored historyId. If Gmail no longer has that history
-    (404), fall back to a full resync."""
     assert account.history_id is not None
     labels = await store.save_labels(db, account.id, await gmail.labels())
     records: list[dict[str, Any]] = []
@@ -214,9 +204,8 @@ async def incremental(db: AsyncSession, gmail: Gmail, account: Account) -> None:
         db, gmail, account.id, [g for g in added if g not in deleted], labels
     )
     thread_ids |= changed
-    # Label changes replay in order onto the mirrored state; messages fetched just now already
-    # have their current labels. A user label that really changes was changed by hand in Gmail
-    # (kanso's own write-backs are in the mirror already): AI labeling leaves that thread alone.
+    # A user label change seen here was made by hand in Gmail (kanso's own are in the mirror
+    # already), so AI labeling leaves that thread alone.
     user_labels = set(
         await db.scalars(
             select(Label.id).where(Label.account_id == account.id, Label.type == "user")
@@ -234,11 +223,11 @@ async def incremental(db: AsyncSession, gmail: Gmail, account: Account) -> None:
         thread_ids.add(result[0])
         if result[1] & user_labels:
             manual.add(result[0])
-    if missing:  # changes to messages the mirror lacks: fetch them
+    if missing:  # changes to messages the mirror lacks
         thread_ids |= (await import_messages(db, gmail, account.id, missing, labels))[0]
     await store.refresh_threads(db, thread_ids)
     await store.mark_manual(db, manual)
-    # New inbox mail waits for AI labeling (never the backfill: no AI pass over history).
+    # Never the backfill: no AI pass over history.
     queued = await labeling.enqueue_new(db, account.id, fetched)
 
     account.history_id = new_history_id
@@ -252,7 +241,7 @@ async def incremental(db: AsyncSession, gmail: Gmail, account: Account) -> None:
     await events.threads_changed(account.id, thread_ids)
     if had_error:
         await events.sync_changed(account.id)
-    # Notifications of new inbox mail (never the backfill: history isn't news).
+    # Never the backfill: history isn't news.
     await notify.new_mail(db, gmail.http, account.id, fetched)
     if records:
         log.info("account %s: %s changes synced", account.id, len(records))

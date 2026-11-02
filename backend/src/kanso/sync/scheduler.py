@@ -1,5 +1,3 @@
-"""When to sync: one loop per account, woken by push notifications and a safety-net poll."""
-
 import asyncio
 import logging
 
@@ -15,13 +13,11 @@ log = logging.getLogger(__name__)
 
 # Notifications arriving within this window are handled by one sync.
 DEBOUNCE_SECONDS = 1.0
-# Retry delays after failures: 30 s doubling to 30 min.
 RETRY_MIN, RETRY_MAX = 30.0, 1800.0
 
 
 class AccountLoop:
-    """Runs one account's syncs one at a time. request() asks for a sync and synced() waits for it
-    to succeed (push notifications are acknowledged only after that)."""
+    """Push notifications are acknowledged only once synced() returns."""
 
     def __init__(self, account_id: int, http: httpx.AsyncClient, poll_seconds: float) -> None:
         self.account_id = account_id
@@ -77,15 +73,12 @@ class AccountLoop:
 
 
 class Scheduler:
-    """Keeps one AccountLoop per connected (non-demo) account."""
-
     def __init__(self, http: httpx.AsyncClient, poll_seconds: float) -> None:
         self.http = http
         self.poll_seconds = poll_seconds
         self.loops: dict[int, tuple[AccountLoop, asyncio.Task[None]]] = {}
 
     async def refresh(self) -> None:
-        """Start loops for new accounts and stop those of disconnected ones."""
         async with Session() as db:
             ids = set(await db.scalars(select(Account.id).where(Account.demo.is_(False))))
         for account_id, (_, task) in list(self.loops.items()):

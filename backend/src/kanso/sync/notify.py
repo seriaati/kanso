@@ -1,8 +1,5 @@
-"""Notifications of new inbox mail, sent with Web Push to every subscribed browser or installed
-PWA. The payload is encrypted for the browser (RFC 8291), so the push service in between (Google,
-Mozilla, Apple) sees only ciphertext. The VAPID key that identifies kanso to the push services
-(RFC 8292) is derived from SECRET_KEY: nothing to configure, and changing SECRET_KEY means
-turning notifications on again in each browser."""
+"""The VAPID key (RFC 8292) is derived from SECRET_KEY: changing it means turning notifications
+on again in each browser."""
 
 import asyncio
 import base64
@@ -30,10 +27,9 @@ from kanso.db.models import Label, Message, MessageLabel, PushSubscription
 
 log = logging.getLogger(__name__)
 
-# More new messages than this in one sync (e.g. after the worker was down) make one summary
-# notification instead of one each.
+# More new messages than this in one sync make one summary notification.
 MAX_SEPARATE = 5
-# How long a push service keeps a notification for a device that is offline.
+# How long a push service keeps a notification for an offline device.
 TTL_SECONDS = 24 * 3600
 # P-256's group order: a private key is an integer in [1, n - 1].
 P256_ORDER = 0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551
@@ -76,8 +72,7 @@ def encrypt(
     server_key: ec.EllipticCurvePrivateKey | None = None,
     salt: bytes | None = None,
 ) -> bytes:
-    """The aes128gcm body of RFC 8291 (one record). `server_key` and `salt` are fresh for each
-    message; tests pass the RFC's example values."""
+    """The aes128gcm body of RFC 8291 (one record). Tests pass the RFC's key and salt."""
     server_key = server_key or ec.generate_private_key(ec.SECP256R1())
     salt = salt or os.urandom(16)
     ua_public = b64url_decode(p256dh)
@@ -122,8 +117,7 @@ def _vapid_header(endpoint: str) -> str:
 async def send(
     http: httpx.AsyncClient, subscription: PushSubscription, payload: dict[str, Any]
 ) -> bool:
-    """Push one notification. False when the subscription is gone (the browser unsubscribed or
-    the user revoked the permission), so it can be deleted."""
+    """False when the subscription is gone, so it can be deleted."""
     body = encrypt(json.dumps(payload).encode(), subscription.p256dh, subscription.auth)
     response = await http.post(
         subscription.endpoint,
@@ -164,8 +158,7 @@ def _clip(text: str, length: int) -> str:
 async def new_mail(
     db: AsyncSession, http: httpx.AsyncClient, account_id: int, gmail_ids: set[str]
 ) -> None:
-    """Notify every subscribed browser of the newly synced messages that arrived unread in the
-    inbox (not sent by the user, not drafts). Never raises: a failed push mustn't fail a sync."""
+    """Never raises: a failed push mustn't fail a sync."""
     try:
         if not gmail_ids:
             return

@@ -1,4 +1,4 @@
-"""Browsers subscribed to notifications of new inbox mail (Web Push).
+"""Web Push subscriptions
 
 Revision ID: 0011
 Revises: 0010

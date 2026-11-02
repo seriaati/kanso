@@ -1,15 +1,5 @@
-"""The assistant's tools. They work on kanso's local mirror only, never on Gmail directly.
-
-- Read tools (search_threads, get_thread, list_labels) answer at once with lean JSON: capped
-  result counts, short snippets, and bodies trimmed by ai/trim.py (no quoted replies or
-  signatures) within a budget. Never recipients, attachments or drafts, and never anything from
-  the demo mailbox (its threads don't exist as far as the tools are concerned), except on a demo
-  instance (DEMO_MODE), where all mail is made up.
-- Change tools (archive, apply_label, star, mark_read) only *propose*: `propose` checks the input
-  and returns the proposal the user sees with Confirm and Cancel. Nothing changes until the user
-  confirms it in the browser (kanso.api.assistant), and then it goes through the same actions
-  path and outbox as a click in the app. There is no tool that sends, drafts or deletes mail.
-"""
+"""The assistant's tools, on the local mirror only. Change tools only propose: nothing changes
+until the user confirms it in the browser (kanso.api.assistant)."""
 
 import json
 from datetime import datetime, tzinfo
@@ -26,8 +16,8 @@ from kanso.db.models import Account, Label, Thread
 
 SEARCH_DEFAULT, SEARCH_MAX = 10, 20  # threads per search
 SNIPPET_LIMIT = 160
-BODY_LIMIT = 1500  # characters of each trimmed message body
-THREAD_LIMIT = 10000  # characters of bodies per thread, newest messages first
+BODY_LIMIT = 1500
+THREAD_LIMIT = 10000  # per thread, newest messages first
 MAX_TARGETS = 50  # threads one proposed change may touch
 
 # Tool name -> the triage action it proposes (kanso.api.actions.ACTIONS).
@@ -305,7 +295,6 @@ async def read(db: AsyncSession, name: str, data: Any, zone: tzinfo) -> dict[str
 
 
 async def propose(db: AsyncSession, tool_use_id: str, name: str, data: Any) -> dict[str, Any]:
-    """Check a change tool's input and describe the change for the user to confirm."""
     args = _parse(ChangeIn, data)
     if (name == "apply_label") != (args.label is not None):
         raise ToolError("apply_label needs `label`; the other tools take only `thread_ids`")
