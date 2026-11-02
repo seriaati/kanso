@@ -161,8 +161,8 @@
 
 .subject {
   margin: 0;
-  font-family: var(--font-heading);
   font-size: var(--text-subject);
+  line-height: 1.4;
   font-weight: 700;
   overflow-wrap: anywhere;
 }

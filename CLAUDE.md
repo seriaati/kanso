@@ -135,7 +135,8 @@ follows the system by default; the account menu's Theme row picks System, Light 
 per browser). HTML emails keep the light tokens and sit on a light sheet in the dark pane.
 
 - **Type**: Zen Maru Gothic for the UI and body text (13px UI, 14px message body, line-height
-  1.6–1.75). Shippori Mincho B1 for headings (pane titles 18px, email subject 21px).
+  1.6–1.75); the open email's subject is Zen Maru Gothic too, bold at 21px, like the subjects in
+  the list. Shippori Mincho B1 for pane and dialog titles (18px).
 - **Shape**: 8px radius on rows and buttons, 10px on inputs and cards. Hairline borders, no
   shadows, except one soft shadow under the floating new-message window.
 - **Icons**: line icons, 1.8px stroke, 15–17px, in `currentColor`.
