@@ -25,8 +25,10 @@ export function LabelPicker({ options, onToggle, onCreate, onClose }: Props) {
   const count = shown.length + (canCreate ? 1 : 0)
   const index = Math.min(active, Math.max(count - 1, 0))
 
+  // The picker shares its parent with the Label button that opened it: a press on that button is
+  // not "outside" (its click closes the picker instead of reopening it).
   const onOutside = useEffectEvent((event: PointerEvent) => {
-    if (!ref.current?.contains(event.target as Node)) onClose()
+    if (!ref.current?.parentElement?.contains(event.target as Node)) onClose()
   })
   useEffect(() => {
     const onPointer = (event: PointerEvent) => onOutside(event)

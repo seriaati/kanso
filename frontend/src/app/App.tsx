@@ -614,7 +614,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
                   targets={targets}
                   onQuick={(q) => quick(q)}
                   onToggleRead={toggleRead}
-                  onLabel={() => setPicking(true)}
+                  onLabel={() => setPicking((open) => !open)}
                   picker={picker}
                   phone={phone}
                   onBack={back}
