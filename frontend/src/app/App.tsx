@@ -14,7 +14,7 @@ import { Settings } from '../features/settings/Settings'
 import { Sidebar, type Notice } from '../features/sidebar/Sidebar'
 import { LabelInbox } from '../features/threads/LabelInbox'
 import { InboxZero, ThreadList, type LabelChip, type ListRow } from '../features/threads/ThreadList'
-import { useAccounts, type Account } from './accounts'
+import { pickAccount, rememberAccount, useAccounts, type Account } from './accounts'
 import { applied, inList, quickAction, quickTarget, useThreadAction, useUndo, type Quick, type SectionScope, type ThreadAction } from './actions'
 import { useConfig } from './ai'
 import { ApiError, Unauthorized } from './api'
@@ -23,6 +23,7 @@ import styles from './App.module.css'
 import { useCreateLabel } from './labels'
 import {
   labelColor,
+  namedLabel,
   useBundleThreads,
   useLabels,
   useLiveUpdates,
@@ -129,8 +130,13 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     container.addEventListener('message', onMessage)
     return () => container.removeEventListener('message', onMessage)
   }, [navigate])
-  const route = { ...urlRoute, accountId: accounts.some((a) => a.id === urlRoute.accountId) ? urlRoute.accountId : null }
-  const { view, threadId, accountId } = route
+  // null only while no account is connected.
+  const accountId = pickAccount(accounts, urlRoute.accountId)?.id ?? null
+  useEffect(() => {
+    if (accountId !== null) rememberAccount(accountId)
+  }, [accountId])
+  const route = { ...urlRoute, accountId }
+  const { view, threadId } = route
   const ai = useConfig().data?.ai ?? false
   const phone = usePhone()
   const update = useUpdateReady()
@@ -142,12 +148,12 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const grouped = view.kind === 'mailbox' && view.mailbox === 'inbox'
 
   const labels = useLabels(accountId)
-  const allLabels = useLabels(null, !!route.settings) // the settings page shows every account's
   const sync = useSync()
   const named = useMemo(() => userLabels(labels.data ?? []), [labels.data])
   const label = view.kind === 'label' ? named.find((l) => l.name === view.name) : undefined
-  const list = useThreads(view, accountId, label?.ids)
-  const listParams = viewParams(view, accountId, label?.ids)
+  const labelIds = label && [label.id]
+  const list = useThreads(view, accountId, labelIds)
+  const listParams = viewParams(view, accountId, labelIds)
   const labelsById = useMemo(
     () =>
       new Map<number, LabelChip>(
@@ -251,7 +257,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   // Threads leaving the view go at once and the cursor moves on, so e e e works through the inbox.
   const run = (action: ThreadAction, on: ThreadSummary[], withLabel?: NamedLabel, scope?: { section: SectionScope; count: number }) => {
     if (on.length === 0 && !scope) return
-    const label = withLabel && { name: withLabel.name, ids: new Map(withLabel.accountIds.map((a, i) => [a, withLabel.ids[i]])) }
+    const label = withLabel && { name: withLabel.name, id: withLabel.id }
     const leaving = new Set(on.filter((t) => !inList(listParams, applied(t, { action, label }))).map((t) => t.id))
     if (leaving.size) {
       select(new Set())
@@ -288,6 +294,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const quick = (q: Quick, on = targets) => run(quickTarget(q, on), on)
   // Every thread the user has seen (newer arrivals stay), loaded here or not.
   const doneAll = (section: Section) => {
+    if (accountId === null) return
     const loaded = section.bundle
       ? section.name === openBundle
         ? bundleThreads
@@ -385,7 +392,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const compose = () => {
     if (composing) return setComposing({ ...composing, minimized: false })
     startDraft(
-      () => createDraft('new', { accountId: accountId ?? accounts[0]?.id }).then((d) => d.id),
+      () => createDraft('new', { accountId: accountId ?? undefined }).then((d) => d.id),
       (draftId) => setComposing({ draftId, minimized: false }),
     )
   }
@@ -402,15 +409,12 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     )
   }
 
-  const accountIds = accountId === null ? accounts.map((a) => a.id) : [accountId]
-  const pickerOptions: LabelOption[] = named
-    .filter((l) => targets.every((t) => l.accountIds.includes(t.account_id)))
-    .map((l) => {
-      const count = targets.filter((t) => l.ids.some((id) => t.label_ids.includes(id))).length
-      return { name: l.name, color: l.color, state: count === 0 ? 'none' : count === targets.length ? 'all' : 'some' }
-    })
+  const pickerOptions: LabelOption[] = named.map((l) => {
+    const count = targets.filter((t) => t.label_ids.includes(l.id)).length
+    return { name: l.name, color: l.color, state: count === 0 ? 'none' : count === targets.length ? 'all' : 'some' }
+  })
   const picker =
-    picking && targets.length > 0 ? (
+    picking && targets.length > 0 && accountId !== null ? (
       <LabelPicker
         up={multi}
         options={pickerOptions}
@@ -419,19 +423,9 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
         onCreate={(name) => {
           const on = targets
           createLabel.mutate(
-            { name, color: null, account_ids: accountIds },
+            { name, color: null, account_id: accountId },
             {
-              onSuccess: (created) =>
-                run('label', on, {
-                  name,
-                  color: '',
-                  ids: created.map((l) => l.id),
-                  accountIds: created.map((l) => l.account_id),
-                  unread: 0,
-                  description: '',
-                  aiManaged: false,
-                  isBundle: false,
-                }),
+              onSuccess: (created) => run('label', on, namedLabel(created)),
               onError: (error) => say(`Couldn’t create the label: ${error.message}`),
             },
           )
@@ -454,7 +448,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     else go({ threadId: null }, true)
   }
 
-  const syncing = (sync.data ?? []).some((s) => s.state === 'backfill' && (accountId === null || s.account_id === accountId))
+  const syncing = (sync.data ?? []).some((s) => s.state === 'backfill' && s.account_id === accountId)
   let empty: ReactNode = `Nothing in ${title}.`
   if (accounts.length === 0)
     empty = (
@@ -567,7 +561,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   }, [])
 
   const screen = route.settings ? 'settings' : threadId !== null ? 'thread' : 'list'
-  const showAssistant = ai && !draftOnly && (threadId !== null || (asking && !phone))
+  const showAssistant = ai && accountId !== null && !draftOnly && (threadId !== null || (asking && !phone))
   const paneOpen = phone || threadId !== null || showAssistant
   const assistantOnly = threadId === null
 
@@ -598,14 +592,14 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
       />
       {drawerOpen && <div className={styles.scrim} onClick={() => setDrawer({ open: false, at: location.key })} aria-hidden="true" />}
       {route.settings ? (
-        <Settings accounts={accounts} labels={allLabels.data ?? []} sync={sync.data ?? []} ai={ai} onMenu={openDrawer} />
+        <Settings accounts={accounts} accountId={accountId} labels={labels.data ?? []} sync={sync.data ?? []} ai={ai} onMenu={openDrawer} />
       ) : (
         <>
           <ThreadList
             title={title}
             query={view.kind === 'search' ? view.q : ''}
             rows={missingLabel ? [] : rows}
-            status={missingLabel ? 'success' : list.status}
+            status={missingLabel || accountId === null ? 'success' : list.status}
             error={list.error}
             empty={empty}
             onRangeEnd={onRangeEnd}
@@ -615,7 +609,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
             labelsById={labelsById}
             hideLabel={label?.name}
             hideChips={grouped && ai}
-            labelInbox={ai && grouped ? <LabelInbox accountId={accountId} onFinished={say} /> : undefined}
+            labelInbox={ai && grouped && accountId !== null ? <LabelInbox accountId={accountId} onFinished={say} /> : undefined}
             onDoneAll={doneAll}
             onToggleBundle={(name) => setBundle(openBundle === name ? null : { viewKey, name })}
             threadHref={(id) => href({ ...route, threadId: id })}
@@ -688,6 +682,8 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
               )}
               {showAssistant && (
                 <Assistant
+                  key={accountId}
+                  accountId={accountId}
                   ref={assistantRef}
                   threadId={threadId}
                   threadHref={(id) => href({ ...route, threadId: id })}

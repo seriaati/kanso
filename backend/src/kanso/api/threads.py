@@ -174,7 +174,7 @@ MAILBOXES: dict[str, Any] = {
 # without it the inbox is one date-ordered list, but bundles still collapse.
 
 
-def _placed(account_id: int | None) -> Any:
+def _placed(account_id: int) -> Any:
     first = (
         select(Label.name.label("name"), Label.is_bundle.label("is_bundle"))
         .where(Label.id == Thread.label_ids.any_(), Label.type == "user")
@@ -192,15 +192,15 @@ def _placed(account_id: int | None) -> Any:
         )
         .select_from(Thread)
         .outerjoin(first, true())
-        .where(MAILBOXES["inbox"](), ~Thread.in_trash, ~Thread.in_spam)
+        .where(
+            Thread.account_id == account_id, MAILBOXES["inbox"](), ~Thread.in_trash, ~Thread.in_spam
+        )
     )
-    if account_id is not None:
-        stmt = stmt.where(Thread.account_id == account_id)
     return stmt.subquery("placed")
 
 
 async def section_thread_ids(
-    db: AsyncSession, name: str | None, bundle: bool, account_id: int | None, until: datetime
+    db: AsyncSession, name: str | None, bundle: bool, account_id: int, until: datetime
 ) -> list[int]:
     placed = _placed(account_id)
     if bundle:
@@ -212,7 +212,7 @@ async def section_thread_ids(
     return list(await db.scalars(select(placed.c.id).where(where, placed.c.at <= until)))
 
 
-async def _sections(db: AsyncSession, account_id: int | None) -> list[SectionOut]:
+async def _sections(db: AsyncSession, account_id: int) -> list[SectionOut]:
     placed = _placed(account_id)
     rows = await db.execute(
         select(placed.c.section, placed.c.bundle, func.count(), func.max(placed.c.at)).group_by(
@@ -244,9 +244,7 @@ async def _sections(db: AsyncSession, account_id: int | None) -> list[SectionOut
     return sections
 
 
-async def _grouped(
-    db: AsyncSession, account_id: int | None, cursor: str | None, limit: int
-) -> ThreadPage:
+async def _grouped(db: AsyncSession, account_id: int, cursor: str | None, limit: int) -> ThreadPage:
     """The inbox outside bundles, section by section."""
     placed = _placed(account_id)
     ranked = (
@@ -297,7 +295,7 @@ async def _grouped(
 @router.get("/threads")
 async def list_threads(
     db: DB,
-    account_id: int | None = None,
+    account_id: int,
     mailbox: Mailbox | None = None,
     label_id: Annotated[list[int] | None, Query()] = None,
     q: str = "",
@@ -306,8 +304,7 @@ async def list_threads(
     cursor: str | None = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> ThreadPage:
-    """The unified view passes the same-named label of each account. Trash and Spam are left out
-    unless asked for (mailbox, label or label: in the query)."""
+    """Trash and Spam are left out unless asked for (mailbox, label or label: in the query)."""
     if grouped or bundle is not None:
         if mailbox != "inbox" or label_id or q.strip():
             raise HTTPException(status_code=400, detail="Only the inbox is grouped")
@@ -318,8 +315,7 @@ async def list_threads(
         placed = _placed(account_id)
         stmt = stmt.join(placed, placed.c.id == Thread.id).where(placed.c.bundle == bundle)
     wants_trash_or_spam = mailbox in ("trash", "spam")
-    if account_id is not None:
-        stmt = stmt.where(Thread.account_id == account_id)
+    stmt = stmt.where(Thread.account_id == account_id)
     if mailbox:
         stmt = stmt.where(MAILBOXES[mailbox]())
     if label_id:

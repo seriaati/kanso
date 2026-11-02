@@ -12,12 +12,12 @@ type Props = {
   accounts: Account[]
   selected: Account | null
   ai: boolean
-  onSelect: (id: number | null) => void
+  onSelect: (id: number) => void
 }
 
 export function Avatar({ account }: { account: Account | null }) {
   return (
-    <span className={`${styles.avatar} ${account ? '' : styles.all}`} style={account ? { background: account.color } : undefined} aria-hidden="true">
+    <span className={`${styles.avatar} ${account ? '' : styles.none}`} style={account ? { background: account.color } : undefined} aria-hidden="true">
       {account ? account.display_name.charAt(0).toUpperCase() : <Icon name="accounts" size={14} strokeWidth={2} />}
     </span>
   )
@@ -60,7 +60,7 @@ export function AccountSwitcher({ accounts, selected, ai, onSelect }: Props) {
     }
   }, [open])
 
-  const select = (id: number | null) => {
+  const select = (id: number) => {
     onSelect(id)
     close()
   }
@@ -70,28 +70,14 @@ export function AccountSwitcher({ accounts, selected, ai, onSelect }: Props) {
       <button type="button" className={styles.trigger} aria-expanded={open} onClick={() => (open ? close() : setOpen(true))}>
         <Avatar account={selected} />
         <span className={styles.text}>
-          <span className={styles.name}>{selected ? selected.display_name : 'All accounts'}</span>
-          <span className={styles.sub}>
-            {selected ? selected.email : accounts.map((a) => a.display_name).join(' · ') || 'No account connected'}
-          </span>
+          <span className={styles.name}>{selected ? selected.display_name : 'No account connected'}</span>
+          {selected && <span className={styles.sub}>{selected.email}</span>}
         </span>
         <Icon name="chevronDown" size={12} strokeWidth={2} />
       </button>
 
       {open && (
         <div className={styles.popover} role="dialog" aria-label="Accounts">
-          <button
-            type="button"
-            className={styles.row}
-            aria-current={selected === null || undefined}
-            onClick={() => select(null)}
-          >
-            <Avatar account={null} />
-            <span className={styles.text}>
-              <span className={styles.name}>All accounts</span>
-            </span>
-          </button>
-
           {accounts.map((account) => (
             <button
               key={account.id}

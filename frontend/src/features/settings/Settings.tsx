@@ -11,14 +11,16 @@ import styles from './Settings.module.css'
 
 type Props = {
   accounts: Account[]
-  /** Every account's labels. */
+  /** The selected account (null: none connected) and its labels. */
+  accountId: number | null
   labels: Label[]
   sync: SyncStatus[]
   ai: boolean
   onMenu?: () => void
 }
 
-export function Settings({ accounts, labels, sync, ai, onMenu }: Props) {
+export function Settings({ accounts, accountId, labels, sync, ai, onMenu }: Props) {
+  const account = accounts.find((a) => a.id === accountId)
   const demo = useDemoPassword() !== null // true until known: no flash of Connect on a demo
   return (
     <section className={styles.settings} aria-label="Settings">
@@ -33,7 +35,7 @@ export function Settings({ accounts, labels, sync, ai, onMenu }: Props) {
       <div className={styles.scroll}>
         <div className={styles.page}>
           <Accounts accounts={accounts} sync={sync} demo={demo} />
-          <Labels labels={labels} accountIds={accounts.map((a) => a.id)} ai={ai} />
+          {account && <Labels account={account} labels={labels} ai={ai} />}
           {!demo && <Notifications />}
           {ai && <Assistant />}
           {ai && <Usage />}
@@ -177,19 +179,21 @@ function AccountEditor({ account, onDone }: { account: Account; onDone: () => vo
   )
 }
 
-function Labels({ labels, accountIds, ai }: { labels: Label[]; accountIds: number[]; ai: boolean }) {
+function Labels({ account, labels, ai }: { account: Account; labels: Label[]; ai: boolean }) {
   // '' for a new label.
   const [editing, setEditing] = useState<string | null>(null)
   const named = userLabels(labels)
   const flags = (label: NamedLabel) => [ai && label.aiManaged && 'AI labels new mail', label.isBundle && 'Bundled'].filter(Boolean).join(' · ')
   return (
     <Section title="Labels">
-      {ai && <p className={styles.intro}>Describe a label and turn on AI, and Claude sorts new inbox mail into it.</p>}
+      <p className={styles.intro}>
+        {account.email}’s labels.{ai && ' Describe a label and turn on AI, and Claude sorts new inbox mail into it.'}
+      </p>
       <ul className={styles.list}>
         {named.map((label) => (
           <li key={label.name}>
             {editing === label.name ? (
-              <LabelEditor label={label} accountIds={accountIds} ai={ai} onDone={() => setEditing(null)} />
+              <LabelEditor label={label} accountId={account.id} ai={ai} onDone={() => setEditing(null)} />
             ) : (
               <div className={styles.row}>
                 <span className={styles.dot} style={{ background: label.color }} aria-hidden="true" />
@@ -209,7 +213,7 @@ function Labels({ labels, accountIds, ai }: { labels: Label[]; accountIds: numbe
         ))}
       </ul>
       {editing === '' ? (
-        <LabelEditor accountIds={accountIds} ai={ai} onDone={() => setEditing(null)} />
+        <LabelEditor accountId={account.id} ai={ai} onDone={() => setEditing(null)} />
       ) : (
         <button type="button" className={styles.add} onClick={() => setEditing('')}>
           + New label

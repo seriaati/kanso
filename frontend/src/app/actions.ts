@@ -22,13 +22,12 @@ export type ThreadAction =
 export type ActionInput = {
   action: ThreadAction
   threads: ThreadSummary[]
-  /** account id -> label id */
-  label?: { name: string; ids: Map<number, number> }
+  label?: { name: string; id: number }
   /** "Done all": the server finds the section's threads; `threads` are only the loaded ones. */
   section?: SectionScope
 }
 
-export type SectionScope = { name: string | null; bundle: boolean; account_id: number | null; until: string }
+export type SectionScope = { name: string | null; bundle: boolean; account_id: number; until: string }
 
 const sectionKey = (name: string | null | undefined, bundle: boolean) => `${bundle ? 'b' : 's'}:${name ?? ''}`
 
@@ -51,8 +50,8 @@ export function applied(thread: ThreadSummary, { action, label }: Omit<ActionInp
       return { ...thread, unread: action === 'unread' }
     case 'label':
     case 'unlabel': {
-      const id = label?.ids.get(thread.account_id)
-      if (id === undefined) return thread
+      if (!label) return thread
+      const { id } = label
       const others = thread.label_ids.filter((l) => l !== id)
       return { ...thread, label_ids: action === 'label' ? [...others, id] : others }
     }

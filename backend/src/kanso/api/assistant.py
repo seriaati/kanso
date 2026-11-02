@@ -42,6 +42,7 @@ class ConversationDetail(BaseModel):
 
 
 class AskIn(BaseModel):
+    account_id: int  # the account the conversation is about
     conversation_id: int | None = None  # None: a new conversation
     text: str = Field(min_length=1, max_length=4000)
     thread_id: int | None = None  # the open thread, when "this thread" is on
@@ -72,8 +73,10 @@ def _sse(first: list[dict[str, Any]], rest: AsyncIterator[dict[str, Any]] | None
 
 
 @router.get("/conversations")
-async def conversations(db: DB) -> list[ConversationOut]:
-    return [ConversationOut.model_validate(c) for c in await assistant.recent(db, HISTORY)]
+async def conversations(db: DB, account_id: int) -> list[ConversationOut]:
+    return [
+        ConversationOut.model_validate(c) for c in await assistant.recent(db, account_id, HISTORY)
+    ]
 
 
 @router.get("/conversations/{conversation_id}")
@@ -97,7 +100,7 @@ async def ask(body: AskIn, db: DB) -> Response:
         lock = await assistant.acquire(body.conversation_id)
     try:
         conversation_id = await assistant.ask(
-            db, body.conversation_id, body.text, body.thread_id, body.timezone
+            db, body.account_id, body.conversation_id, body.text, body.thread_id, body.timezone
         )
         await db.commit()
     except BaseException:

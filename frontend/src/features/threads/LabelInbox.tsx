@@ -4,7 +4,7 @@ import { queryClient } from '../../app/api'
 import styles from './ThreadList.module.css'
 
 type Props = {
-  accountId: number | null
+  accountId: number
   onFinished: (text: string) => void
 }
 

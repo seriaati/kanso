@@ -45,6 +45,28 @@ export function useDisconnectAccount() {
   })
 }
 
+const LAST_KEY = 'kanso.account'
+
+// Each account is its own mailbox. Without one in the URL, the last one used in this browser
+// opens, else the first. null: no account connected yet.
+export function pickAccount(accounts: Account[], wanted: number | null): Account | null {
+  let last: number | null = null
+  try {
+    last = Number(localStorage.getItem(LAST_KEY)) || null
+  } catch {
+    // storage blocked
+  }
+  return accounts.find((a) => a.id === wanted) ?? accounts.find((a) => a.id === last) ?? accounts[0] ?? null
+}
+
+export function rememberAccount(id: number) {
+  try {
+    localStorage.setItem(LAST_KEY, String(id))
+  } catch {
+    // storage blocked
+  }
+}
+
 export async function logout() {
   await api('/auth/logout', { method: 'POST' }).catch(() => undefined)
   await queryClient.resetQueries()

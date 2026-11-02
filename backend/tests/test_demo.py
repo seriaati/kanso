@@ -73,7 +73,9 @@ def test_reset_goes_back_to_the_starting_state(logged_in: TestClient) -> None:
             "/api/threads/actions", json={"action": action, "thread_ids": [thread.id]}
         )
         assert response.status_code == 200, response.text
-    assert logged_in.post("/api/labels", json={"name": "Visitor"}).status_code == 201
+    assert (
+        logged_in.post("/api/labels", json={"name": "Visitor", "account_id": 1}).status_code == 201
+    )
     assert run(_state()) != start
 
     run(demo_seed.reset())

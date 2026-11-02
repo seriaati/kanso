@@ -48,7 +48,7 @@ Description = Annotated[str, StringConstraints(strip_whitespace=True, max_length
 class LabelCreate(BaseModel):
     name: LabelName
     color: KansoColor | None = None
-    account_ids: list[int] | None = None  # default: every account
+    account_id: int
     description: Description = ""
     ai_managed: bool = False
     is_bundle: bool = False
@@ -84,23 +84,21 @@ SELECT u.label_id, count(*) AS total, count(*) FILTER (WHERE t.unread) AS unread
 FROM threads t
 CROSS JOIN LATERAL unnest(t.label_ids) AS u(label_id)
 JOIN labels l ON l.id = u.label_id
-WHERE (CAST(:account_id AS integer) IS NULL OR t.account_id = :account_id)
+WHERE t.account_id = :account_id
   AND (l.gmail_id IN ('TRASH', 'SPAM') OR NOT (t.in_trash OR t.in_spam))
 GROUP BY u.label_id
 """)
 _MESSAGE_COUNTS = text("""
 SELECT ml.label_id, count(*)
 FROM message_labels ml JOIN labels l ON l.id = ml.label_id
-WHERE CAST(:account_id AS integer) IS NULL OR l.account_id = :account_id
+WHERE l.account_id = :account_id
 GROUP BY ml.label_id
 """)
 
 
 @router.get("/labels")
-async def list_labels(db: DB, account_id: int | None = None) -> list[LabelOut]:
-    stmt = select(Label).order_by(Label.account_id, Label.type, Label.name)
-    if account_id is not None:
-        stmt = stmt.where(Label.account_id == account_id)
+async def list_labels(db: DB, account_id: int) -> list[LabelOut]:
+    stmt = select(Label).where(Label.account_id == account_id).order_by(Label.type, Label.name)
     params = {"account_id": account_id}
     threads = {row.label_id: row for row in await db.execute(_THREAD_COUNTS, params)}
     messages: dict[int, int] = dict((await db.execute(_MESSAGE_COUNTS, params)).all())
@@ -175,47 +173,39 @@ async def _user_label(db: AsyncSession, label_id: int) -> tuple[Label, Account]:
 
 
 @router.post("/labels", status_code=201)
-async def create_label(body: LabelCreate, db: DB) -> list[LabelOut]:
-    """One label per account, merged by name in the UI."""
-    stmt = select(Account).order_by(Account.id)
-    if body.account_ids is not None:
-        stmt = stmt.where(Account.id.in_(body.account_ids))
-    accounts = list(await db.scalars(stmt))
-    if not accounts:
+async def create_label(body: LabelCreate, db: DB) -> LabelOut:
+    account = await db.get(Account, body.account_id)
+    if account is None:
         raise HTTPException(status_code=404, detail="Account not found")
-    for account in accounts:
-        await _check_name(db, account.id, body.name)
-    created = []
-    for account in accounts:  # committed one by one, so the mirror always matches Gmail
-        color = gmail_color(body.color) if body.color else None
-        if account.demo:
-            gmail_id = f"Label_{secrets.token_hex(6)}"
-        else:
-            request: dict[str, Any] = {
-                "name": body.name,
-                "labelListVisibility": "labelShow",
-                "messageListVisibility": "show",
-            }
-            if color:
-                request["color"] = color
-            async with gmail_client.http_client() as http:
-                try:
-                    response = await gmail_client.Gmail(account, http).create_label(request)
-                except gmail_client.GmailError as error:
-                    raise _gmail_failed(error) from error
-            gmail_id = response["id"]
-        background = color["backgroundColor"] if color else None
-        await store.save_label(db, account.id, gmail_id, body.name, background)
-        label = await db.scalar(
-            select(Label).where(Label.account_id == account.id, Label.gmail_id == gmail_id)
-        )
-        assert label is not None
-        label.description = body.description
-        label.ai_managed = body.ai_managed
-        label.is_bundle = body.is_bundle
-        await db.commit()
-        created.append(_out(label))
-    return created
+    await _check_name(db, account.id, body.name)
+    color = gmail_color(body.color) if body.color else None
+    if account.demo:
+        gmail_id = f"Label_{secrets.token_hex(6)}"
+    else:
+        request: dict[str, Any] = {
+            "name": body.name,
+            "labelListVisibility": "labelShow",
+            "messageListVisibility": "show",
+        }
+        if color:
+            request["color"] = color
+        async with gmail_client.http_client() as http:
+            try:
+                response = await gmail_client.Gmail(account, http).create_label(request)
+            except gmail_client.GmailError as error:
+                raise _gmail_failed(error) from error
+        gmail_id = response["id"]
+    background = color["backgroundColor"] if color else None
+    await store.save_label(db, account.id, gmail_id, body.name, background)
+    label = await db.scalar(
+        select(Label).where(Label.account_id == account.id, Label.gmail_id == gmail_id)
+    )
+    assert label is not None
+    label.description = body.description
+    label.ai_managed = body.ai_managed
+    label.is_bundle = body.is_bundle
+    await db.commit()
+    return _out(label)
 
 
 @router.patch("/labels/{label_id}")

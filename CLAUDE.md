@@ -31,7 +31,7 @@ Check every change against these. If a change conflicts with one, stop and ask.
 |---|---|
 | Email provider | **Gmail only**, via the Gmail API with OAuth. No IMAP/Outlook. |
 | Sync model | **Two-way sync.** Gmail is the source of truth. kanso mirrors *all* of it in Postgres and writes archive, label and read-state changes back to Gmail, so other Gmail clients stay consistent. |
-| Accounts | **One user, multiple Gmail accounts**, with a unified view or a per-account view. |
+| Accounts | **One user, multiple Gmail accounts**, each independent: one account is in view at a time (its mail, labels and assistant conversations), with no combined view. |
 | AI provider | **Anthropic (Claude)** with the user's own API key. The model is configurable via env. |
 | Search | **Postgres full-text search.** No vector search in v1. |
 | Clients | **Web app plus an installable PWA**: desktop-first, also usable on a phone. No native apps. |
@@ -85,7 +85,7 @@ The reference mockup is the "3 · Chosen — Koke + indigo, split view" artboard
 (https://claude.ai/artifact/V1JQgMWnzg11fKx9W61eUb). New screens and components follow it.
 
 **Layout: split view**
-- **Sidebar** (~200px): the account switcher at the top ("All accounts" or one account), then
+- **Sidebar** (~200px): the account switcher at the top (one account at a time; the last used per browser), then
   Compose (the primary button), mailboxes with line icons (Inbox, Starred, Done, Sent, Drafts,
   All mail, then Spam and Trash in muted text), labels with color dots, and "+ New label". A
   label's "⋯" opens a small "more actions" menu (Edit, Delete); editing, creating and deleting

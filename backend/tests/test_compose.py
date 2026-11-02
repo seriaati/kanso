@@ -332,7 +332,7 @@ def draft_rows() -> list[Draft]:
 
 
 def thread_subjects(api: TestClient, mailbox: str) -> list[str]:
-    response = api.get("/api/threads", params={"mailbox": mailbox})
+    response = api.get("/api/threads", params={"account_id": 1, "mailbox": mailbox})
     return [t["subject"] for t in response.json()["threads"]]
 
 
@@ -633,7 +633,10 @@ def demo(logged_in: TestClient) -> TestClient:
 
 @db_test
 def test_demo_account_drafts_and_sends_locally(demo: TestClient) -> None:
-    daniel = next(t for t in demo.get("/api/threads", params={"q": "Dinner"}).json()["threads"])
+    daniel = next(
+        t
+        for t in demo.get("/api/threads", params={"account_id": 1, "q": "Dinner"}).json()["threads"]
+    )
     thread = demo.get(f"/api/threads/{daniel['id']}").json()
     latest = thread["messages"][-1]["id"]
     draft = demo.post("/api/drafts", json={"mode": "reply", "message_id": latest}).json()
@@ -652,7 +655,10 @@ def test_demo_account_drafts_and_sends_locally(demo: TestClient) -> None:
 
     # The seeded draft (written "elsewhere") opens too.
     seeded = next(
-        t for t in demo.get("/api/threads", params={"mailbox": "drafts"}).json()["threads"]
+        t
+        for t in demo.get("/api/threads", params={"account_id": 1, "mailbox": "drafts"}).json()[
+            "threads"
+        ]
     )
     detail = demo.get(f"/api/threads/{seeded['id']}").json()
     opened = demo.post("/api/drafts/open", json={"message_id": detail["messages"][0]["id"]}).json()

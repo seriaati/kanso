@@ -89,11 +89,12 @@ export type SyncStatus = {
 
 export type ThreadPage = { threads: ThreadSummary[]; next_cursor: string | null; sections?: Section[] | null }
 
-export function useLabels(accountId: number | null, enabled = true) {
+// accountId is null only while no account is connected.
+export function useLabels(accountId: number | null) {
   return useQuery({
     queryKey: ['labels', accountId],
-    queryFn: () => api<Label[]>(accountId === null ? '/labels' : `/labels?account_id=${accountId}`),
-    enabled,
+    queryFn: () => api<Label[]>(`/labels?account_id=${accountId}`),
+    enabled: accountId !== null,
   })
 }
 
@@ -115,7 +116,7 @@ export function viewParams(view: View, accountId: number | null, labelIds: numbe
 
 export function useThreads(view: View, accountId: number | null, labelIds: number[] | undefined) {
   const params = viewParams(view, accountId, labelIds)
-  const enabled = view.kind !== 'label' || !!labelIds?.length
+  const enabled = accountId !== null && (view.kind !== 'label' || !!labelIds?.length)
   return useInfiniteQuery({
     queryKey: ['threads', params.toString()],
     queryFn: ({ pageParam }) => api<ThreadPage>(`/threads?${params}${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`),
@@ -133,7 +134,7 @@ export function useBundleThreads(bundle: string | null, accountId: number | null
     queryFn: ({ pageParam }) => api<ThreadPage>(`/threads?${params}${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`),
     initialPageParam: '',
     getNextPageParam: (page) => page.next_cursor ?? undefined,
-    enabled: bundle !== null,
+    enabled: bundle !== null && accountId !== null,
   })
 }
 
@@ -210,42 +211,35 @@ export function useLiveUpdates(onWriteFailed: (action: string) => void, onSendFa
   }, [])
 }
 
-// The unified view merges same-named labels across accounts.
+// A user label of the account, as the sidebar and pickers show it.
 export type NamedLabel = {
+  id: number
   name: string
   color: string
-  ids: number[]
-  accountIds: number[]
   unread: number
-  // kanso's own, the same for every account
+  // kanso's own
   description: string
   aiManaged: boolean
   isBundle: boolean
 }
 
-export function userLabels(labels: Label[]): NamedLabel[] {
-  const byName = new Map<string, NamedLabel>()
-  for (const label of labels) {
-    if (label.type !== 'user') continue
-    const named = byName.get(label.name)
-    if (named) {
-      named.ids.push(label.id)
-      named.accountIds.push(label.account_id)
-      named.unread += label.threads_unread
-    } else {
-      byName.set(label.name, {
-        name: label.name,
-        color: labelColor(label.color),
-        ids: [label.id],
-        accountIds: [label.account_id],
-        unread: label.threads_unread,
-        description: label.description,
-        aiManaged: label.ai_managed,
-        isBundle: label.is_bundle,
-      })
-    }
+export function namedLabel(label: Label): NamedLabel {
+  return {
+    id: label.id,
+    name: label.name,
+    color: labelColor(label.color),
+    unread: label.threads_unread,
+    description: label.description,
+    aiManaged: label.ai_managed,
+    isBundle: label.is_bundle,
   }
-  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export function userLabels(labels: Label[]): NamedLabel[] {
+  return labels
+    .filter((l) => l.type === 'user')
+    .map(namedLabel)
+    .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 // A Gmail label color outside this palette is drawn in the nearest one, so Gmail's bright

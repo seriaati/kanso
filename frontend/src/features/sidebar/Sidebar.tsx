@@ -34,7 +34,7 @@ type Props = {
   ai: boolean
   update: boolean
   drawer?: { open: boolean }
-  onSelectAccount: (id: number | null) => void
+  onSelectAccount: (id: number) => void
   onCompose: () => void
   onLabelChanged: (name: string, change: { renamed?: string; deleted?: boolean }) => void
 }
@@ -47,7 +47,6 @@ export function Sidebar(props: Props) {
   const [deleting, setDeleting] = useState<string | null>(null)
   const edited = userLabels.find((l) => l.name === editing)
   const deleted = userLabels.find((l) => l.name === deleting)
-  const accountIds = route.accountId === null ? accounts.map((a) => a.id) : [route.accountId]
   const selected = accounts.find((a) => a.id === route.accountId) ?? null
   const inboxTotal = labels.filter((l) => l.gmail_id === 'INBOX').reduce((sum, l) => sum + l.threads_total, 0)
   const to = (view: View) => href({ view, threadId: null, accountId: route.accountId })
@@ -119,10 +118,12 @@ export function Sidebar(props: Props) {
             </div>
           )
         })}
-        <button type="button" className={styles.newLabel} onClick={() => setEditing('')}>
-          <Icon name="plus" size={15} />
-          New label
-        </button>
+        {route.accountId !== null && (
+          <button type="button" className={styles.newLabel} onClick={() => setEditing('')}>
+            <Icon name="plus" size={15} />
+            New label
+          </button>
+        )}
       </div>
       {menu && (
         <Menu
@@ -135,11 +136,11 @@ export function Sidebar(props: Props) {
           ]}
         />
       )}
-      {editing !== null && (editing === '' || edited) && (
+      {editing !== null && (editing === '' || edited) && route.accountId !== null && (
         <Dialog title={edited ? 'Edit label' : 'New label'} onClose={() => setEditing(null)}>
           <LabelEditor
             label={edited}
-            accountIds={accountIds}
+            accountId={route.accountId}
             ai={ai}
             plain
             onDone={(change) => {
@@ -179,7 +180,7 @@ export function Sidebar(props: Props) {
           </button>
         </div>
       )}
-      <SyncNote sync={sync.filter((s) => route.accountId === null || s.account_id === route.accountId)} />
+      <SyncNote sync={sync.filter((s) => s.account_id === route.accountId)} />
     </nav>
   )
 }

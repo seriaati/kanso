@@ -47,6 +47,8 @@ function write(key: string, value: string | null) {
 export type AssistantHandle = { focus: () => void }
 
 type Props = {
+  /** Its conversations are the account's: App remounts it (key) when the account changes. */
+  accountId: number
   threadId: number | null
   threadHref: (id: number) => string
   onOpenThread: (id: number) => void
@@ -60,11 +62,12 @@ type Props = {
 // Shown until the stored conversation has caught up.
 type Live = { base: ChatItem[]; items: ChatItem[]; error: string | null; endedAt: number | null }
 
-export function Assistant({ threadId, threadHref, onOpenThread, onNotice, phone, onClose, ref }: Props) {
+export function Assistant({ accountId, threadId, threadHref, onOpenThread, onNotice, phone, onClose, ref }: Props) {
+  const storageKey = `${CONVERSATION_KEY}.${accountId}`
   const [minimizedDocked, setMinimized] = useState(() => phone || read(MINIMIZED_KEY) === '1')
   const alone = !!onClose
   const minimized = minimizedDocked && !alone
-  const [conversationId, setConversationId] = useState(() => Number(read(CONVERSATION_KEY)) || null)
+  const [conversationId, setConversationId] = useState(() => Number(read(storageKey)) || null)
   const [history, setHistory] = useState(false)
   // The "this thread" chip comes back for each newly opened thread.
   const [scope, setScope] = useState<{ threadId: number | null; all: boolean }>({ threadId, all: false })
@@ -88,7 +91,7 @@ export function Assistant({ threadId, threadHref, onOpenThread, onNotice, phone,
 
   const open = (id: number | null) => {
     abort.current?.abort()
-    write(CONVERSATION_KEY, id === null ? null : String(id))
+    write(storageKey, id === null ? null : String(id))
     setConversationId(id)
     setLive(null)
     setHistory(false)
@@ -128,7 +131,7 @@ export function Assistant({ threadId, threadHref, onOpenThread, onNotice, phone,
       switch (event.type) {
         case 'conversation':
           id = event.id
-          write(CONVERSATION_KEY, String(id))
+          write(storageKey, String(id))
           setConversationId(id)
           break
         case 'text':
@@ -170,7 +173,7 @@ export function Assistant({ threadId, threadHref, onOpenThread, onNotice, phone,
         if (controller.signal.aborted) return
         update((l) => ({ ...l, endedAt: Date.now() }))
         if (id !== null) void queryClient.invalidateQueries({ queryKey: conversationKey(id) })
-        void queryClient.invalidateQueries({ queryKey: conversationsKey })
+        void queryClient.invalidateQueries({ queryKey: conversationsKey(accountId) })
       })
   }
 
@@ -181,7 +184,7 @@ export function Assistant({ threadId, threadHref, onOpenThread, onNotice, phone,
     setHistory(false)
     atBottom.current = true
     const about = allMail ? null : threadId
-    stream((onEvent, signal) => ask(current, text, about, onEvent, signal), [{ kind: 'user', text }])
+    stream((onEvent, signal) => ask(accountId, current, text, about, onEvent, signal), [{ kind: 'user', text }])
   }
   const onDecide = (action: AssistantAction, confirm: boolean) => {
     if (busy || current === null) return
@@ -281,7 +284,7 @@ export function Assistant({ threadId, threadHref, onOpenThread, onNotice, phone,
             }}
           >
             {history ? (
-              <History current={current} onOpen={open} />
+              <History accountId={accountId} current={current} onOpen={open} />
             ) : (
               <>
                 {items.map((item, i) => (
@@ -438,12 +441,12 @@ function Proposal({ action, busy, threadHref, onOpenThread, onDecide, onUndo }: 
   )
 }
 
-function History({ current, onOpen }: { current: number | null; onOpen: (id: number | null) => void }) {
-  const list = useConversations(true)
+function History({ accountId, current, onOpen }: { accountId: number; current: number | null; onOpen: (id: number | null) => void }) {
+  const list = useConversations(accountId)
   const remove = (id: number) =>
     deleteConversation(id).then(() => {
       if (id === current) onOpen(null)
-      void queryClient.invalidateQueries({ queryKey: conversationsKey })
+      void queryClient.invalidateQueries({ queryKey: conversationsKey(accountId) })
     })
   if (list.isError) return <p className={styles.error}>Couldn’t load your conversations: {list.error.message}</p>
   if (!list.data) return null

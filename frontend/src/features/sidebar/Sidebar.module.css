@@ -1,5 +1,6 @@
 .sidebar {
   flex: 0 0 200px;
+  min-width: 0; /* long names ellipsize instead of widening it */
   min-height: 0;
   padding: 14px 10px;
   background: var(--sidebar);

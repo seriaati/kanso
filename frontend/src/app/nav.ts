@@ -1,6 +1,6 @@
 import { useLocation } from 'react-router'
 
-// Labels go by name in the URL: the unified view merges accounts' labels by name.
+// Labels go by name in the URL. `accountId` is the URL's; App picks one when it's missing.
 
 export const mailboxes = ['inbox', 'starred', 'done', 'sent', 'drafts', 'all', 'trash', 'spam'] as const
 export type Mailbox = (typeof mailboxes)[number]

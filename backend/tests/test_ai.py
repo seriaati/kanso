@@ -516,13 +516,13 @@ def test_label_existing_inbox_covers_unlabeled_inbox_threads_only(
             "/api/threads/actions",
             json={"action": action, "thread_ids": [ids["t4"].id], "label": "Work"},
         )
-    assert synced.get("/api/ai/label-inbox").json() == {"eligible": 1, "run": None}
-    started = synced.post("/api/ai/label-inbox", json={}).json()
+    assert synced.get("/api/ai/label-inbox?account_id=1").json() == {"eligible": 1, "run": None}
+    started = synced.post("/api/ai/label-inbox", json={"account_id": 1}).json()
     assert started["run"]["total"] == 1 and started["run"]["pending"] == 1
     assert queued() == {"t1": "pending"}
     claude.answers = [{"label": "Finance", "confidence": 0.9}]
     process(claude)
-    status = synced.get("/api/ai/label-inbox").json()
+    status = synced.get("/api/ai/label-inbox?account_id=1").json()
     assert status["eligible"] == 0
     assert status["run"] | {"id": 0} == {
         "id": 0,
@@ -557,9 +557,9 @@ def test_a_demo_instance_sends_its_demo_mail_to_claude(
 
     monkeypatch.setattr(settings, "demo_mode", True)  # all mail is made up there
     run(demo_seed.seed())
-    eligible = logged_in.get("/api/ai/label-inbox").json()["eligible"]
+    eligible = logged_in.get("/api/ai/label-inbox?account_id=1").json()["eligible"]
     assert eligible > 0
-    logged_in.post("/api/ai/label-inbox", json={})
+    logged_in.post("/api/ai/label-inbox", json={"account_id": 1})
     process(claude)
     assert len(claude.requests) == eligible
 
@@ -570,7 +570,7 @@ def test_ai_off_hides_and_runs_nothing(
     assert synced.get("/api/config").json() == {"ai": False}
     new_mail(gmail, "m6", "t6", "Bill", "x")
     assert rows(AiQueue) == []
-    assert synced.post("/api/ai/label-inbox", json={}).status_code == 409
+    assert synced.post("/api/ai/label-inbox", json={"account_id": 1}).status_code == 409
     assert process(claude) == 0 and claude.requests == []
 
 
@@ -579,7 +579,7 @@ def test_config_with_a_key(ai_on: None, logged_in: TestClient) -> None:
 
 
 def _grouped(api: TestClient, query: str = "") -> dict[str, Any]:
-    response = api.get(f"/api/threads?mailbox=inbox&grouped=true{query}")
+    response = api.get(f"/api/threads?account_id=1&mailbox=inbox&grouped=true{query}")
     assert response.status_code == 200, response.text
     return response.json()
 
@@ -610,7 +610,7 @@ def test_grouped_inbox_sections_and_bundles(ai_on: None, synced: TestClient) -> 
         ("Newsletters", True): 1,
     }
     assert sections[("Newsletters", True)]["senders"] == ["Brief"]
-    bundle = synced.get("/api/threads?mailbox=inbox&bundle=Newsletters").json()
+    bundle = synced.get("/api/threads?account_id=1&mailbox=inbox&bundle=Newsletters").json()
     assert [t["subject"] for t in bundle["threads"]] == ["Weekly brief"]
 
     # Cursor pagination walks the same order.
@@ -660,7 +660,7 @@ def test_done_all_clears_a_section_seen_until_then_undo(ai_on: None, synced: Tes
     run(_add_threads({"t9": ["INBOX"]}))  # arrives after the user looked: left alone
     response = synced.post(
         "/api/threads/actions",
-        json={"action": "done", "section": {"name": None, "until": until}},
+        json={"action": "done", "section": {"name": None, "account_id": 1, "until": until}},
     )
     entries = response.json()["entries"]
     state = threads()
@@ -668,13 +668,18 @@ def test_done_all_clears_a_section_seen_until_then_undo(ai_on: None, synced: Tes
     assert state["t9"].in_inbox and state["t2"].in_inbox  # newer, or another section
     synced.post("/api/threads/undo", json={"entries": entries})
     assert threads()["t1"].in_inbox and threads()["t4"].in_inbox
-    bundle = {"name": "Newsletters", "bundle": True, "until": "2100-01-01T00:00:00Z"}
+    bundle = {
+        "name": "Newsletters",
+        "bundle": True,
+        "account_id": 1,
+        "until": "2100-01-01T00:00:00Z",
+    }
     synced.post("/api/threads/actions", json={"action": "done", "section": bundle})
     assert not threads()["t5"].in_inbox
 
 
 def test_label_settings_are_local(synced: TestClient, gmail: FakeGmail) -> None:
-    label = next(lb for lb in synced.get("/api/labels").json() if lb["name"] == "Work")
+    label = next(lb for lb in synced.get("/api/labels?account_id=1").json() if lb["name"] == "Work")
     assert (label["description"], label["ai_managed"], label["is_bundle"]) == (
         "work mail",
         True,
@@ -690,6 +695,7 @@ def test_label_settings_are_local(synced: TestClient, gmail: FakeGmail) -> None:
     )
     assert len(gmail.writes) == writes  # nothing for Gmail
     created = synced.post(
-        "/api/labels", json={"name": "Receipts", "description": "orders", "is_bundle": True}
+        "/api/labels",
+        json={"name": "Receipts", "description": "orders", "is_bundle": True, "account_id": 1},
     ).json()
-    assert created[0]["is_bundle"] and created[0]["description"] == "orders"
+    assert created["is_bundle"] and created["description"] == "orders"

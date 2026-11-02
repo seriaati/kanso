@@ -69,7 +69,10 @@ def test_cross_site_requests_are_rejected(logged_in: TestClient, method: str, pa
 def test_requests_with_the_header_pass(logged_in: TestClient, password: str) -> None:
     # AI is off in these tests: both streams answer 409 from their handlers, past the check.
     assert logged_in.post("/api/threads/1/summary").status_code == 409
-    assert logged_in.post("/api/assistant/messages", json={"text": "hi"}).status_code == 409
+    assert (
+        logged_in.post("/api/assistant/messages", json={"account_id": 1, "text": "hi"}).status_code
+        == 409
+    )
     assert logged_in.post("/api/auth/login", json={"password": password}).status_code == 204
 
 

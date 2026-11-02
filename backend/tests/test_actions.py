@@ -212,10 +212,9 @@ def test_bulk_across_accounts_including_demo(synced: TestClient, gmail: FakeGmai
     run(demo_seed.seed())
     demo_inbox = [
         t["id"]
-        for t in synced.get("/api/threads", params={"mailbox": "inbox", "limit": 200}).json()[
-            "threads"
-        ]
-        if t["account_id"] == 2
+        for t in synced.get(
+            "/api/threads", params={"account_id": 2, "mailbox": "inbox", "limit": 200}
+        ).json()["threads"]
     ]
     ids = demo_inbox + [threads()["t1"].id, threads()["t2"].id]
     response = synced.post("/api/threads/actions", json={"action": "done", "thread_ids": ids})
@@ -223,8 +222,9 @@ def test_bulk_across_accounts_including_demo(synced: TestClient, gmail: FakeGmai
     real, demo = sorted(entries(), key=lambda e: e.account_id)
     assert (real.account_id, sorted(real.message_ids)) == (1, ["m1", "m3"])
     assert demo.account_id == 2 and len(demo.message_ids) >= len(demo_inbox)
-    inbox = synced.get("/api/threads", params={"mailbox": "inbox"}).json()["threads"]
-    assert inbox == []
+    for account_id in (1, 2):
+        inbox = synced.get("/api/threads", params={"account_id": account_id, "mailbox": "inbox"})
+        assert inbox.json()["threads"] == []
 
     assert drain(gmail) == 2
     assert [e.status for e in entries()] == ["sent", "sent"]
@@ -437,9 +437,13 @@ def test_pending_undo_is_not_bounced_by_sync(synced: TestClient, gmail: FakeGmai
 
 def test_drafts_only_threads_are_not_in_done(logged_in: TestClient) -> None:
     run(demo_seed.seed())
-    done = logged_in.get("/api/threads", params={"mailbox": "done", "limit": 200}).json()
+    done = logged_in.get(
+        "/api/threads", params={"account_id": 1, "mailbox": "done", "limit": 200}
+    ).json()
     assert "Notes on the contract" not in [t["subject"] for t in done["threads"]]
-    drafts = logged_in.get("/api/threads", params={"mailbox": "drafts"}).json()["threads"]
+    drafts = logged_in.get("/api/threads", params={"account_id": 1, "mailbox": "drafts"}).json()[
+        "threads"
+    ]
     assert [t["subject"] for t in drafts] == ["Notes on the contract"]
 
 
@@ -452,17 +456,18 @@ async def _labels() -> dict[str, tuple[str, str | None]]:
 
 
 def test_label_create_rename_recolor_delete(synced: TestClient, gmail: FakeGmail) -> None:
-    response = synced.post("/api/labels", json={"name": "Travel", "color": "#556B3F"})
+    travel = {"name": "Travel", "color": "#556B3F", "account_id": 1}
+    response = synced.post("/api/labels", json=travel)
     assert response.status_code == 201, response.text
-    [label] = response.json()
+    label = response.json()
     gmail_label = next(x for x in gmail.labels if x["name"] == "Travel")
     # Gmail only takes its own palette: the nearest Gmail color goes out and is mirrored.
     assert gmail_label["color"] == {"backgroundColor": "#1a764d", "textColor": "#ffffff"}
     assert run(_labels())[gmail_label["id"]] == ("Travel", "#1a764d")
 
-    same = synced.post("/api/labels", json={"name": "travel"})
+    same = synced.post("/api/labels", json={"name": "travel", "account_id": 1})
     assert same.status_code == 409
-    assert synced.post("/api/labels", json={"name": "inbox"}).status_code == 409
+    assert synced.post("/api/labels", json={"name": "inbox", "account_id": 1}).status_code == 409
 
     act(synced, "label", "t2", label="Travel")
     drain(gmail)
@@ -481,23 +486,27 @@ def test_label_create_rename_recolor_delete(synced: TestClient, gmail: FakeGmail
     assert gmail_label not in gmail.labels
     assert gmail_label["id"] not in run(_labels())
     assert len(threads()["t2"].label_ids) == 2  # INBOX, STARRED
-    inbox_id = next(x["id"] for x in synced.get("/api/labels").json() if x["gmail_id"] == "INBOX")
+    inbox_id = next(
+        x["id"] for x in synced.get("/api/labels?account_id=1").json() if x["gmail_id"] == "INBOX"
+    )
     assert synced.patch(f"/api/labels/{inbox_id}", json={"name": "x"}).status_code == 400
 
 
 def test_label_management_on_demo_is_local(synced: TestClient, gmail: FakeGmail) -> None:
     run(demo_seed.seed())
-    response = synced.post("/api/labels", json={"name": "Garden", "account_ids": [2]})
+    response = synced.post("/api/labels", json={"name": "Garden", "account_id": 2})
     assert response.status_code == 201
-    [label] = response.json()
+    label = response.json()
     assert label["account_id"] == 2 and label["color"] is None
     assert synced.patch(f"/api/labels/{label['id']}", json={"color": "#A07338"}).status_code == 200
     assert synced.delete(f"/api/labels/{label['id']}").status_code == 204
     assert gmail.writes == []
 
 
-def test_label_created_in_every_account(synced: TestClient, gmail: FakeGmail) -> None:
+def test_label_created_in_one_account(synced: TestClient, gmail: FakeGmail) -> None:
     run(demo_seed.seed())
-    response = synced.post("/api/labels", json={"name": "Garden", "color": "#B8B3A2"})
-    assert sorted(x["account_id"] for x in response.json()) == [1, 2]
+    garden = {"name": "Garden", "color": "#B8B3A2", "account_id": 1}
+    assert synced.post("/api/labels", json=garden).json()["account_id"] == 1
+    assert "Garden" not in [x["name"] for x in synced.get("/api/labels?account_id=2").json()]
+    assert synced.post("/api/labels", json=garden | {"account_id": 99}).status_code == 404
     assert gmail.writes[0][1]["color"] == {"backgroundColor": "#c2c2c2", "textColor": "#000000"}

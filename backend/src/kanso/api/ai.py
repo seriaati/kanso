@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy import ColumnElement, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kanso.ai import labeling, summaries, usage
@@ -57,7 +57,7 @@ class LabelInboxOut(BaseModel):
 
 
 class LabelInboxIn(BaseModel):
-    account_id: int | None = None  # None: every account
+    account_id: int
 
 
 @router.get("/config")
@@ -71,10 +71,8 @@ async def ai_usage(db: DB) -> UsageOut:
     return UsageOut.model_validate(summary | {"key_rejected": await usage.key_was_rejected(db)})
 
 
-async def _latest_run(db: AsyncSession, account_id: int | None) -> RunOut | None:
-    scope: list[ColumnElement[bool]] = [AiQueue.run_id.is_not(None)]
-    if account_id is not None:
-        scope.append(AiQueue.account_id == account_id)
+async def _latest_run(db: AsyncSession, account_id: int) -> RunOut | None:
+    scope = [AiQueue.run_id.is_not(None), AiQueue.account_id == account_id]
     run_id = await db.scalar(select(func.max(AiQueue.run_id)).where(*scope))
     if run_id is None:
         return None
@@ -101,10 +99,8 @@ async def _latest_run(db: AsyncSession, account_id: int | None) -> RunOut | None
 
 
 @router.get("/ai/label-inbox")
-async def label_inbox_status(db: DB, account_id: int | None = None) -> LabelInboxOut:
-    stmt = labeling.eligible()
-    if account_id is not None:
-        stmt = stmt.where(Thread.account_id == account_id)
+async def label_inbox_status(db: DB, account_id: int) -> LabelInboxOut:
+    stmt = labeling.eligible().where(Thread.account_id == account_id)
     eligible = await db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
     return LabelInboxOut(eligible=eligible, run=await _latest_run(db, account_id))
 

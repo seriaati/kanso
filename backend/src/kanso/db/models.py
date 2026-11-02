@@ -271,6 +271,9 @@ class AssistantConversation(Base):
     __tablename__ = "assistant_conversations"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("accounts.id", ondelete="CASCADE"), index=True
+    )
     title: Mapped[str] = mapped_column(Text, server_default="")  # the first question, shortened
     # From the browser; dates shown to Claude are in it.
     timezone: Mapped[str] = mapped_column(String(64), server_default="UTC")

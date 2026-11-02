@@ -21,7 +21,7 @@ from kanso.api.actions import apply_action, publish
 from kanso.core.settings import settings
 from kanso.db import prefs
 from kanso.db import redis as events
-from kanso.db.models import AssistantConversation, AssistantMessage, Thread
+from kanso.db.models import Account, AssistantConversation, AssistantMessage, Thread
 from kanso.db.session import Session
 from kanso.sync import outbox, store
 
@@ -37,8 +37,8 @@ TITLE_LIMIT = 80
 INSTRUCTIONS = """You are the assistant in kanso, the user's email client. You help the user \
 find, understand and triage their own email.
 
-search_threads, get_thread and list_labels read the user's whole mailbox (every connected Gmail \
-account, the full history) from kanso's local copy. Look things up before answering anything \
+search_threads, get_thread and list_labels read the user's mailbox (the Gmail account they're \
+in, the full history) from kanso's local copy. Look things up before answering anything \
 about their mail; don't guess. Search matches words, not meaning: try a few short queries with \
 distinctive words (names, places, companies, booking or order numbers) and their likely \
 variants, and use after:/before: for dates. Read a thread with get_thread when its snippet isn't \
@@ -146,7 +146,7 @@ def _close(last: AssistantMessage | None) -> list[dict[str, Any]]:
     return results
 
 
-async def _context(db: AsyncSession, timezone: str, thread_id: int | None) -> str:
+async def _context(db: AsyncSession, account_id: int, timezone: str, thread_id: int | None) -> str:
     lines = [f"Now: {_now().astimezone(zone(timezone)).strftime('%a %d %b %Y %H:%M')} ({timezone})"]
     if not await prefs.assistant_confirm(db):
         lines.append(
@@ -154,7 +154,9 @@ async def _context(db: AsyncSession, timezone: str, thread_id: int | None) -> st
             "without asking the user. Be sure the user asked for the change."
         )
     if thread_id is not None:
-        thread = await db.scalar(select(Thread).where(Thread.id == thread_id, tools.real()))
+        thread = await db.scalar(
+            select(Thread).where(Thread.id == thread_id, tools.real(account_id))
+        )
         if thread is not None:
             lines.append(f"This thread: [{thread.subject or '(no subject)'}](thread:{thread.id})")
     return "<context>\n" + "\n".join(lines) + "\n</context>"
@@ -166,22 +168,33 @@ def _title(text: str) -> str:
 
 
 async def ask(
-    db: AsyncSession, conversation_id: int | None, text: str, thread_id: int | None, timezone: str
+    db: AsyncSession,
+    account_id: int,
+    conversation_id: int | None,
+    text: str,
+    thread_id: int | None,
+    timezone: str,
 ) -> int:
     """The caller commits, then runs the loop."""
     if conversation_id is None:
-        conversation = AssistantConversation(title=_title(text))
+        if await db.get(Account, account_id) is None:
+            raise HTTPException(status_code=404, detail="Account not found")
+        conversation = AssistantConversation(account_id=account_id, title=_title(text))
         db.add(conversation)
         await db.flush()
+        mine = AssistantConversation.account_id == account_id
         keep = (
             select(AssistantConversation.id)
+            .where(mine)
             .order_by(AssistantConversation.updated_at.desc(), AssistantConversation.id.desc())
             .limit(KEEP_CONVERSATIONS)
         )
-        await db.execute(delete(AssistantConversation).where(AssistantConversation.id.not_in(keep)))
+        await db.execute(
+            delete(AssistantConversation).where(mine, AssistantConversation.id.not_in(keep))
+        )
     else:
         found = await db.get(AssistantConversation, conversation_id, with_for_update=True)
-        if found is None:
+        if found is None or found.account_id != account_id:
             raise HTTPException(status_code=404, detail="Conversation not found")
         conversation = found
     conversation.timezone = timezone if zone(timezone) is not UTC else "UTC"
@@ -189,7 +202,10 @@ async def ask(
     rows = await _rows(db, conversation.id)
     content = _close(rows[-1] if rows else None)
     content += [
-        {"type": "text", "text": await _context(db, conversation.timezone, thread_id)},
+        {
+            "type": "text",
+            "text": await _context(db, account_id, conversation.timezone, thread_id),
+        },
         {"type": "text", "text": text},
     ]
     db.add(
@@ -318,6 +334,7 @@ async def _step(conversation_id: int, queue: asyncio.Queue[dict[str, Any]], last
         if found is None:  # deleted meanwhile
             return False
         place = zone(found.timezone)
+        account_id = found.account_id
         rows = await _rows(db, conversation_id)
     messages = [{"role": r.role, "content": r.content} for r in rows]
     model = settings.ai_model
@@ -361,12 +378,12 @@ async def _step(conversation_id: int, queue: asyncio.Queue[dict[str, Any]], last
                 continue
             try:
                 if name in tools.READS:
-                    found_data = await tools.read(db, name, data, place)
+                    found_data = await tools.read(db, name, data, place, account_id)
                     held[call["id"]] = _result(call["id"], tools.dumps(found_data))
                     if line := tools.activity(name, data, found_data):
                         shown.append({"type": "activity", "text": line})
                 elif name in tools.CHANGES:
-                    action = await tools.propose(db, call["id"], name, data)
+                    action = await tools.propose(db, call["id"], name, data, account_id)
                     if not confirm:  # the user turned confirmation off: change it now
                         action["auto"] = True
                         for account, ids in (await _apply(db, action)).items():
@@ -457,7 +474,7 @@ async def run(conversation_id: int, lock: str) -> AsyncGenerator[dict[str, Any]]
             return
 
 
-async def recent(db: AsyncSession, limit: int) -> list[dict[str, Any]]:
+async def recent(db: AsyncSession, account_id: int, limit: int) -> list[dict[str, Any]]:
     rows = await db.execute(
         select(
             AssistantConversation,
@@ -468,6 +485,7 @@ async def recent(db: AsyncSession, limit: int) -> list[dict[str, Any]]:
             )
             .scalar_subquery(),
         )
+        .where(AssistantConversation.account_id == account_id)
         .order_by(AssistantConversation.updated_at.desc(), AssistantConversation.id.desc())
         .limit(limit)
     )

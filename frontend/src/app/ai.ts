@@ -21,10 +21,10 @@ export function useAiUsage(enabled: boolean) {
 export type LabelRun = { id: number; total: number; pending: number; labeled: number; failed: number; error: string | null }
 export type LabelInbox = { eligible: number; run: LabelRun | null }
 
-export function useLabelInbox(accountId: number | null, enabled: boolean) {
+export function useLabelInbox(accountId: number, enabled: boolean) {
   return useQuery({
     queryKey: ['label-inbox', accountId],
-    queryFn: () => api<LabelInbox>(accountId === null ? '/ai/label-inbox' : `/ai/label-inbox?account_id=${accountId}`),
+    queryFn: () => api<LabelInbox>(`/ai/label-inbox?account_id=${accountId}`),
     enabled,
     refetchInterval: (query) => (query.state.data?.run?.pending ? 1500 : false),
   })
@@ -32,7 +32,7 @@ export function useLabelInbox(accountId: number | null, enabled: boolean) {
 
 export function useStartLabelInbox() {
   return useMutation({
-    mutationFn: (accountId: number | null) => api<LabelInbox>('/ai/label-inbox', { method: 'POST', body: { account_id: accountId } }),
+    mutationFn: (accountId: number) => api<LabelInbox>('/ai/label-inbox', { method: 'POST', body: { account_id: accountId } }),
     onSuccess: (data, accountId) => queryClient.setQueryData(['label-inbox', accountId], data),
   })
 }
@@ -110,11 +110,14 @@ export type ChatEvent =
   | { type: 'done'; pending: boolean }
   | { type: 'error'; message: string }
 
-export const conversationsKey = ['assistant', 'conversations']
+export const conversationsKey = (accountId: number) => ['assistant', 'conversations', accountId]
 export const conversationKey = (id: number) => ['assistant', 'conversation', id]
 
-export function useConversations(enabled: boolean) {
-  return useQuery({ queryKey: conversationsKey, queryFn: () => api<ConversationSummary[]>('/assistant/conversations'), enabled })
+export function useConversations(accountId: number) {
+  return useQuery({
+    queryKey: conversationsKey(accountId),
+    queryFn: () => api<ConversationSummary[]>(`/assistant/conversations?account_id=${accountId}`),
+  })
 }
 
 export function useConversation(id: number | null, enabled: boolean) {
@@ -142,8 +145,16 @@ async function chat(path: string, body: unknown, onEvent: (event: ChatEvent) => 
 }
 
 // A new conversation's id comes first, as a "conversation" event.
-export function ask(conversationId: number | null, text: string, threadId: number | null, onEvent: (event: ChatEvent) => void, signal: AbortSignal) {
-  return chat('/assistant/messages', { conversation_id: conversationId, text, thread_id: threadId, timezone: timezone() }, onEvent, signal)
+export function ask(
+  accountId: number,
+  conversationId: number | null,
+  text: string,
+  threadId: number | null,
+  onEvent: (event: ChatEvent) => void,
+  signal: AbortSignal,
+) {
+  const body = { account_id: accountId, conversation_id: conversationId, text, thread_id: threadId, timezone: timezone() }
+  return chat('/assistant/messages', body, onEvent, signal)
 }
 
 // The assistant goes on once all of its turn's proposals are decided.

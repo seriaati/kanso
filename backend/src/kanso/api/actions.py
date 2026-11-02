@@ -58,7 +58,7 @@ class Section(BaseModel):
 
     name: str | None  # the label; None for the section of unlabeled threads
     bundle: bool = False
-    account_id: int | None = None  # None: every account
+    account_id: int
     # The newest thread the user saw in it: anything that arrived later is left alone.
     until: datetime
 
@@ -111,7 +111,7 @@ async def apply_action(
     for thread in threads:
         by_account.setdefault(thread.account_id, []).append(thread.id)
 
-    # The Gmail label id per account; a user label goes by name (the unified view merges them).
+    # The Gmail label id per account; a user label goes by name.
     label_ids: dict[int, str] = {}
     for account_id in by_account:
         if gmail_label is not None:

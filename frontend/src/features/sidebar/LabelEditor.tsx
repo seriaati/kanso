@@ -5,7 +5,7 @@ import styles from './LabelEditor.module.css'
 
 type Props = {
   label?: NamedLabel
-  accountIds: number[]
+  accountId: number
   ai: boolean
   onDone: (change?: { renamed?: string; deleted?: boolean }) => void
   /** In the sidebar's dialog: no card of its own, and no Delete (the label's menu has it). */
@@ -13,7 +13,7 @@ type Props = {
 }
 
 // Name and color go to Gmail; the other settings are kanso's own.
-export function LabelEditor({ label, accountIds, ai, onDone, plain }: Props) {
+export function LabelEditor({ label, accountId, ai, onDone, plain }: Props) {
   const [name, setName] = useState(label?.name ?? '')
   const [color, setColor] = useState(label?.color ?? labelColors[0].value)
   const [description, setDescription] = useState(label?.description ?? '')
@@ -30,7 +30,7 @@ export function LabelEditor({ label, accountIds, ai, onDone, plain }: Props) {
   const save = () => {
     const settings = { description: description.trim(), ai_managed: aiManaged, is_bundle: isBundle }
     if (!label) {
-      create.mutate({ name: trimmed, color, account_ids: accountIds, ...settings }, { onSuccess: () => onDone() })
+      create.mutate({ name: trimmed, color, account_id: accountId, ...settings }, { onSuccess: () => onDone() })
       return
     }
     const patch = {
@@ -41,7 +41,7 @@ export function LabelEditor({ label, accountIds, ai, onDone, plain }: Props) {
       is_bundle: isBundle !== label.isBundle ? isBundle : undefined,
     }
     if (Object.values(patch).every((value) => value === undefined)) return onDone()
-    update.mutate({ ids: label.ids, ...patch }, { onSuccess: () => onDone({ renamed: patch.name }) })
+    update.mutate({ id: label.id, ...patch }, { onSuccess: () => onDone({ renamed: patch.name }) })
   }
 
   return (
@@ -119,7 +119,7 @@ export function LabelEditor({ label, accountIds, ai, onDone, plain }: Props) {
             type="button"
             className={styles.delete}
             disabled={busy}
-            onClick={() => (confirming ? remove.mutate(label.ids, { onSuccess: () => onDone({ deleted: true }) }) : setConfirming(true))}
+            onClick={() => (confirming ? remove.mutate(label.id, { onSuccess: () => onDone({ deleted: true }) }) : setConfirming(true))}
           >
             {confirming ? 'Confirm delete' : 'Delete'}
           </button>
@@ -156,7 +156,7 @@ export function DeleteLabel({ label, onDone }: { label: NamedLabel; onDone: (del
           className={styles.save}
           disabled={remove.isPending}
           autoFocus
-          onClick={() => remove.mutate(label.ids, { onSuccess: () => onDone(true) })}
+          onClick={() => remove.mutate(label.id, { onSuccess: () => onDone(true) })}
         >
           Delete
         </button>

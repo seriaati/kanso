@@ -221,7 +221,13 @@ def events(response: Any) -> list[dict[str, Any]]:
 def ask(
     api: TestClient, text: str, conversation: int | None = None, thread: int | None = None
 ) -> list[dict[str, Any]]:
-    body = {"text": text, "conversation_id": conversation, "thread_id": thread, "timezone": ZONE}
+    body = {
+        "account_id": 1,
+        "text": text,
+        "conversation_id": conversation,
+        "thread_id": thread,
+        "timezone": ZONE,
+    }
     return events(api.post("/api/assistant/messages", json=body))
 
 
@@ -258,13 +264,13 @@ def results_in(request: dict[str, Any]) -> list[dict[str, Any]]:
     return [b for b in last["content"] if b["type"] == "tool_result"]
 
 
-async def _call(name: str, data: Any) -> Any:
+async def _call(name: str, data: Any, account_id: int) -> Any:
     async with Session() as db:
-        return await tools.read(db, name, data, assistant.zone(ZONE))
+        return await tools.read(db, name, data, assistant.zone(ZONE), account_id)
 
 
-def call(name: str, data: Any) -> Any:
-    return run(_call(name, data))
+def call(name: str, data: Any, account_id: int = 1) -> Any:
+    return run(_call(name, data, account_id))
 
 
 def test_tools_are_lean_and_never_see_demo_mail(mailbox: dict[str, int]) -> None:
@@ -304,6 +310,10 @@ def test_tools_are_lean_and_never_see_demo_mail(mailbox: dict[str, int]) -> None
     assert demo
     with pytest.raises(tools.ToolError):
         call("get_thread", {"thread_id": demo[0]})
+    # Only the conversation's account: the demo one sees nothing either.
+    assert call("search_threads", {"query": ""}, account_id=2)["threads"] == []
+    with pytest.raises(tools.ToolError):
+        call("get_thread", {"thread_id": mailbox["lisbon"]}, account_id=2)
     assert call("list_labels", {}) == {"labels": [{"name": "Home"}, {"name": "Travel"}]}
 
     # A thread: sender, date in the user's zone, and the trimmed text, nothing else.
@@ -409,7 +419,7 @@ def test_follow_up_resends_the_conversation_and_this_thread(
     assert second[1]["content"][0]["signature"] == "sig1"
     assert second[1]["content"][1] == {"type": "text", "text": "Mika wants it signed by Friday."}
     assert "This thread" not in second[2]["content"][0]["text"]
-    listed = logged_in.get("/api/assistant/conversations").json()
+    listed = logged_in.get("/api/assistant/conversations?account_id=1").json()
     assert [(c["id"], c["title"], c["pending"]) for c in listed] == [
         (conversation, "what does this thread want?", False)
     ]
@@ -518,7 +528,8 @@ def test_change_waits_for_confirm_then_goes_through_the_outbox(
     detail = logged_in.get(f"/api/assistant/conversations/{conversation}").json()
     assert detail["pending"] is True
     assert detail["items"][-1] == {"kind": "action", "action": proposal}
-    assert logged_in.get("/api/assistant/conversations").json()[0]["pending"] is True
+    listed = logged_in.get("/api/assistant/conversations?account_id=1").json()
+    assert listed[0]["pending"] is True
 
     claude.answers = [["Done: the newsletter is archived."]]
     confirmed = decide(logged_in, conversation, "toolu_2", True)
@@ -745,11 +756,13 @@ def test_conversations_are_kept_listed_and_deleted(
 ) -> None:
     monkeypatch.setattr(assistant, "KEEP_CONVERSATIONS", 2)
     ids = [ask(logged_in, f"question {i}")[0]["id"] for i in range(3)]
-    listed = logged_in.get("/api/assistant/conversations").json()
+    listed = logged_in.get("/api/assistant/conversations?account_id=1").json()
     assert [c["id"] for c in listed] == [ids[2], ids[1]]  # the oldest was pruned
+    assert logged_in.get("/api/assistant/conversations?account_id=2").json() == []
     assert logged_in.get(f"/api/assistant/conversations/{ids[0]}").status_code == 404
     assert logged_in.delete(f"/api/assistant/conversations/{ids[1]}").status_code == 204
-    assert [c["id"] for c in logged_in.get("/api/assistant/conversations").json()] == [ids[2]]
+    listed = logged_in.get("/api/assistant/conversations?account_id=1").json()
+    assert [c["id"] for c in listed] == [ids[2]]
     assert {m.conversation_id for m in rows(AssistantMessage)} == {ids[2]}
     assert logged_in.delete(f"/api/assistant/conversations/{ids[1]}").status_code == 404
 
@@ -757,14 +770,14 @@ def test_conversations_are_kept_listed_and_deleted(
 def test_one_answer_at_a_time(mailbox: dict[str, int], logged_in: TestClient) -> None:
     async def make() -> int:
         async with Session() as db:
-            row = AssistantConversation(title="x")
+            row = AssistantConversation(account_id=1, title="x")
             db.add(row)
             await db.commit()
             return row.id
 
     conversation = run(make())
     run(assistant.acquire(conversation))
-    body = {"text": "hi", "conversation_id": conversation, "timezone": ZONE}
+    body = {"account_id": 1, "text": "hi", "conversation_id": conversation, "timezone": ZONE}
     busy = logged_in.post("/api/assistant/messages", json=body)
     assert busy.status_code == 409
 
@@ -776,7 +789,7 @@ def test_reader_leaving_mid_answer_still_stores_it(
 
     async def go() -> None:
         async with Session() as db:
-            conversation = await assistant.ask(db, None, "hi", None, ZONE)
+            conversation = await assistant.ask(db, 1, None, "hi", None, ZONE)
             await db.commit()
         stream = assistant.run(conversation, await assistant.acquire(conversation))
         assert (await anext(stream))["type"] == "text"
@@ -796,9 +809,9 @@ def test_ai_off_has_no_assistant(
 ) -> None:
     monkeypatch.setattr(settings, "anthropic_api_key", "")
     assert logged_in.get("/api/config").json() == {"ai": False}
-    body = {"text": "hi", "timezone": ZONE}
+    body = {"account_id": 1, "text": "hi", "timezone": ZONE}
     assert logged_in.post("/api/assistant/messages", json=body).status_code == 409
-    assert logged_in.get("/api/assistant/conversations").status_code == 409
+    assert logged_in.get("/api/assistant/conversations?account_id=1").status_code == 409
     assert logged_in.get("/api/assistant/conversations/1").status_code == 409
     url = "/api/assistant/conversations/1/actions/toolu_1"
     assert logged_in.post(url, json={"confirm": True}).status_code == 409

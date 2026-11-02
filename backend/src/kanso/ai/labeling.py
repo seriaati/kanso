@@ -191,11 +191,9 @@ def eligible() -> Any:
     )
 
 
-async def enqueue_inbox(db: AsyncSession, account_id: int | None) -> tuple[int, int]:
+async def enqueue_inbox(db: AsyncSession, account_id: int) -> tuple[int, int]:
     """Returns the run id and its thread count. The caller commits, then calls wake()."""
-    stmt = eligible()
-    if account_id is not None:
-        stmt = stmt.where(Thread.account_id == account_id)
+    stmt = eligible().where(Thread.account_id == account_id)
     run_id = time.time_ns() // 1000
     rows = [
         {"account_id": a, "thread_id": t, "run_id": run_id}

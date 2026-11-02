@@ -22,13 +22,17 @@ def demo(logged_in: TestClient) -> TestClient:
 
 
 def subjects(client: TestClient, **params: Any) -> list[str]:
-    response = client.get("/api/threads", params={"limit": 200, **params})
+    response = client.get("/api/threads", params={"account_id": 1, "limit": 200, **params})
     assert response.status_code == 200, response.text
     return [t["subject"] for t in response.json()["threads"]]
 
 
 def label_id(client: TestClient, name: str) -> int:
-    return next(label["id"] for label in client.get("/api/labels").json() if label["name"] == name)
+    return next(
+        label["id"]
+        for label in client.get("/api/labels?account_id=1").json()
+        if label["name"] == name
+    )
 
 
 def test_requires_login(client: TestClient) -> None:
@@ -43,7 +47,7 @@ def test_thread_list_newest_first_with_cursor_pagination(demo: TestClient) -> No
     pages: list[str] = []
     cursor = None
     while True:
-        params: dict[str, Any] = {"limit": 7}
+        params: dict[str, Any] = {"account_id": 1, "limit": 7}
         if cursor:
             params["cursor"] = cursor
         body = demo.get("/api/threads", params=params).json()
@@ -52,7 +56,9 @@ def test_thread_list_newest_first_with_cursor_pagination(demo: TestClient) -> No
         if not cursor:
             break
     assert pages == everything
-    assert demo.get("/api/threads", params={"cursor": "nonsense"}).status_code == 400
+    assert (
+        demo.get("/api/threads", params={"account_id": 1, "cursor": "nonsense"}).status_code == 400
+    )
 
 
 def test_mailboxes_and_labels(demo: TestClient) -> None:
@@ -72,22 +78,21 @@ def test_mailboxes_and_labels(demo: TestClient) -> None:
         "Appointment reminder: Nov 9, 10:30"
     ]
     assert subjects(demo, label_id=label_id(demo, "TRASH")) == ["Congratulations!!!"]
-    # Several labels (the unified view's same-named labels) match threads in any of them.
+    # Several labels match threads in any of them.
     health_and_travel = subjects(
         demo, label_id=[label_id(demo, "Health"), label_id(demo, "Travel")]
     )
     assert "Appointment reminder: Nov 9, 10:30" in health_and_travel
     assert "Flight itinerary: Lisbon, Dec 12" in health_and_travel
     assert "Q4 planning notes" not in health_and_travel
-    assert demo.get("/api/threads", params={"label_id": 9999}).status_code == 404
-    assert demo.get("/api/threads", params={"mailbox": "nope"}).status_code == 422
-    account_id = demo.get("/api/accounts").json()[0]["id"]
-    assert len(subjects(demo, account_id=account_id)) == len(subjects(demo))
-    assert subjects(demo, account_id=account_id + 1) == []
+    assert demo.get("/api/threads", params={"account_id": 1, "label_id": 9999}).status_code == 404
+    assert demo.get("/api/threads", params={"account_id": 1, "mailbox": "nope"}).status_code == 422
+    assert subjects(demo, account_id=2) == []
+    assert demo.get("/api/threads").status_code == 422  # always one account
 
 
 def test_thread_list_item_shape(demo: TestClient) -> None:
-    thread = demo.get("/api/threads", params={"q": "dinner"}).json()["threads"][0]
+    thread = demo.get("/api/threads", params={"account_id": 1, "q": "dinner"}).json()["threads"][0]
     assert thread["subject"] == "Re: Dinner on Saturday?"
     assert thread["senders"] == ["Daniel Reyes", "Demo"]
     assert thread["me"] == ["Demo"]  # shown as "Daniel Reyes, me"
@@ -103,7 +108,9 @@ def test_thread_list_item_shape(demo: TestClient) -> None:
 
 def test_me_and_recipients(demo: TestClient) -> None:
     def people(**params: Any) -> dict[str, tuple[list[str], list[str] | None]]:
-        threads = demo.get("/api/threads", params={"limit": 200, **params}).json()["threads"]
+        threads = demo.get("/api/threads", params={"account_id": 1, "limit": 200, **params}).json()[
+            "threads"
+        ]
         return {t["subject"]: (t["me"], t["recipients"]) for t in threads}
 
     # Sent and Drafts show who the user wrote to, leaving the user's own addresses out.
@@ -111,13 +118,14 @@ def test_me_and_recipients(demo: TestClient) -> None:
     assert sent["Trail map"] == (["Demo"], ["Priya Shah"])
     assert sent["Re: Dinner on Saturday?"] == (["Demo"], ["Daniel Reyes"])
     assert people(mailbox="drafts") == {"Notes on the contract": (["Demo"], ["Kenji Mori"])}
-    # Elsewhere (the unified view, one account, search) only "me" is marked.
+    # Elsewhere (a mailbox, search) only "me" is marked.
     assert people()["Trail map"] == (["Demo"], None)
     assert people()["Lease renewal for apartment 4B"] == ([], None)
-    account_id = demo.get("/api/accounts").json()[0]["id"]
-    assert people(account_id=account_id)["Re: Dinner on Saturday?"] == (["Demo"], None)
+    assert people()["Re: Dinner on Saturday?"] == (["Demo"], None)
     assert people(q="trail")["Trail map"] == (["Demo"], None)
-    grouped = demo.get("/api/threads", params={"mailbox": "inbox", "grouped": "true"}).json()
+    grouped = demo.get(
+        "/api/threads", params={"account_id": 1, "mailbox": "inbox", "grouped": "true"}
+    ).json()
     dinner = next(t for t in grouped["threads"] if t["subject"] == "Re: Dinner on Saturday?")
     assert dinner["me"] == ["Demo"]
 
@@ -179,7 +187,7 @@ def test_search(demo: TestClient, query: str, expected: list[str]) -> None:
     ["don't", "a&b|c", "(x", "!", "'", "\\", ":*", "foo:bar:baz", '"unclosed', "from:", "%_"],
 )
 def test_odd_search_input_is_harmless(demo: TestClient, query: str) -> None:
-    assert demo.get("/api/threads", params={"q": query}).status_code == 200
+    assert demo.get("/api/threads", params={"account_id": 1, "q": query}).status_code == 200
 
 
 def test_search_combines_with_filters(demo: TestClient) -> None:
@@ -188,7 +196,7 @@ def test_search_combines_with_filters(demo: TestClient) -> None:
 
 
 def test_thread_detail(demo: TestClient) -> None:
-    [thread] = demo.get("/api/threads", params={"q": "dinner"}).json()["threads"]
+    [thread] = demo.get("/api/threads", params={"account_id": 1, "q": "dinner"}).json()["threads"]
     detail = demo.get(f"/api/threads/{thread['id']}").json()
     messages = detail["messages"]
     assert [m["sender"]["name"] for m in messages] == ["Daniel Reyes", "Demo", "Daniel Reyes"]
@@ -200,7 +208,9 @@ def test_thread_detail(demo: TestClient) -> None:
 
 
 def test_html_mail_with_inline_image_and_cjk_language(demo: TestClient) -> None:
-    [brief] = demo.get("/api/threads", params={"q": "morning brief"}).json()["threads"]
+    [brief] = demo.get("/api/threads", params={"account_id": 1, "q": "morning brief"}).json()[
+        "threads"
+    ]
     [message] = demo.get(f"/api/threads/{brief['id']}").json()["messages"]
     assert 'src="cid:logo@kanso.demo"' in message["body_html"]
     assert "<script" not in message["body_html"]
@@ -212,7 +222,9 @@ def test_html_mail_with_inline_image_and_cjk_language(demo: TestClient) -> None:
         "image/png",
     )
     assert brief["has_attachments"] is False  # inline images don't count
-    langs = {t["subject"]: t["lang"] for t in demo.get("/api/threads").json()["threads"]}
+    langs = {
+        t["subject"]: t["lang"] for t in demo.get("/api/threads?account_id=1").json()["threads"]
+    }
     assert langs["周五的项目会议安排"] == "zh-Hans"
     assert langs["台北辦公室搬遷通知"] == "zh-Hant"
     assert langs["来週の打ち合わせについて"] == "ja"
@@ -222,7 +234,9 @@ def test_html_mail_with_inline_image_and_cjk_language(demo: TestClient) -> None:
         ("台北辦公室搬遷通知", "信義區"),
         ("来週の打ち合わせについて", "京都駅前"),
     ):
-        [thread] = demo.get("/api/threads", params={"q": subject}).json()["threads"]
+        [thread] = demo.get("/api/threads", params={"account_id": 1, "q": subject}).json()[
+            "threads"
+        ]
         [message] = demo.get(f"/api/threads/{thread['id']}").json()["messages"]
         assert text in message["body_html"]
     # Demo attachments are served from demo_seed.DEMO_FILES, cached by the browser for good.
@@ -234,7 +248,7 @@ def test_html_mail_with_inline_image_and_cjk_language(demo: TestClient) -> None:
 
 
 def test_labels_with_counts(demo: TestClient) -> None:
-    labels = {label["name"]: label for label in demo.get("/api/labels").json()}
+    labels = {label["name"]: label for label in demo.get("/api/labels?account_id=1").json()}
     assert labels["INBOX"]["type"] == "system"
     assert (labels["Work"]["color"], labels["Work"]["type"]) == ("#6B6B66", "user")
     assert labels["Work"]["threads_total"] == 7
@@ -255,7 +269,8 @@ def test_sync_status(demo: TestClient) -> None:
 def test_demo_seed_is_idempotent(demo: TestClient) -> None:
     before = subjects(demo)
     run(demo_seed.seed())
-    assert subjects(demo) == before
+    [account] = demo.get("/api/accounts").json()  # reseeded: a new id
+    assert subjects(demo, account_id=account["id"]) == before
     assert len(demo.get("/api/accounts").json()) == 1
 
 
@@ -298,5 +313,5 @@ def test_event_stream_is_sse_and_not_compressed(logged_in: TestClient, fake_redi
 
 
 def test_responses_are_gzipped(demo: TestClient) -> None:
-    response = demo.get("/api/threads", headers={"Accept-Encoding": "gzip"})
+    response = demo.get("/api/threads?account_id=1", headers={"Accept-Encoding": "gzip"})
     assert response.headers["content-encoding"] == "gzip"

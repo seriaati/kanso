@@ -40,7 +40,7 @@ TOOLS: list[dict[str, Any]] = [
     {
         "name": "search_threads",
         "description": (
-            "Search the user's whole mailbox: every connected account, the full history, archived "
+            "Search the user's mailbox (the Gmail account they're in): the full history, archived "
             "(done) mail included; Trash and Spam only with label:trash or label:spam. Returns the "
             'newest matching threads first. Words match as prefixes, "quoted phrases" as '
             "phrases, and Chinese, Japanese and Korean text works. Operators: from:, to:, "
@@ -179,9 +179,10 @@ def _demo_accounts() -> Any:
     return select(Account.id).where(Account.demo)
 
 
-def real() -> Any:
-    """Threads outside the demo mailbox: demo mail is never sent to Claude."""
-    return Thread.account_id.not_in(_demo_accounts())
+def real(account_id: int) -> Any:
+    """The conversation's account's threads, outside the demo mailbox: demo mail is never sent to
+    Claude."""
+    return (Thread.account_id == account_id) & Thread.account_id.not_in(_demo_accounts())
 
 
 async def _label_names(db: AsyncSession, threads: list[Thread]) -> dict[int, str]:
@@ -208,9 +209,11 @@ def _flags(thread: Thread) -> str:
     return ", ".join(flags) or "done"
 
 
-async def search_threads(db: AsyncSession, data: Any, zone: tzinfo) -> dict[str, Any]:
+async def search_threads(
+    db: AsyncSession, data: Any, zone: tzinfo, account_id: int
+) -> dict[str, Any]:
     args = _parse(SearchIn, data)
-    stmt = select(Thread).where(real(), ~Thread.drafts_only)
+    stmt = select(Thread).where(real(account_id), ~Thread.drafts_only)
     trash_or_spam = False
     if args.query.strip():
         conditions, trash_or_spam = search.conditions(args.query)
@@ -242,16 +245,16 @@ async def search_threads(db: AsyncSession, data: Any, zone: tzinfo) -> dict[str,
     }
 
 
-async def _thread(db: AsyncSession, thread_id: int) -> Thread:
-    thread = await db.scalar(select(Thread).where(Thread.id == thread_id, real()))
+async def _thread(db: AsyncSession, thread_id: int, account_id: int) -> Thread:
+    thread = await db.scalar(select(Thread).where(Thread.id == thread_id, real(account_id)))
     if thread is None:
         raise ToolError(f"There is no thread {thread_id}")
     return thread
 
 
-async def get_thread(db: AsyncSession, data: Any, zone: tzinfo) -> dict[str, Any]:
+async def get_thread(db: AsyncSession, data: Any, zone: tzinfo, account_id: int) -> dict[str, Any]:
     args = _parse(ThreadIn, data)
-    thread = await _thread(db, args.thread_id)
+    thread = await _thread(db, args.thread_id, account_id)
     context = await summaries.load(db, thread.id)
     assert context is not None
     messages: list[dict[str, str]] = []
@@ -276,12 +279,15 @@ async def get_thread(db: AsyncSession, data: Any, zone: tzinfo) -> dict[str, Any
     return result
 
 
-async def list_labels(db: AsyncSession, data: Any, zone: tzinfo) -> dict[str, Any]:
+async def list_labels(db: AsyncSession, data: Any, zone: tzinfo, account_id: int) -> dict[str, Any]:
     _parse(_Input, data)
     rows = await db.execute(
-        select(Label.name, func.max(Label.description))
-        .where(Label.type == "user", Label.account_id.not_in(_demo_accounts()))
-        .group_by(Label.name)
+        select(Label.name, Label.description)
+        .where(
+            Label.type == "user",
+            Label.account_id == account_id,
+            Label.account_id.not_in(_demo_accounts()),
+        )
         .order_by(func.lower(Label.name))
     )
     return {"labels": [{"name": n, "description": d} if d else {"name": n} for n, d in rows]}
@@ -290,36 +296,39 @@ async def list_labels(db: AsyncSession, data: Any, zone: tzinfo) -> dict[str, An
 READERS = {"search_threads": search_threads, "get_thread": get_thread, "list_labels": list_labels}
 
 
-async def read(db: AsyncSession, name: str, data: Any, zone: tzinfo) -> dict[str, Any]:
-    return await READERS[name](db, data, zone)
+async def read(
+    db: AsyncSession, name: str, data: Any, zone: tzinfo, account_id: int
+) -> dict[str, Any]:
+    return await READERS[name](db, data, zone, account_id)
 
 
-async def propose(db: AsyncSession, tool_use_id: str, name: str, data: Any) -> dict[str, Any]:
+async def propose(
+    db: AsyncSession, tool_use_id: str, name: str, data: Any, account_id: int
+) -> dict[str, Any]:
     args = _parse(ChangeIn, data)
     if (name == "apply_label") != (args.label is not None):
         raise ToolError("apply_label needs `label`; the other tools take only `thread_ids`")
     ids = list(dict.fromkeys(args.thread_ids))
     threads = list(
-        await db.scalars(select(Thread).where(Thread.id.in_(ids), real(), ~Thread.drafts_only))
+        await db.scalars(
+            select(Thread).where(Thread.id.in_(ids), real(account_id), ~Thread.drafts_only)
+        )
     )
     found = {t.id: t for t in threads}
     if missing := [i for i in ids if i not in found]:
         raise ToolError(f"There are no threads {', '.join(map(str, missing))}")
     label = None
     if args.label is not None:
-        # The label as the user named it in Gmail, in every account the threads are in.
-        wanted = args.label.strip().lower()
-        rows = await db.execute(
-            select(Label.account_id, Label.name).where(
+        # The label as the user named it in Gmail.
+        label = await db.scalar(
+            select(Label.name).where(
                 Label.type == "user",
-                func.lower(Label.name) == wanted,
-                Label.account_id.in_({t.account_id for t in threads}),
+                Label.account_id == account_id,
+                func.lower(Label.name) == args.label.strip().lower(),
             )
         )
-        by_account = dict(rows.all())
-        if not by_account or any(t.account_id not in by_account for t in threads):
-            raise ToolError(f"There is no label named “{args.label}” for these threads")
-        label = next(iter(by_account.values()))
+        if label is None:
+            raise ToolError(f"There is no label named “{args.label}”")
     return {
         "id": tool_use_id,
         "tool": name,
