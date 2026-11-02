@@ -1,6 +1,7 @@
 .list {
   position: relative; /* for the selection bar */
-  flex: 0 1 var(--list-width, 500px); /* set by dragging the divider (App.tsx) */
+  /* Set by dragging the divider (App.tsx); by default half of what's right of the 200px sidebar. */
+  flex: 0 1 var(--list-width, calc(50% - 100px));
   min-width: 0;
   display: flex;
   flex-direction: column;

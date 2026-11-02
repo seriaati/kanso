@@ -83,13 +83,13 @@ const mailboxTitles: Record<Mailbox, string> = {
 }
 
 const LIST_WIDTH_KEY = 'kanso.listWidth'
-const LIST_WIDTH = 500
 
-function storedListWidth(): number {
+// null: the default, an even split with the pane (ThreadList.module.css)
+function storedListWidth(): number | null {
   try {
-    return Number(localStorage.getItem(LIST_WIDTH_KEY)) || LIST_WIDTH
+    return Number(localStorage.getItem(LIST_WIDTH_KEY)) || null
   } catch {
-    return LIST_WIDTH // storage blocked
+    return null // storage blocked
   }
 }
 
@@ -576,7 +576,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
       className={styles.shell}
       data-screen={phone ? screen : undefined}
       data-pane={phone ? undefined : paneOpen ? 'open' : 'closed'}
-      style={{ '--list-width': `${listWidth}px` } as CSSProperties}
+      style={listWidth ? ({ '--list-width': `${listWidth}px` } as CSSProperties) : undefined}
     >
       <Sidebar
         accounts={accounts}
@@ -651,13 +651,13 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
           {paneOpen && !phone && (
             <Resizer
               label="Resize the thread list"
-              width={listWidth}
+              width={listWidth ?? undefined}
               onResize={(width, done) => {
                 setListWidth(width)
                 if (done) storeListWidth(width)
               }}
               onReset={() => {
-                setListWidth(LIST_WIDTH)
+                setListWidth(null)
                 storeListWidth(null)
               }}
             />

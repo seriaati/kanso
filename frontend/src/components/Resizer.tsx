@@ -7,7 +7,7 @@ const STEP = 24 // arrow keys
 
 type Props = {
   label: string
-  width: number
+  width?: number
   /** `done` once a drag or key press ends. */
   onResize: (width: number, done: boolean) => void
   onReset: () => void

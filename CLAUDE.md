@@ -90,7 +90,7 @@ The reference mockup is the "3 · Chosen — Koke + indigo, split view" artboard
   All mail, then Spam and Trash in muted text), labels with color dots, and "+ New label". A
   label's "⋯" opens a small "more actions" menu (Edit, Delete); editing, creating and deleting
   labels happen in a small centered dialog, never inline.
-- **Thread list** (~500px, left; **the full width while nothing is open**): search at the top. Threads are grouped into sections by AI label
+- **Thread list** (left; half the space beside the sidebar by default, **the full width while nothing is open**): search at the top. Threads are grouped into sections by AI label
   (Home, Personal, Work…), each with a count and "Done all". Bundles (Newsletters, Receipts,
   Notifications) are collapsed rows at the bottom. Rows are compact single lines (40px by default;
   ~31px with the account menu's Density set to Compact, per browser): unread dot, sender,
