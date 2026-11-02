@@ -54,8 +54,8 @@ else
   gcloud projects create "$PROJECT" --name=kanso
 fi
 
-say "2. Enabling the Gmail API"
-gcloud services enable gmail.googleapis.com --project "$PROJECT"
+say "2. Enabling the Gmail and People APIs"
+gcloud services enable gmail.googleapis.com people.googleapis.com --project "$PROJECT"
 
 say "3. Pub/Sub for instant new-mail notifications (optional)"
 PUBSUB=yes
@@ -115,7 +115,8 @@ if [[ -z $(env_get GOOGLE_CLIENT_ID) || -z $(env_get GOOGLE_CLIENT_SECRET) ]]; t
   a) Consent screen: $C/branding?project=$PROJECT
      Get started -> app name "kanso", your email -> Audience: External -> your email -> Create.
   b) Scopes: $C/scopes?project=$PROJECT
-     Add or remove scopes -> add openid, .../auth/userinfo.email and
+     Add or remove scopes -> add openid, .../auth/userinfo.email, .../auth/userinfo.profile,
+     .../auth/contacts.readonly, .../auth/contacts.other.readonly and
      https://www.googleapis.com/auth/gmail.modify -> Update -> Save.
   c) Publish: $C/audience?project=$PROJECT
      Publish app -> Confirm. (In "Testing", Google expires your login every 7 days.)

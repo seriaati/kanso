@@ -8,7 +8,7 @@ from kanso.ai import labeling
 from kanso.core.settings import settings
 from kanso.db.session import engine
 from kanso.gmail.client import http_client
-from kanso.sync import drafts, outbox, push
+from kanso.sync import drafts, outbox, photos, push
 from kanso.sync.scheduler import Scheduler
 
 log = logging.getLogger("kanso.worker")
@@ -41,6 +41,7 @@ async def run() -> None:
         )
     writes = asyncio.create_task(outbox.run(http))
     housekeeping = asyncio.create_task(drafts.run(http))
+    contact_photos = asyncio.create_task(photos.run(http))
     if settings.ai_enabled:
         classify = asyncio.create_task(labeling.run())
         log.info("AI labeling on (%s)", settings.ai_label_model)
@@ -65,6 +66,7 @@ async def run() -> None:
     scheduler.stop()
     writes.cancel()
     housekeeping.cancel()
+    contact_photos.cancel()
     if classify:
         classify.cancel()
     if demo_reset:

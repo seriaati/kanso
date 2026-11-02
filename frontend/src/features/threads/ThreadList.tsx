@@ -356,6 +356,10 @@ function ThreadRow(props: RowProps) {
         ) : (
           <span className={styles.unreadDot} aria-label={thread.unread ? 'Unread' : undefined} />
         )}
+        {/* Always the slot, so the names line up whether or not there's a photo. */}
+        <span className={styles.photo} aria-hidden="true">
+          {thread.sender_photo && <img src={thread.sender_photo} alt="" loading="lazy" decoding="async" />}
+        </span>
         <span className={styles.from} lang={lang}>
           {people(thread)}
           {thread.message_count > 1 && <span className={styles.count}> {thread.message_count}</span>}

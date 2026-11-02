@@ -107,6 +107,7 @@ async def callback(db: DB, state: str = "", code: str = "", error: str = "") -> 
     if account:  # reconnecting an existing account keeps its name, color and mail
         account.refresh_token = encrypt(grant.refresh_token)
         account.avatar_url = grant.picture
+        account.photos_synced_at = None  # Contacts access may be new: sync photos again now
     else:
         count = await db.scalar(select(func.count()).select_from(Account)) or 0
         db.add(

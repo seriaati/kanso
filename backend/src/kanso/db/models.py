@@ -51,6 +51,23 @@ class Account(Base):
     backfill_done: Mapped[int] = mapped_column(server_default="0")
     backfill_total: Mapped[int | None]  # Gmail's estimate, from the profile
     watch_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The last sync of sender photos from Google Contacts (sync/photos.py).
+    photos_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ContactPhoto(Base):
+    """A sender's photo from the account's Google Contacts, served by kanso itself. A changed
+    photo gets a new row, so its URL (the id) can be cached forever."""
+
+    __tablename__ = "contact_photos"
+    __table_args__ = (UniqueConstraint("account_id", "email"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id", ondelete="CASCADE"))
+    email: Mapped[str] = mapped_column(Text)  # lowercase
+    source_url: Mapped[str] = mapped_column(Text)  # Google's, to notice a changed photo
+    content: Mapped[bytes] = mapped_column(LargeBinary)
+    mime_type: Mapped[str] = mapped_column(Text)
 
 
 class Label(Base):

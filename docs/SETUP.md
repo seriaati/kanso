@@ -44,10 +44,11 @@ The rest of this guide is the same setup done by hand in the Google Cloud consol
 
 ## 2. Enable the APIs
 
-Go to **APIs & Services → Library** and enable both of these (search, open, click **Enable**):
+Go to **APIs & Services → Library** and enable these (search, open, click **Enable**):
 
 - **Gmail API**
 - **Cloud Pub/Sub API**
+- **People API** (sender photos from your Google Contacts; without it rows just show no photo)
 
 ## 3. Set up the consent screen and publish it
 
@@ -64,6 +65,8 @@ This is the screen Google shows when you connect an account.
    - `openid`
    - `.../auth/userinfo.email`
    - `.../auth/userinfo.profile` (your profile photo, shown in the account switcher)
+   - `.../auth/contacts.readonly` and `.../auth/contacts.other.readonly` (photos of the people
+     who email you, from your contacts; kanso reads only their addresses and photos)
    - `https://www.googleapis.com/auth/gmail.modify`
 
    Click **Update**, then **Save**.
@@ -317,6 +320,11 @@ kanso offers **Reload** to switch to the new version.
 
 If an upgrade ever needs something done by hand, such as a new setting in `.env`, this section
 and `.env.example` say so.
+
+- **Account and sender photos** (November 2026): enable the **People API** (step 2), add the
+  `userinfo.profile`, `contacts.readonly` and `contacts.other.readonly` scopes (step 3), then
+  connect each account again (**Settings → Connect a Gmail account**, same Google account; it
+  keeps its mail and settings). Until then kanso works as before, without photos.
 
 ## Troubleshooting
 

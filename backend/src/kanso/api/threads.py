@@ -8,12 +8,21 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import ColumnElement, case, exists, func, null, select, true, tuple_
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kanso import demo_seed
 from kanso.core.settings import settings
 from kanso.db import search
-from kanso.db.models import Account, Attachment, Label, Message, MessageLabel, Thread
+from kanso.db.models import (
+    Account,
+    Attachment,
+    ContactPhoto,
+    Label,
+    Message,
+    MessageLabel,
+    Thread,
+)
 from kanso.db.session import get_session
 from kanso.gmail import client as gmail_client
 from kanso.gmail import mime
@@ -47,6 +56,8 @@ class ThreadOut(BaseModel):
     me: list[str] = []
     # Sent and Drafts: who the user's messages in the thread went to, shown instead of senders.
     recipients: list[str] | None = None
+    # The photo of the newest sender who isn't the user, from Google Contacts (sync/photos.py).
+    sender_photo: str | None = None
 
 
 class SectionOut(BaseModel):
@@ -106,16 +117,31 @@ class ThreadDetail(ThreadOut):
 
 async def _people(db: AsyncSession, threads: list[ThreadOut], recipients: bool) -> list[ThreadOut]:
     """Mark the user's own names among each thread's senders and, with `recipients` (Sent and
-    Drafts), list who the user wrote to, as Gmail shows them: "Daniel Reyes, me", "To: Daniel"."""
-    mine = {email.lower() for email in await db.scalars(select(Account.email))}
-    if not threads or not mine:
+    Drafts), list who the user wrote to, as Gmail shows them: "Daniel Reyes, me", "To: Daniel".
+    Also each thread's sender photo."""
+    if not threads:
         return threads
+    mine = {email.lower() for email in await db.scalars(select(Account.email))}
+    ids = [t.id for t in threads]
+    newest = (
+        select(Message.thread_id, Message.account_id, func.lower(Message.from_email).label("email"))
+        .where(Message.thread_id.in_(ids), func.lower(Message.from_email).not_in(mine))
+        .ext(distinct_on(Message.thread_id))
+        .order_by(Message.thread_id, Message.internal_date.desc(), Message.id.desc())
+        .subquery()
+    )
+    photo_rows = await db.execute(
+        select(newest.c.thread_id, ContactPhoto.id).join(
+            ContactPhoto,
+            (ContactPhoto.account_id == newest.c.account_id)
+            & (ContactPhoto.email == newest.c.email),
+        )
+    )
+    photos = {thread_id: photo_id for thread_id, photo_id in photo_rows}
     name = func.coalesce(func.nullif(Message.from_name, ""), Message.from_email)  # as `senders`
     rows = await db.execute(
         select(Message.thread_id, name, Message.to_addrs, Message.cc_addrs)
-        .where(
-            Message.thread_id.in_([t.id for t in threads]), func.lower(Message.from_email).in_(mine)
-        )
+        .where(Message.thread_id.in_(ids), func.lower(Message.from_email).in_(mine))
         .order_by(Message.internal_date, Message.id)
     )
     me: dict[int, list[str]] = {}
@@ -133,6 +159,7 @@ async def _people(db: AsyncSession, threads: list[ThreadOut], recipients: bool) 
             update={
                 "me": me.get(t.id, []),
                 "recipients": list(to.get(t.id, {}).values()) if recipients else None,
+                "sender_photo": f"/api/photos/{photos[t.id]}" if t.id in photos else None,
             }
         )
         for t in threads
@@ -438,6 +465,22 @@ async def download_attachment(attachment_id: int, db: DB) -> Response:
             "Content-Disposition": f"{disposition}; filename*=UTF-8''{quote(attachment.filename)}",
             "X-Content-Type-Options": "nosniff",
             # An attachment never changes (a new message gets new ids): no repeat Gmail fetch.
+            "Cache-Control": "private, max-age=31536000, immutable",
+        },
+    )
+
+
+@router.get("/photos/{photo_id}")
+async def contact_photo(photo_id: int, db: DB) -> Response:
+    photo = await db.get(ContactPhoto, photo_id)
+    if photo is None:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    return Response(
+        photo.content,
+        media_type=photo.mime_type,
+        headers={
+            "X-Content-Type-Options": "nosniff",
+            # A changed photo gets a new id.
             "Cache-Control": "private, max-age=31536000, immutable",
         },
     )

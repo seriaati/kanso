@@ -19,8 +19,12 @@ TOKEN_URL = "https://oauth2.googleapis.com/token"
 REVOKE_URL = "https://oauth2.googleapis.com/revoke"
 # gmail.modify only lacks permanent deletion that bypasses Trash, which kanso never does.
 GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.modify"
-# profile: the account's photo.
-SCOPES = f"openid email profile {GMAIL_SCOPE}"
+# profile: the account's photo. Contacts: sender photos (sync/photos.py).
+CONTACTS_SCOPES = (
+    "https://www.googleapis.com/auth/contacts.readonly "
+    "https://www.googleapis.com/auth/contacts.other.readonly"
+)
+SCOPES = f"openid email profile {GMAIL_SCOPE} {CONTACTS_SCOPES}"
 
 
 class OAuthError(Exception):

@@ -68,7 +68,11 @@ def connect(client: TestClient) -> httpx.Response:
     location = urlsplit(response.headers["location"])
     params = parse_qs(location.query)
     assert f"{location.netloc}{location.path}" == "accounts.google.com/o/oauth2/v2/auth"
-    assert params["scope"] == ["openid email profile https://www.googleapis.com/auth/gmail.modify"]
+    assert params["scope"] == [
+        "openid email profile https://www.googleapis.com/auth/gmail.modify"
+        " https://www.googleapis.com/auth/contacts.readonly"
+        " https://www.googleapis.com/auth/contacts.other.readonly"
+    ]
     assert params["access_type"] == ["offline"]
     assert params["prompt"] == ["consent"]
     assert params["redirect_uri"] == ["http://testserver/api/accounts/callback"]

@@ -25,6 +25,7 @@ export type ThreadSummary = {
   me: string[]
   /** Sent and Drafts only: shown instead of the senders. */
   recipients: string[] | null
+  sender_photo: string | null
 }
 
 export type Section = { name: string | null; bundle: boolean; count: number; newest_at: string; senders: string[] }
