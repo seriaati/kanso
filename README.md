@@ -2,15 +2,15 @@
 
 # Kanso
 
-Kanso (簡素) stands for "simplicity" in Japanese. It is a open-source, self-hosted email client built for getting to inbox zero. It is inspired by Shortwave, but with no paywall, and everything stays local.
+Kanso (簡素) stands for "simplicity" in Japanese. It is a open-source, self-hosted email client built for getting to inbox zero. Kanso is inspired by Shortwave, but with no paywall, and everything stays local.
 
-You can try out Kanso at https://demo.kanso.seria.moe with the password `demo`. AI features are off, the database resets daily.
+You can try out Kanso at https://demo.kanso.seria.moe with the password `demo`. AI features are off, and the database resets daily.
 
 ![kanso: the inbox grouped by label, a thread open, and the assistant docked below it](docs/screenshot.png)
 
 ## Quick start
 
-You need Docker with Docker Compose, and about 20 minutes for the Google Cloud setup.
+You need Docker Compose.
 
 ```sh
 git clone <this repository's URL> kanso
