@@ -1,0 +1,80 @@
+# A kanso demo instance: the same app as docker-compose.yml, showing a made-up mailbox (DEMO DATA)
+# instead of Gmail. Archive, delete, labels, compose and send all work, on the demo data only:
+# nothing reaches Google, and no Gmail account can be connected. The mailbox goes back to its
+# starting state on every start and every day at midnight UTC. The password is "demo".
+#
+#   ./demo.sh [anthropic-api-key]                         (see the script)
+#   docker compose -f docker-compose.demo.yml up --build
+#
+# None of kanso's own .env settings apply; only the DEMO_* variables below are read (from the
+# shell or .env). AI is off unless DEMO_ANTHROPIC_API_KEY is set; then the demo mail is sent to
+# Claude like real mail would be, on that key's bill. Optional: DEMO_PORT (default 8001) and
+# DEMO_PUBLIC_URL, the address it is opened at when that isn't http://localhost:<port>.
+name: kanso-demo
+
+x-kanso: &kanso
+  image: kanso-demo
+  build: .
+  restart: unless-stopped
+  environment:
+    DEMO_MODE: "true"
+    DATABASE_URL: postgresql+asyncpg://kanso:kanso@postgres:5432/kanso
+    REDIS_URL: redis://redis:6379/0
+    PUBLIC_URL: ${DEMO_PUBLIC_URL:-http://localhost:${DEMO_PORT:-8001}}
+    ANTHROPIC_API_KEY: ${DEMO_ANTHROPIC_API_KEY:-}
+
+services:
+  app:
+    <<: *kanso
+    # As the image's command, plus the demo reset before the app starts.
+    command: ["sh", "-c", "alembic upgrade head && python -m kanso.demo_seed && exec uvicorn kanso.main:app --host 0.0.0.0 --port 8000"]
+    ports:
+      - "${DEMO_PORT:-8001}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+
+  worker:
+    <<: *kanso
+    command: ["python", "-m", "kanso.worker"]
+    depends_on:
+      app:
+        condition: service_healthy # migrations and the first reset have run
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, sys, time; sys.exit(time.time() - os.path.getmtime('/tmp/kanso-worker-heartbeat') > 90)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kanso
+      POSTGRES_PASSWORD: kanso # not published outside the compose network
+      POSTGRES_DB: kanso
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "kanso", "-d", "kanso"]
+      interval: 5s
+      timeout: 5s
+      start_period: 10s
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+
+volumes:
+  postgres-data:

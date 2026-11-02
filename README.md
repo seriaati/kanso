@@ -44,6 +44,25 @@ and load a made-up mailbox:
 docker compose exec app python -m kanso.demo_seed
 ```
 
+## Demo instance
+
+To try kanso without any Google setup, start a demo instance. It is the full app (app, worker,
+Postgres and Redis) showing a made-up mailbox, at `http://localhost:8001` with the password `demo`:
+
+```sh
+./demo.sh                         # AI off
+./demo.sh <anthropic-api-key>     # AI on, using this key
+# or: docker compose -f docker-compose.demo.yml up --build
+#     (DEMO_ANTHROPIC_API_KEY for AI, DEMO_PORT for another port)
+```
+
+Archive, delete, labels, compose and send all work on the demo mail only: nothing reaches Google,
+and no Gmail account can be connected. Every change resets each day at midnight UTC and whenever
+the demo restarts. It is a separate Compose project (`kanso-demo`), so it can run beside your own
+kanso and never touches its data or `.env` settings. With a key, the demo mail is sent to Claude
+like real mail would be, and anyone you let into the demo uses AI on your key. Stop it with
+`docker compose -f docker-compose.demo.yml down`.
+
 ## Good to know
 
 - **HTTPS.** kanso doesn't do HTTPS itself. To use it from your phone or anywhere but the machine

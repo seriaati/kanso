@@ -944,3 +944,17 @@ Record deviations and decisions here: date, decision, reason.
   directions"): one ink brush stroke that swells and trails off, on paper, no accent color. It
   replaces the Phase 9 placeholder in `frontend/icons/{icon,maskable}.svg`; `sh icons/build.sh`
   regenerates `public/` (favicon, PWA and Apple touch icons).
+- 2026-11-02: **Demo instance** (user request): `./demo.sh [anthropic-api-key]` or
+  `docker compose -f docker-compose.demo.yml up`, a separate Compose project (`kanso-demo`, image
+  `kanso-demo`, port `DEMO_PORT`, default 8001) with the same four services. `DEMO_MODE=true`:
+  the secret key is public and the password is `demo` (the user's choice: shown and filled in on
+  the login page through the public `GET /api/auth/demo`; its argon2 hash has a fixed salt, so a
+  restart doesn't sign visitors out); "Connect account" (403) and changing the password (403) are
+  off, and Settings hides both. AI only with a key given to the demo itself
+  (`DEMO_ANTHROPIC_API_KEY`, never a production `.env` or an exported `ANTHROPIC_API_KEY`); then
+  demo mail **is** sent to Claude (labeling, summaries and the assistant's tools treat it as real
+  mail) and the seed records no simulated usage. **Reset**: `demo_seed.reset()` truncates every
+  table (ids restart, so open browsers find the same threads under the same ids) and seeds; the
+  app runs it before starting and the worker every day at midnight UTC. It refuses to run on a
+  database holding a non-demo account. Triage, labels, drafts and send already worked locally for
+  demo accounts (outbox, drafts).
