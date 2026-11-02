@@ -34,7 +34,7 @@ Check every change against these. If a change conflicts with one, stop and ask.
 | Accounts | **One user, multiple Gmail accounts**, each independent: one account is in view at a time (its mail, labels and assistant conversations), with no combined view. |
 | AI provider | **Anthropic (Claude)** with the user's own API key. The model is configurable via env. |
 | Search | **Postgres full-text search.** No vector search in v1. |
-| Clients | **Web app plus an installable PWA**: desktop-first, also usable on a phone. No native apps. |
+| Clients | **Web app plus an installable PWA**: desktop-first, also usable on a phone (which shows an Install button until it's installed). No native apps. |
 
 ## v1 scope
 

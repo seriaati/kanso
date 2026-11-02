@@ -6,6 +6,7 @@ import { quickAction, type Quick } from '../../app/actions'
 import { useDensity } from '../../app/density'
 import type { Section, ThreadSummary } from '../../app/mail'
 import { Icon } from '../../components/Icon'
+import { InstallButton } from '../install/InstallButton'
 import { useSwipe } from './swipe'
 import styles from './ThreadList.module.css'
 
@@ -110,6 +111,7 @@ export function ThreadList(props: Props) {
           </button>
         )}
         <h1 className={styles.title}>{title}</h1>
+        {phone && <InstallButton />}
         {selected.size > 0 && !selectionBar && (
           <span className={styles.selection} role="status">
             {selected.size} selected

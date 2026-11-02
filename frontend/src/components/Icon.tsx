@@ -38,6 +38,8 @@ const paths = {
   delete: <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />,
   star: <path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z" />,
   important: <path d="M5 21V4h13l-3 4.5L18 13H5" />,
+  install: <path d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5M4.5 20h15" />,
+  share: <path d="M12 14V3.5M8 7.5l4-4 4 4M8.5 10.5H5.5v10h13v-10h-3" />,
   label: (
     <>
       <path d="M3 12V4h8l10 10-8 8z" />

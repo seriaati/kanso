@@ -613,6 +613,12 @@
     padding: 6px 12px 6px 8px;
   }
 
+  /* The search box gives way first (to the Install button, say). */
+  .title {
+    flex-shrink: 0;
+    max-width: 50%;
+  }
+
   .search {
     flex: 1 1 auto;
     height: 38px;

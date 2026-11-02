@@ -1,0 +1,39 @@
+.install {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--text-small);
+  font-weight: 700;
+}
+
+.install:active {
+  background: var(--hover);
+}
+
+.steps {
+  margin: 0 0 16px;
+  line-height: 1.7;
+}
+
+.steps svg {
+  vertical-align: -2px;
+}
+
+.ok {
+  display: block;
+  height: 32px;
+  margin-left: auto;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--surface);
+  font-weight: 700;
+}
