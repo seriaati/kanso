@@ -2,27 +2,16 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import type { Account } from '../../app/accounts'
 import type { Label, NamedLabel, SyncStatus } from '../../app/mail'
-import { href, sameView, type Mailbox, type Route, type View } from '../../app/nav'
+import { href, mailboxNav, sameView, type Route, type View } from '../../app/nav'
 import { applyUpdate } from '../../app/update'
 import { Dialog } from '../../components/Dialog'
-import { Icon, type IconName } from '../../components/Icon'
+import { Icon } from '../../components/Icon'
 import { Menu } from '../../components/Menu'
 import { AccountSwitcher } from './AccountSwitcher'
 import { DeleteLabel, LabelEditor } from './LabelEditor'
 import styles from './Sidebar.module.css'
 
 export type Notice = { id: number; text: string; undo?: () => void }
-
-const mailboxes: { mailbox: Mailbox; name: string; icon: IconName; quiet?: boolean }[] = [
-  { mailbox: 'inbox', name: 'Inbox', icon: 'inbox' },
-  { mailbox: 'starred', name: 'Starred', icon: 'star' },
-  { mailbox: 'done', name: 'Done', icon: 'done' },
-  { mailbox: 'sent', name: 'Sent', icon: 'sent' },
-  { mailbox: 'drafts', name: 'Drafts', icon: 'draft' },
-  { mailbox: 'all', name: 'All mail', icon: 'mail' },
-  { mailbox: 'spam', name: 'Spam', icon: 'spam', quiet: true },
-  { mailbox: 'trash', name: 'Trash', icon: 'delete', quiet: true },
-]
 
 type Props = {
   accounts: Account[]
@@ -33,14 +22,13 @@ type Props = {
   notice: Notice | null
   ai: boolean
   update: boolean
-  drawer?: { open: boolean }
   onSelectAccount: (id: number) => void
   onCompose: () => void
   onLabelChanged: (name: string, change: { renamed?: string; deleted?: boolean }) => void
 }
 
 export function Sidebar(props: Props) {
-  const { accounts, route, labels, userLabels, sync, notice, ai, update, drawer, onSelectAccount, onCompose, onLabelChanged } = props
+  const { accounts, route, labels, userLabels, sync, notice, ai, update, onSelectAccount, onCompose, onLabelChanged } = props
   // `editing` is '' for a new label.
   const [menu, setMenu] = useState<{ name: string; anchor: HTMLElement } | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
@@ -53,9 +41,8 @@ export function Sidebar(props: Props) {
 
   return (
     <nav
-      className={`${styles.sidebar} ${drawer ? styles.drawer : ''} ${drawer?.open ? styles.open : ''}`}
+      className={styles.sidebar}
       aria-label="Mailboxes"
-      inert={drawer && !drawer.open}
     >
       <AccountSwitcher accounts={accounts} selected={selected} ai={ai} onSelect={onSelectAccount} />
 
@@ -64,7 +51,7 @@ export function Sidebar(props: Props) {
         Compose
       </button>
 
-      {mailboxes.map(({ mailbox, name, icon, quiet }) => {
+      {mailboxNav.map(({ mailbox, name, icon, quiet }) => {
         const view: View = { kind: 'mailbox', mailbox }
         const current = !route.settings && sameView(view, route.view)
         return (
@@ -185,7 +172,7 @@ export function Sidebar(props: Props) {
   )
 }
 
-function SyncNote({ sync }: { sync: SyncStatus[] }) {
+export function SyncNote({ sync }: { sync: SyncStatus[] }) {
   const notes = sync.flatMap((s) => {
     if (s.state === 'backfill') {
       const total = s.backfill_total ? ` of ${s.backfill_total.toLocaleString()}` : ''

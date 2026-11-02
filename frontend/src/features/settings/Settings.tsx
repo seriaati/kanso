@@ -2,10 +2,11 @@ import { useState, type ReactNode } from 'react'
 import { accountColors, useDisconnectAccount, useUpdateAccount, type Account } from '../../app/accounts'
 import { useAiUsage } from '../../app/ai'
 import { userLabels, type Label, type NamedLabel, type SyncStatus } from '../../app/mail'
+import { usePhone } from '../../app/media'
 import { usePush } from '../../app/notifications'
 import { useChangePassword, useDemoPassword, useLogoutEverywhere, useSettings, useUpdateSettings } from '../../app/settings'
 import { Icon } from '../../components/Icon'
-import { Avatar } from '../sidebar/AccountSwitcher'
+import { Avatar, DisplayOptions } from '../sidebar/AccountSwitcher'
 import { LabelEditor } from '../sidebar/LabelEditor'
 import styles from './Settings.module.css'
 
@@ -21,6 +22,7 @@ type Props = {
 
 export function Settings({ accounts, accountId, labels, sync, ai, onMenu }: Props) {
   const account = accounts.find((a) => a.id === accountId)
+  const phone = usePhone()
   const demo = useDemoPassword() !== null // true until known: no flash of Connect on a demo
   return (
     <section className={styles.settings} aria-label="Settings">
@@ -36,6 +38,12 @@ export function Settings({ accounts, accountId, labels, sync, ai, onMenu }: Prop
         <div className={styles.page}>
           <Accounts accounts={accounts} sync={sync} demo={demo} />
           {account && <Labels account={account} labels={labels} ai={ai} />}
+          {/* On a desktop these are in the account menu. */}
+          {phone && (
+            <Section title="Display">
+              <DisplayOptions density={false} />
+            </Section>
+          )}
           {!demo && <Notifications />}
           {ai && <Assistant />}
           {ai && <Usage />}

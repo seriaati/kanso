@@ -220,7 +220,6 @@ export function Assistant({ accountId, threadId, threadHref, onOpenThread, onNot
       className={`${styles.assistant} ${minimized ? styles.minimized : ''} ${phone ? styles.sheet : ''} ${alone ? styles.alone : ''}`}
       aria-label="Assistant"
     >
-      {phone && <button type="button" className={styles.handle} aria-hidden="true" tabIndex={-1} onClick={toggle} />}
       <div className={styles.header}>
         <span className={styles.title}>Assistant</span>
         {threadId !== null && !allMail ? (

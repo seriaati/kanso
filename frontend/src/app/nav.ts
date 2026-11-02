@@ -1,9 +1,22 @@
 import { useLocation } from 'react-router'
+import type { IconName } from '../components/Icon'
 
 // Labels go by name in the URL. `accountId` is the URL's; App picks one when it's missing.
 
 export const mailboxes = ['inbox', 'starred', 'done', 'sent', 'drafts', 'all', 'trash', 'spam'] as const
 export type Mailbox = (typeof mailboxes)[number]
+
+// The sidebar's (and the phone menu's) mailboxes, in order.
+export const mailboxNav: { mailbox: Mailbox; name: string; icon: IconName; quiet?: boolean }[] = [
+  { mailbox: 'inbox', name: 'Inbox', icon: 'inbox' },
+  { mailbox: 'starred', name: 'Starred', icon: 'star' },
+  { mailbox: 'done', name: 'Done', icon: 'done' },
+  { mailbox: 'sent', name: 'Sent', icon: 'sent' },
+  { mailbox: 'drafts', name: 'Drafts', icon: 'draft' },
+  { mailbox: 'all', name: 'All mail', icon: 'mail' },
+  { mailbox: 'spam', name: 'Spam', icon: 'spam', quiet: true },
+  { mailbox: 'trash', name: 'Trash', icon: 'delete', quiet: true },
+]
 
 export type View = { kind: 'mailbox'; mailbox: Mailbox } | { kind: 'label'; name: string } | { kind: 'search'; q: string }
 

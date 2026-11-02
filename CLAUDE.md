@@ -118,6 +118,15 @@ The reference mockup is the "3 · Chosen — Koke + indigo, split view" artboard
   pane, so mail can still be read and triaged while writing. It minimizes to its title bar and
   closes (keeping the draft). One at a time; c brings it back. On a phone it is the whole screen.
   Replies and forwards stay docked in their thread.
+- **Phone** (under 768px; mockup: https://claude.ai/artifact/Uurj4UQ6CnFdF4PV8Jezt2): controls sit
+  at the bottom, within thumb reach. The list has a bottom bar (Inbox, Search, Compose as the
+  round accent button in the middle, Ask with AI on, Menu); Search swaps the bar for a search box
+  above the keyboard. Menu opens a bottom sheet in place of the sidebar: accounts, mailboxes and
+  labels in two columns, Settings, Log out. The list's header shows the view and the account's
+  address (and Install until kanso is installed). An open thread has Back and ⋯ (Reply all,
+  Forward, Mark unread, Important, Ask about this thread) at the top and a bar of Done, Delete,
+  Label, Star and Reply at the bottom, hidden while a reply is being written. The label picker
+  is a bottom sheet; the assistant is a screen of its own; Theme and Accent are in Settings.
 
 **Tokens**
 

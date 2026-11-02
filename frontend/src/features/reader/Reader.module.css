@@ -373,8 +373,42 @@
 
 @media (max-width: 767px) {
   .toolbar {
+    min-height: 52px;
     gap: 0;
     padding: 2px 4px;
+  }
+
+  .back {
+    height: 44px;
+    min-width: 0;
+    padding: 0 10px 0 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    border: 0;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .back:active {
+    background: var(--hover);
+  }
+
+  .actions {
+    background: var(--surface);
+  }
+
+  /* The Label button and its picker (a sheet on a phone, LabelPicker.module.css). */
+  .slot {
+    display: grid;
+  }
+
+  .menu kbd {
+    display: none;
   }
 
   .tool,

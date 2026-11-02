@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
+import { usePhone } from '../../app/media'
 import { Icon } from '../../components/Icon'
 import styles from './LabelPicker.module.css'
 
@@ -16,6 +17,7 @@ export function LabelPicker({ options, onToggle, onCreate, onClose, up }: Props)
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
   const ref = useRef<HTMLDivElement>(null)
+  const phone = usePhone() // a sheet there; the keyboard would cover the labels
 
   const q = query.trim()
   const shown = options.filter((o) => o.name.toLowerCase().includes(q.toLowerCase()))
@@ -42,10 +44,11 @@ export function LabelPicker({ options, onToggle, onCreate, onClose, up }: Props)
 
   return (
     <div className={`${styles.picker} ${up ? styles.up : ''}`} ref={ref} role="dialog" aria-label="Label as">
+      {phone && <h2 className={styles.title}>Label as</h2>}
       <input
         className={styles.input}
-        autoFocus
-        placeholder="Label as…"
+        autoFocus={!phone}
+        placeholder={phone ? 'Find or create a label' : 'Label as…'}
         aria-label="Filter labels"
         value={query}
         onChange={(event) => {

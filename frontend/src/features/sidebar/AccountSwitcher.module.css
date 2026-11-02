@@ -201,13 +201,8 @@
   outline-offset: 2px;
 }
 
+/* Phones show DisplayOptions in Settings (the switcher itself is desktop only). */
 @media (max-width: 767px) {
-  .popover {
-    width: 100%;
-  }
-
-  .row,
-  .action,
   .theme {
     min-height: 44px;
   }

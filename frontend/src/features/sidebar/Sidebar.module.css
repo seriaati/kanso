@@ -224,39 +224,3 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
-@media (max-width: 767px) {
-  .drawer {
-    position: fixed;
-    z-index: 30;
-    inset: 0 auto 0 0;
-    width: min(300px, 86vw);
-    padding: 12px 10px;
-    transform: translateX(-100%);
-    transition: transform 0.2s ease;
-  }
-
-  .open {
-    transform: none;
-    border-right: 1px solid var(--line);
-  }
-
-  .compose {
-    display: none; /* the list has its own Compose button */
-  }
-
-  .heading {
-    margin-top: 20px;
-  }
-
-  .nav,
-  .label {
-    min-height: 44px;
-    padding: 0 12px;
-  }
-
-  .newLabel {
-    height: 44px;
-    padding: 0 12px;
-  }
-}

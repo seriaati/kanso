@@ -77,29 +77,6 @@
 }
 
 /* Phones only, from here down. */
-.scrim {
-  position: fixed;
-  z-index: 25;
-  inset: 0;
-  background: var(--scrim);
-}
-
-/* The sidebar's Compose is in the drawer. */
-.compose {
-  position: fixed;
-  z-index: 5;
-  right: 16px;
-  bottom: 16px;
-  width: 56px;
-  height: 56px;
-  border: 0;
-  border-radius: 16px;
-  background: var(--accent);
-  color: var(--surface);
-  display: grid;
-  place-items: center;
-}
-
 .toast {
   position: fixed;
   z-index: 20;
@@ -111,12 +88,12 @@
   gap: 6px;
 }
 
-.toast.list {
-  right: 84px; /* clear of Compose */
+.toast.bar {
+  bottom: calc(76px + env(safe-area-inset-bottom)); /* above the bottom bar */
 }
 
 .toast.sheet {
-  bottom: 70px; /* above the assistant's bar */
+  bottom: calc(70px + env(safe-area-inset-bottom)); /* above the assistant's input */
 }
 
 .toast p {

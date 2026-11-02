@@ -1,0 +1,105 @@
+/* Phones only: the list's bar here, and the open thread's actions (Reader.tsx). */
+.bar {
+  flex: none;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  align-items: center;
+  border-top: 1px solid var(--line);
+  background: inherit;
+}
+
+.item {
+  height: 52px;
+  min-width: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.item:active {
+  background: var(--hover);
+}
+
+.item[aria-disabled='true'] {
+  opacity: 0.45;
+}
+
+.current,
+.item[aria-pressed='true'] {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.compose {
+  justify-self: center;
+  width: 52px;
+  height: 52px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--surface);
+  display: grid;
+  place-items: center;
+  transition: scale var(--fast) var(--ease);
+}
+
+.compose:active {
+  scale: 0.94;
+}
+
+.search {
+  flex: none;
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.box {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.box input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 16px; /* 16px or more: iOS doesn't zoom in on focus */
+  outline: none;
+}
+
+.box input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.cancel {
+  flex: none;
+  height: 44px;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-weight: 700;
+}

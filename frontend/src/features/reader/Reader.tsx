@@ -7,6 +7,7 @@ import { useThread, type Address, type Message, type ThreadDetail, type ThreadSu
 import { Avatar } from '../../components/Avatar'
 import { Icon, type IconName } from '../../components/Icon'
 import { Composer, type Focus } from '../compose/Composer'
+import bar from '../phone/BottomBar.module.css'
 import { EmailFrame } from './EmailFrame'
 import styles from './Reader.module.css'
 
@@ -31,11 +32,15 @@ type Props = {
   onLabel: () => void
   picker: ReactNode
   phone: boolean
+  /** Phones: what Back returns to. */
+  backLabel: string
   onBack: () => void
+  /** Phones, with AI on: the assistant, about this thread. */
+  onAsk?: () => void
 }
 
 export function Reader(props: Props) {
-  const { threadId, myEmails, accounts, reply, onComposeFinished, onCloseReply, onReply, onCloseThread } = props
+  const { threadId, myEmails, accounts, reply, onComposeFinished, onCloseReply, onCloseThread } = props
   const thread = useThread(threadId)
   const detail = thread.data && thread.data.id === threadId ? thread.data : undefined
   const drafts = detail?.messages.filter((m) => m.draft) ?? []
@@ -114,10 +119,12 @@ export function Reader(props: Props) {
   const canReply = !!detail && !draftOnly
   return (
     <article className={styles.reader} aria-label="Thread">
-      <Toolbar {...props} canReply={canReply} onReply={onReply} />
+      {props.phone ? <PhoneHeader {...props} canReply={canReply} /> : <Toolbar {...props} canReply={canReply} />}
       <div className={styles.body} key={threadId ?? 'none'}>
         {content}
       </div>
+      {/* While writing, the keyboard needs the room. */}
+      {props.phone && !active && <PhoneActions {...props} canReply={canReply} />}
     </article>
   )
 }
@@ -142,11 +149,11 @@ function ToolButton({ icon, label, title, pressed, disabled, onClick }: ToolButt
 
 const name = (title: string) => title.replace(/ \(.*\)$/, '')
 
-type ToolbarProps = Pick<Props, 'targets' | 'onQuick' | 'onToggleRead' | 'onLabel' | 'picker' | 'onReply' | 'phone' | 'onBack' | 'onCloseThread'> & {
+type ToolbarProps = Pick<Props, 'targets' | 'onQuick' | 'onToggleRead' | 'onLabel' | 'picker' | 'onReply' | 'onCloseThread'> & {
   canReply: boolean
 }
 
-function Toolbar({ targets, onQuick, onToggleRead, onLabel, picker, canReply, onReply, phone, onBack, onCloseThread }: ToolbarProps) {
+function Toolbar({ targets, onQuick, onToggleRead, onLabel, picker, canReply, onReply, onCloseThread }: ToolbarProps) {
   const none = targets.length === 0
   const quick = (q: Quick) => {
     const { icon, title, pressed } = quickAction(q, targets)
@@ -154,7 +161,6 @@ function Toolbar({ targets, onQuick, onToggleRead, onLabel, picker, canReply, on
   }
   return (
     <div className={styles.toolbar} role="toolbar" aria-label="Email actions">
-      {phone && <ToolButton icon="back" label="Back" title="Back" onClick={onBack} />}
       {quick('done')}
       {quick('delete')}
       <span className={styles.separator} aria-hidden="true" />
@@ -169,46 +175,117 @@ function Toolbar({ targets, onQuick, onToggleRead, onLabel, picker, canReply, on
         type="button"
         className={styles.textTool}
         aria-disabled={!canReply || undefined}
-        aria-label={phone ? 'Reply' : undefined}
         title="Reply (r)"
         onClick={canReply ? () => onReply('reply') : undefined}
       >
         <Icon name="reply" size={16} />
-        {!phone && 'Reply'}
+        Reply
       </button>
-      {!phone && (
-        <button
-          type="button"
-          className={styles.textTool}
-          aria-disabled={!canReply || undefined}
-          title="Forward (f)"
-          onClick={canReply ? () => onReply('forward') : undefined}
-        >
-          <Icon name="forward" size={16} />
-          Forward
-        </button>
-      )}
+      <button
+        type="button"
+        className={styles.textTool}
+        aria-disabled={!canReply || undefined}
+        title="Forward (f)"
+        onClick={canReply ? () => onReply('forward') : undefined}
+      >
+        <Icon name="forward" size={16} />
+        Forward
+      </button>
       <More
         disabled={none}
         unread={!none && targets.every((t) => t.unread)}
         onToggleRead={onToggleRead}
         onReplyAll={canReply ? () => onReply('reply_all') : undefined}
-        onForward={phone && canReply ? () => onReply('forward') : undefined}
       />
-      {/* On a phone, Back does this. */}
-      {!phone && (
-        <>
-          <span className={styles.separator} aria-hidden="true" />
-          <ToolButton icon="close" label="Close" title="Close (Esc)" onClick={onCloseThread} />
-        </>
-      )}
+      <span className={styles.separator} aria-hidden="true" />
+      <ToolButton icon="close" label="Close" title="Close (Esc)" onClick={onCloseThread} />
     </div>
   )
 }
 
-type MoreProps = { disabled: boolean; unread: boolean; onToggleRead: () => void; onReplyAll?: () => void; onForward?: () => void }
+type PhoneProps = Props & { canReply: boolean }
 
-function More({ disabled, unread, onToggleRead, onReplyAll, onForward }: MoreProps) {
+// Phones: Back and the rarer actions at the top, the everyday ones at the bottom (PhoneActions).
+function PhoneHeader({ targets, onQuick, onToggleRead, onReply, canReply, backLabel, onBack, onAsk }: PhoneProps) {
+  const none = targets.length === 0
+  const important = quickAction('important', targets)
+  return (
+    <div className={styles.toolbar}>
+      <button type="button" className={styles.back} onClick={onBack}>
+        <Icon name="back" size={20} />
+        {backLabel}
+      </button>
+      <span className={styles.spacer} />
+      <More
+        disabled={none}
+        unread={!none && targets.every((t) => t.unread)}
+        onToggleRead={onToggleRead}
+        onReplyAll={canReply ? () => onReply('reply_all') : undefined}
+        onForward={canReply ? () => onReply('forward') : undefined}
+        important={{ on: !!important.pressed, toggle: () => onQuick('important') }}
+        onAsk={onAsk}
+      />
+    </div>
+  )
+}
+
+function PhoneActions({ targets, onQuick, onLabel, picker, onReply, canReply }: PhoneProps) {
+  const none = targets.length === 0
+  const item = (q: Quick, short: (on: boolean) => string) => {
+    const { icon, title, pressed } = quickAction(q, targets)
+    // Done and Delete turn into Move to inbox and Restore: their icon says which.
+    const on = q === 'star' ? !!pressed : icon === 'inbox'
+    return (
+      <button
+        type="button"
+        className={bar.item}
+        aria-pressed={q === 'star' ? pressed : undefined}
+        aria-disabled={none || undefined}
+        title={name(title)}
+        onClick={none ? undefined : () => onQuick(q)}
+      >
+        <Icon name={icon} size={22} filled={pressed} />
+        {short(on)}
+      </button>
+    )
+  }
+  return (
+    <nav className={`${bar.bar} ${styles.actions}`} aria-label="Email actions">
+      {item('done', (back) => (back ? 'Inbox' : 'Done'))}
+      {item('delete', (back) => (back ? 'Restore' : 'Delete'))}
+      <span className={styles.slot}>
+        <button type="button" className={bar.item} aria-disabled={none || undefined} onClick={none ? undefined : onLabel}>
+          <Icon name="label" size={22} />
+          Label
+        </button>
+        {picker}
+      </span>
+      {item('star', (on) => (on ? 'Starred' : 'Star'))}
+      <button
+        type="button"
+        className={`${bar.item} ${bar.current}`}
+        aria-disabled={!canReply || undefined}
+        onClick={canReply ? () => onReply('reply') : undefined}
+      >
+        <Icon name="reply" size={22} />
+        Reply
+      </button>
+    </nav>
+  )
+}
+
+type MoreProps = {
+  disabled: boolean
+  unread: boolean
+  onToggleRead: () => void
+  onReplyAll?: () => void
+  onForward?: () => void
+  /** Phones: these live here rather than in a toolbar. */
+  important?: { on: boolean; toggle: () => void }
+  onAsk?: () => void
+}
+
+function More({ disabled, unread, onToggleRead, onReplyAll, onForward, important, onAsk }: MoreProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLSpanElement>(null)
   useEffect(() => {
@@ -261,6 +338,32 @@ function More({ disabled, unread, onToggleRead, onReplyAll, onForward }: MorePro
             {unread ? 'Mark as read' : 'Mark as unread'}
             <kbd>u</kbd>
           </button>
+          {important && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false)
+                important.toggle()
+              }}
+            >
+              {important.on ? 'Not important' : 'Mark important'}
+              <kbd>=</kbd>
+            </button>
+          )}
+          {onAsk && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false)
+                onAsk()
+              }}
+            >
+              Ask about this thread
+              <kbd>q</kbd>
+            </button>
+          )}
         </div>
       )}
     </span>

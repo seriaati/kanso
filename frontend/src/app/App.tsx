@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router'
-import { Icon } from '../components/Icon'
 import { Menu, type MenuItem } from '../components/Menu'
 import { Resizer } from '../components/Resizer'
 import { Assistant, type AssistantHandle } from '../features/assistant/Assistant'
+import { BottomBar } from '../features/phone/BottomBar'
+import { MenuSheet } from '../features/phone/MenuSheet'
 import { Composer } from '../features/compose/Composer'
 import { ShortcutHelp } from '../features/help/ShortcutHelp'
 import { LabelPicker, type LabelOption } from '../features/labels/LabelPicker'
@@ -142,11 +143,11 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const ai = useConfig().data?.ai ?? false
   const phone = usePhone()
   const update = useUpdateReady()
-  // The phone's sidebar drawer closes whenever the page changes (back too).
-  const [drawer, setDrawer] = useState({ open: false, at: location.key })
-  if (drawer.at !== location.key) setDrawer({ open: false, at: location.key })
-  const drawerOpen = phone && drawer.open
-  const openDrawer = phone ? () => setDrawer({ open: true, at: location.key }) : undefined
+  // The phone's menu sheet closes whenever the page changes (back too).
+  const [menu, setMenu] = useState({ open: false, at: location.key })
+  if (menu.at !== location.key) setMenu({ open: false, at: location.key })
+  const menuOpen = phone && menu.open
+  const openMenu = phone ? () => setMenu({ open: true, at: location.key }) : undefined
   const grouped = view.kind === 'mailbox' && view.mailbox === 'inbox'
 
   const labels = useLabels(accountId)
@@ -563,10 +564,11 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     return () => window.removeEventListener('keydown', listener)
   }, [])
 
-  const screen = route.settings ? 'settings' : threadId !== null ? 'thread' : 'list'
-  const showAssistant = ai && accountId !== null && !draftOnly && (threadId !== null || (asking && !phone))
+  // On a phone the assistant is a screen of its own, opened from Ask (or a thread's ⋯ menu).
+  const showAssistant = ai && accountId !== null && !draftOnly && (phone ? asking : threadId !== null || asking)
   const paneOpen = phone || threadId !== null || showAssistant
-  const assistantOnly = threadId === null
+  const assistantOnly = phone || threadId === null
+  const screen = route.settings ? 'settings' : phone && showAssistant ? 'assistant' : threadId !== null ? 'thread' : 'list'
 
   return (
     <div
@@ -582,24 +584,25 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
             } as CSSProperties)
       }
     >
-      <Sidebar
-        accounts={accounts}
-        route={route}
-        labels={labels.data ?? []}
-        userLabels={named}
-        sync={sync.data ?? []}
-        notice={phone ? null : notice}
-        ai={ai}
-        update={!phone && update}
-        drawer={phone ? { open: drawerOpen } : undefined}
-        onSelectAccount={(id) => go({ accountId: id, threadId: null, settings: false })}
-        onCompose={compose}
-        onLabelChanged={(name, { renamed, deleted }) => {
-          if (view.kind !== 'label' || view.name !== name) return
-          if (deleted) go({ view: { kind: 'mailbox', mailbox: 'inbox' }, threadId: null }, true)
-          else if (renamed) go({ view: { kind: 'label', name: renamed } }, true)
-        }}
-      />
+      {!phone && (
+        <Sidebar
+          accounts={accounts}
+          route={route}
+          labels={labels.data ?? []}
+          userLabels={named}
+          sync={sync.data ?? []}
+          notice={notice}
+          ai={ai}
+          update={update}
+          onSelectAccount={(id) => go({ accountId: id, threadId: null, settings: false })}
+          onCompose={compose}
+          onLabelChanged={(name, { renamed, deleted }) => {
+            if (view.kind !== 'label' || view.name !== name) return
+            if (deleted) go({ view: { kind: 'mailbox', mailbox: 'inbox' }, threadId: null }, true)
+            else if (renamed) go({ view: { kind: 'label', name: renamed } }, true)
+          }}
+        />
+      )}
       {!phone && (
         <Resizer
           label="Resize the sidebar"
@@ -616,9 +619,20 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
           }}
         />
       )}
-      {drawerOpen && <div className={styles.scrim} onClick={() => setDrawer({ open: false, at: location.key })} aria-hidden="true" />}
+      {menuOpen && (
+        <MenuSheet
+          accounts={accounts}
+          route={route}
+          labels={labels.data ?? []}
+          userLabels={named}
+          sync={sync.data ?? []}
+          ai={ai}
+          onSelectAccount={(id) => go({ accountId: id, threadId: null, settings: false })}
+          onClose={() => setMenu({ open: false, at: location.key })}
+        />
+      )}
       {route.settings ? (
-        <Settings accounts={accounts} accountId={accountId} labels={labels.data ?? []} sync={sync.data ?? []} ai={ai} onMenu={openDrawer} />
+        <Settings accounts={accounts} accountId={accountId} labels={labels.data ?? []} sync={sync.data ?? []} ai={ai} onMenu={openMenu} />
       ) : (
         <>
           <ThreadList
@@ -650,7 +664,19 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
             onSearch={search}
             searchRef={searchRef}
             phone={phone}
-            onMenu={openDrawer}
+            subtitle={accounts.find((a) => a.id === accountId)?.email}
+            footer={
+              phone && (
+                <BottomBar
+                  view={view}
+                  inboxHref={href({ view: { kind: 'mailbox', mailbox: 'inbox' }, threadId: null, accountId })}
+                  onSearch={search}
+                  onCompose={compose}
+                  onAsk={ai && accountId !== null ? () => setAsking(true) : undefined}
+                  onMenu={() => setMenu({ open: true, at: location.key })}
+                />
+              )
+            }
             onAsk={ai && !phone && !paneOpen ? () => setAsking(true) : undefined}
             onRowMenu={phone ? undefined : (thread, point) => setRowMenu({ thread, ...point })}
             menuId={rowMenu?.thread.id}
@@ -703,7 +729,9 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
                   onLabel={() => setPicking((open) => !open)}
                   picker={multi ? null : picker}
                   phone={phone}
+                  backLabel={title}
                   onBack={back}
+                  onAsk={phone && ai && accountId !== null ? () => setAsking(true) : undefined}
                 />
               )}
               {showAssistant && (
@@ -713,18 +741,16 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
                   ref={assistantRef}
                   threadId={threadId}
                   threadHref={(id) => href({ ...route, threadId: id })}
-                  onOpenThread={(id) => open(id)}
+                  onOpenThread={(id) => {
+                    if (phone) setAsking(false) // to the thread, from the assistant's screen
+                    open(id)
+                  }}
                   onNotice={say}
                   phone={phone}
                   onClose={assistantOnly ? () => setAsking(false) : undefined}
                 />
               )}
             </div>
-          )}
-          {phone && screen === 'list' && (
-            <button type="button" className={styles.compose} aria-label="Compose" onClick={compose}>
-              <Icon name="compose" size={20} strokeWidth={2} />
-            </button>
           )}
         </>
       )}
@@ -755,14 +781,14 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
         </div>
       )}
       {phone && (notice || update) && (
-        <Toast notice={notice} update={update} place={screen === 'list' ? 'list' : screen === 'thread' && showAssistant ? 'sheet' : 'bottom'} />
+        <Toast notice={notice} update={update} place={screen === 'list' || (screen === 'thread' && !reply) ? 'bar' : screen === 'assistant' ? 'sheet' : 'bottom'} />
       )}
       {help && <ShortcutHelp ai={ai} onClose={() => setHelp(false)} />}
     </div>
   )
 }
 
-function Toast({ notice, update, place }: { notice: Notice | null; update: boolean; place: 'list' | 'sheet' | 'bottom' }) {
+function Toast({ notice, update, place }: { notice: Notice | null; update: boolean; place: 'bar' | 'sheet' | 'bottom' }) {
   return (
     <div className={`${styles.toast} ${styles[place] ?? ''}`} role="status">
       {update && (

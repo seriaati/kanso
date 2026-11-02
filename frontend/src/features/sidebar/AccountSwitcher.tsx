@@ -43,9 +43,6 @@ const densities: { density: Density; icon: IconName; name: string }[] = [
 export function AccountSwitcher({ accounts, selected, ai, onSelect }: Props) {
   const [open, setOpen] = useState(false)
   const keyRejected = useAiUsage(open && ai).data?.key_rejected
-  const { theme, dark } = useTheme()
-  const accent = useAccent()
-  const density = useDensity()
   const ref = useRef<HTMLDivElement>(null)
 
   const close = () => setOpen(false)
@@ -106,55 +103,7 @@ export function AccountSwitcher({ accounts, selected, ai, onSelect }: Props) {
               Anthropic API key was rejected; check ANTHROPIC_API_KEY
             </p>
           )}
-          <div className={styles.theme} role="radiogroup" aria-label="Theme">
-            <span>Theme</span>
-            {themes.map((t) => (
-              <button
-                key={t.theme}
-                type="button"
-                role="radio"
-                aria-checked={theme === t.theme}
-                aria-label={t.name}
-                title={t.name}
-                onClick={() => setTheme(t.theme)}
-              >
-                <Icon name={t.icon} size={15} />
-              </button>
-            ))}
-          </div>
-          <div className={`${styles.theme} ${styles.accent}`} role="radiogroup" aria-label="Accent">
-            <span>Accent</span>
-            {accents.map((a) => (
-              <button
-                key={a.accent}
-                type="button"
-                role="radio"
-                aria-checked={accent === a.accent}
-                aria-label={a.name}
-                title={a.name}
-                data-accent={a.accent}
-                onClick={() => setAccent(a.accent)}
-              >
-                <i style={{ background: dark ? 'var(--accent-dark)' : 'var(--accent-light)' }} />
-              </button>
-            ))}
-          </div>
-          <div className={styles.theme} role="radiogroup" aria-label="Density">
-            <span>Density</span>
-            {densities.map((d) => (
-              <button
-                key={d.density}
-                type="button"
-                role="radio"
-                aria-checked={density === d.density}
-                aria-label={d.name}
-                title={d.name}
-                onClick={() => setDensity(d.density)}
-              >
-                <Icon name={d.icon} size={15} />
-              </button>
-            ))}
-          </div>
+          <DisplayOptions />
           <Link to="/settings" className={styles.action} onClick={close}>
             <Icon name="settings" size={15} />
             Settings
@@ -166,5 +115,68 @@ export function AccountSwitcher({ accounts, selected, ai, onSelect }: Props) {
         </div>
       )}
     </div>
+  )
+}
+
+/** Theme, Accent and Density: in the account menu, and in Settings on a phone (no Density:
+ * phones keep their two-line rows). */
+export function DisplayOptions({ density: withDensity = true }: { density?: boolean }) {
+  const { theme, dark } = useTheme()
+  const accent = useAccent()
+  const density = useDensity()
+  return (
+    <>
+      <div className={styles.theme} role="radiogroup" aria-label="Theme">
+        <span>Theme</span>
+        {themes.map((t) => (
+          <button
+            key={t.theme}
+            type="button"
+            role="radio"
+            aria-checked={theme === t.theme}
+            aria-label={t.name}
+            title={t.name}
+            onClick={() => setTheme(t.theme)}
+          >
+            <Icon name={t.icon} size={15} />
+          </button>
+        ))}
+      </div>
+      <div className={`${styles.theme} ${styles.accent}`} role="radiogroup" aria-label="Accent">
+        <span>Accent</span>
+        {accents.map((a) => (
+          <button
+            key={a.accent}
+            type="button"
+            role="radio"
+            aria-checked={accent === a.accent}
+            aria-label={a.name}
+            title={a.name}
+            data-accent={a.accent}
+            onClick={() => setAccent(a.accent)}
+          >
+            <i style={{ background: dark ? 'var(--accent-dark)' : 'var(--accent-light)' }} />
+          </button>
+        ))}
+      </div>
+      {withDensity && (
+        <div className={styles.theme} role="radiogroup" aria-label="Density">
+          <span>Density</span>
+          {densities.map((d) => (
+            <button
+              key={d.density}
+              type="button"
+              role="radio"
+              aria-checked={density === d.density}
+              aria-label={d.name}
+              title={d.name}
+              onClick={() => setDensity(d.density)}
+            >
+              <Icon name={d.icon} size={15} />
+            </button>
+          ))}
+        </div>
+      )}
+    </>
   )
 }

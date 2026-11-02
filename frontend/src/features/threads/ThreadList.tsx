@@ -61,7 +61,10 @@ type Props = {
   onSearch: (query: string) => void
   searchRef: RefObject<HTMLInputElement | null>
   phone: boolean
-  onMenu?: () => void
+  /** Phones: the account's address, under the title. */
+  subtitle?: string
+  /** Phones: the bottom bar. */
+  footer?: ReactNode
   onAsk?: () => void
   onRowMenu?: (thread: ThreadSummary, point: { x: number; y: number }) => void
   menuId?: number | null
@@ -72,7 +75,7 @@ type Props = {
 
 export function ThreadList(props: Props) {
   const { title, query, rows, status, error, empty, cursorId, openId, selected, labelsById, hideLabel, hideChips } = props
-  const { labelInbox, onDoneAll, onToggleBundle, threadHref, onOpen, onQuick, onSearch, searchRef, phone, onMenu, onAsk } = props
+  const { labelInbox, onDoneAll, onToggleBundle, threadHref, onOpen, onQuick, onSearch, searchRef, phone, subtitle, footer, onAsk } = props
   const { onRowMenu, menuId, onSelectClick, selectionBar } = props
   const scrollRef = useRef<HTMLDivElement>(null)
   const comfortable = useDensity() === 'comfortable'
@@ -106,18 +109,22 @@ export function ThreadList(props: Props) {
   return (
     <section className={`${styles.list} ${comfortable ? styles.comfortable : ''}`} aria-label={title}>
       <header className={styles.header}>
-        {onMenu && (
-          <button type="button" className={styles.menu} aria-label="Mailboxes and labels" onClick={onMenu}>
-            <Icon name="menu" size={18} />
-          </button>
+        {phone ? (
+          <div className={styles.titles}>
+            <h1 className={styles.title}>{title}</h1>
+            {subtitle && <span className={styles.subtitle}>{subtitle}</span>}
+          </div>
+        ) : (
+          <h1 className={styles.title}>{title}</h1>
         )}
-        <h1 className={styles.title}>{title}</h1>
         {phone && <InstallButton />}
         {selected.size > 0 && !selectionBar && (
           <span className={styles.selection} role="status">
             {selected.size} selected
           </span>
         )}
+        {/* On a phone, search is in the bottom bar. */}
+        {!phone && (
         <form
           role="search"
           className={styles.search}
@@ -154,6 +161,7 @@ export function ThreadList(props: Props) {
             }}
           />
         </form>
+        )}
         {onAsk && (
           <button type="button" className={styles.ask} aria-label="Ask the assistant" title="Ask the assistant (q)" onClick={onAsk}>
             <Icon name="assistant" size={16} />
@@ -203,6 +211,7 @@ export function ThreadList(props: Props) {
         </div>
       </div>
       {selectionBar && <div className={styles.selectionBar}>{selectionBar}</div>}
+      {footer}
     </section>
   )
 }

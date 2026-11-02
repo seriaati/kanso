@@ -382,42 +382,11 @@
   opacity: 0.45;
 }
 
-/* Phone: a bottom sheet; the email above shrinks rather than being covered. */
-.handle {
-  display: none;
-}
-
 @media (max-width: 767px) {
+  /* Opened from Ask (or a thread's ⋯): the whole screen, like the composer. */
   .sheet {
-    flex: 0 0 72%;
-    border-radius: 14px 14px 0 0;
-  }
-
-  .sheet.minimized {
-    flex: none;
-  }
-
-  .handle {
-    display: block;
-    flex: none;
-    width: 100%;
-    height: 14px;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    position: relative;
-  }
-
-  .handle::after {
-    content: '';
-    position: absolute;
-    top: 6px;
-    left: 50%;
-    width: 36px;
-    height: 4px;
-    margin-left: -18px;
-    border-radius: 2px;
-    background: var(--line);
+    flex: 1 1 auto;
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   .sheet .header {
