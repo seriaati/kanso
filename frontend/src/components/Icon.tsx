@@ -2,13 +2,7 @@ import type { ReactNode } from 'react'
 
 // Line icons on a 24px grid, drawn in currentColor.
 const paths = {
-  done: (
-    <>
-      <path d="M3 5h18v4H3z" />
-      <path d="M5 9v10h14V9" />
-      <path d="M10 13h4" />
-    </>
-  ),
+  done: <path d="M4.5 12.5l5 5L19.5 7" />,
   inbox: <path d="M3 13h5l2 3h4l2-3h5M5.5 5h13L21 13v6H3v-6z" />,
   sent: <path d="M21 3L3 10.5l7.5 3M21 3l-7.5 18-3-7.5M21 3L10.5 13.5" />,
   draft: <path d="M14 3H5v18h14V8zM14 3v5h5M8.5 13h7M8.5 17h4.5" />,
