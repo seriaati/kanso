@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { logout, type Account } from '../../app/accounts'
 import { useAiUsage } from '../../app/ai'
-import { Icon } from '../../components/Icon'
+import { setTheme, useTheme, type Theme } from '../../app/theme'
+import { Icon, type IconName } from '../../components/Icon'
 import styles from './AccountSwitcher.module.css'
 
 type Props = {
@@ -21,11 +22,18 @@ export function Avatar({ account }: { account: Account | null }) {
   )
 }
 
+const themes: { theme: Theme; icon: IconName; name: string }[] = [
+  { theme: 'system', icon: 'system', name: 'System' },
+  { theme: 'light', icon: 'sun', name: 'Light' },
+  { theme: 'dark', icon: 'moon', name: 'Dark' },
+]
+
 /** Choose All accounts or one; the menu also leads to Settings (where accounts are connected,
  * renamed and disconnected) and logs out. */
 export function AccountSwitcher({ accounts, selected, ai, onSelect }: Props) {
   const [open, setOpen] = useState(false)
   const keyRejected = useAiUsage(open && ai).data?.key_rejected
+  const { theme } = useTheme()
   const ref = useRef<HTMLDivElement>(null)
 
   const close = () => setOpen(false)
@@ -100,6 +108,22 @@ export function AccountSwitcher({ accounts, selected, ai, onSelect }: Props) {
               Anthropic API key was rejected; check ANTHROPIC_API_KEY
             </p>
           )}
+          <div className={styles.theme} role="radiogroup" aria-label="Theme">
+            <span>Theme</span>
+            {themes.map((t) => (
+              <button
+                key={t.theme}
+                type="button"
+                role="radio"
+                aria-checked={theme === t.theme}
+                aria-label={t.name}
+                title={t.name}
+                onClick={() => setTheme(t.theme)}
+              >
+                <Icon name={t.icon} size={15} />
+              </button>
+            ))}
+          </div>
           <Link to="/settings" className={styles.action} onClick={close}>
             Settings
           </Link>

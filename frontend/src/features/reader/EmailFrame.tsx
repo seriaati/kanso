@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Attachment } from '../../app/mail'
+import { useTheme } from '../../app/theme'
 import fullFonts from '../../styles/fonts-full.css?url'
 import styles from './Reader.module.css'
 import emailCss from './email.css?url'
@@ -23,7 +24,7 @@ function decode(value: string) {
   }
 }
 
-function buildDocument(html: string, lang: string | null, attachments: Attachment[], showImages: boolean) {
+function buildDocument(html: string, lang: string | null, attachments: Attachment[], showImages: boolean, sheet: boolean) {
   const origin = location.origin
   const byCid = new Map(
     attachments.flatMap((a) => (a.content_id ? [[a.content_id.toLowerCase(), `${origin}/api/attachments/${a.id}`] as const] : [])),
@@ -36,8 +37,11 @@ function buildDocument(html: string, lang: string | null, attachments: Attachmen
     `font-src ${origin} data:`,
   ].join('; ')
   const langAttr = lang && /^[A-Za-z0-9-]+$/.test(lang) ? ` lang="${lang}"` : ''
+  // Always the light tokens: emails are written for a light page. In the dark theme the email
+  // sits on a light sheet of its own (email.css), rather than being recolored.
+  const sheetAttr = sheet ? ' data-sheet' : ''
   return (
-    `<!doctype html><html${langAttr}><head><meta charset="utf-8">` +
+    `<!doctype html><html data-theme="light"${sheetAttr}${langAttr}><head><meta charset="utf-8">` +
     `<meta http-equiv="Content-Security-Policy" content="${csp}">` +
     `<base target="_blank"><link rel="stylesheet" href="${fullFonts}"><link rel="stylesheet" href="${emailCss}">` +
     `</head><body>${body}</body></html>`
@@ -47,7 +51,8 @@ function buildDocument(html: string, lang: string | null, attachments: Attachmen
 type Props = { html: string; lang: string | null; attachments: Attachment[]; showImages: boolean }
 
 export function EmailFrame({ html, lang, attachments, showImages }: Props) {
-  const srcDoc = useMemo(() => buildDocument(html, lang, attachments, showImages), [html, lang, attachments, showImages])
+  const { dark } = useTheme()
+  const srcDoc = useMemo(() => buildDocument(html, lang, attachments, showImages, dark), [html, lang, attachments, showImages, dark])
   const [height, setHeight] = useState(0)
   const observer = useRef<ResizeObserver>(null)
   useEffect(() => () => observer.current?.disconnect(), [])
@@ -68,7 +73,7 @@ export function EmailFrame({ html, lang, attachments, showImages }: Props) {
 
   return (
     <iframe
-      className={styles.frame}
+      className={`${styles.frame} ${dark ? styles.sheet : ''}`}
       title="Email content"
       sandbox={SANDBOX}
       srcDoc={srcDoc}

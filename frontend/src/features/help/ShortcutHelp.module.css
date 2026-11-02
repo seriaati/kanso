@@ -5,7 +5,7 @@
   z-index: 20;
   display: grid;
   place-items: center;
-  background: rgb(36 37 32 / 0.12);
+  background: var(--scrim);
   transition: opacity var(--medium) ease;
 }
 

@@ -1,5 +1,8 @@
-/* Design tokens from CLAUDE.md ("Design system"). Light theme only. */
+/* Design tokens from CLAUDE.md ("Design system"). The light theme is the default; the dark one
+   (below) follows the system, unless a theme is picked in the account menu (data-theme on <html>,
+   set by public/theme.js before the first paint). */
 :root {
+  color-scheme: light;
   --paper: #f1efe7;
   --sidebar: #eae7dc;
   --surface: #f7f5ee;
@@ -20,6 +23,11 @@
   --label-health: #a35a3a;
   --label-bundle: #b8b3a2;
 
+  /* The reader's placeholder avatars and the backdrop behind dialogs. */
+  --avatar: #e5dcc8;
+  --avatar-ink: #5a4520;
+  --scrim: rgb(36 37 32 / 0.18);
+
   --font-ui: 'Zen Maru Gothic', 'Noto Sans SC', 'Noto Sans TC', sans-serif;
   --font-heading: 'Shippori Mincho B1', 'Noto Serif SC', 'Noto Serif TC', serif;
   --text-ui: 13px;
@@ -37,6 +45,46 @@
   --fast: 120ms; /* hovers, presses */
   --medium: 200ms; /* menus, rows moving, panes */
   --slow: 360ms;
+}
+
+/* Dark: sumi ink on warm charcoal. Same structure as the light theme: the list and app on paper,
+   the sidebar a step darker, the email pane a step lighter. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --paper: #1d1e1a;
+    --sidebar: #181915;
+    --surface: #242520;
+    --assistant: #20211c;
+    --line: #3a3b34;
+    --line-soft: #2e2f29;
+    --hover: #2b2c26;
+    --selected: #35362f;
+    --ink: #e8e5da;
+    --muted: #a3a497;
+    --accent: #93abcd;
+    --avatar: #3d3628;
+    --avatar-ink: #e0cfa8;
+    --scrim: rgb(0 0 0 / 0.4);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --paper: #1d1e1a;
+  --sidebar: #181915;
+  --surface: #242520;
+  --assistant: #20211c;
+  --line: #3a3b34;
+  --line-soft: #2e2f29;
+  --hover: #2b2c26;
+  --selected: #35362f;
+  --ink: #e8e5da;
+  --muted: #a3a497;
+  --accent: #93abcd;
+  --avatar: #3d3628;
+  --avatar-ink: #e0cfa8;
+  --scrim: rgb(0 0 0 / 0.4);
 }
 
 /* Text tagged as Chinese puts the Chinese fonts first; otherwise the Japanese fonts would draw the

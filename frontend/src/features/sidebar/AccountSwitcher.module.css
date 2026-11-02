@@ -21,7 +21,7 @@
   height: 24px;
   border-radius: 50%;
   background: var(--accent);
-  color: var(--paper);
+  color: #f7f5ee; /* on the account colors, which stay mid-tone in both themes */
   font-size: 11px;
   font-weight: 700;
   display: grid;
@@ -147,13 +147,54 @@
   color: var(--ink);
 }
 
+/* Theme: System, Light or Dark, as three icon buttons on one line. */
+.theme {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 32px;
+  padding: 0 4px 0 8px;
+  color: var(--muted);
+}
+
+.theme span {
+  flex: 1;
+}
+
+.theme button {
+  width: 30px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+}
+
+.theme button:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.theme button[aria-checked='true'] {
+  background: var(--selected);
+  color: var(--accent);
+}
+
 @media (max-width: 767px) {
   .popover {
     width: 100%;
   }
 
   .row,
-  .action {
+  .action,
+  .theme {
     min-height: 44px;
+  }
+
+  .theme button {
+    width: 44px;
+    height: 36px;
   }
 }

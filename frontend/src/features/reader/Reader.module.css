@@ -225,14 +225,14 @@
   margin-top: 4px;
 }
 
-/* Placeholder avatar tint, taken from the mockup. */
+/* Placeholder avatar tint, taken from the mockup (tokens.css). */
 .avatar {
   flex-shrink: 0;
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: #e5dcc8;
-  color: #5a4520;
+  background: var(--avatar);
+  color: var(--avatar-ink);
   font-size: var(--text-small);
   font-weight: 700;
   display: grid;
@@ -298,6 +298,10 @@
   display: block;
   width: 100%;
   border: 0;
+}
+
+.sheet {
+  border-radius: var(--radius-card);
 }
 
 .text {

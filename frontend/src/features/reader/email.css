@@ -37,3 +37,12 @@ blockquote {
 pre {
   white-space: pre-wrap;
 }
+
+/* The dark theme: the email on a light sheet in the dark pane. */
+html[data-sheet] {
+  background: var(--surface);
+}
+
+html[data-sheet] body {
+  padding: 14px 18px;
+}
