@@ -1,0 +1,348 @@
+/* Settings: one calm column in place of the list and the email pane. */
+.settings {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 57px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.menu {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin: -6px 0 -6px -8px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  display: grid;
+  place-items: center;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: var(--text-pane-title);
+  font-weight: 700;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.page {
+  max-width: 640px;
+  padding: 8px 32px 48px;
+}
+
+.section {
+  padding: 20px 0 8px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.section:last-child {
+  border-bottom: 0;
+}
+
+.heading {
+  margin: 0 0 10px;
+  font-family: var(--font-heading);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.intro,
+.note {
+  margin: 0 0 10px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.note {
+  margin: 0;
+  font-size: var(--text-small);
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 6px 0;
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.name {
+  font-weight: 700;
+}
+
+.flags {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.text .muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.problem {
+  color: var(--label-health);
+}
+
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin: 0 8px;
+  border-radius: 50%;
+}
+
+.edit,
+.add,
+.quiet,
+.cancel {
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+}
+
+.edit {
+  flex: none;
+  height: 32px;
+  padding: 0 10px;
+}
+
+.add {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  margin: 2px 0 8px;
+  padding: 0 10px 0 0;
+}
+
+.edit:hover,
+.add:hover,
+.cancel:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.add:hover {
+  background: transparent;
+}
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0;
+  padding: 10px;
+  border-radius: var(--radius-card);
+  background: var(--paper);
+}
+
+.input {
+  height: 34px;
+  min-width: 0;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.swatch {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+}
+
+.swatch[aria-checked='true'] {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.quiet {
+  margin-right: auto;
+  height: 32px;
+  padding: 0 4px;
+}
+
+.quiet:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.cancel,
+.primary {
+  height: 32px;
+  padding: 0 12px;
+}
+
+.primary {
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--surface);
+  font-weight: 700;
+}
+
+.primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  line-height: 1.6;
+}
+
+.toggle input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 3px 0 0;
+  accent-color: var(--accent);
+}
+
+.toggle > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.table {
+  width: 100%;
+  margin-bottom: 8px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.table th,
+.table td {
+  padding: 6px 12px 6px 0;
+  border-bottom: 1px solid var(--line-soft);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.table th {
+  font-size: var(--text-small);
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.table tr:last-child td {
+  border-bottom: 0;
+}
+
+.password {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 320px;
+  padding-bottom: 8px;
+}
+
+.password label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--muted);
+}
+
+.password .input {
+  color: var(--ink);
+}
+
+.password .actions {
+  margin-top: 4px;
+}
+
+/* A phone: full width, 44px tap targets, and the usage table scrolls sideways if it must. */
+@media (max-width: 767px) {
+  .header {
+    min-height: 0;
+    padding: 6px 12px 6px 8px;
+  }
+
+  .page {
+    padding: 4px 16px 48px;
+  }
+
+  .edit,
+  .add,
+  .quiet,
+  .cancel,
+  .primary {
+    min-height: 44px;
+  }
+
+  .input {
+    height: 44px;
+  }
+
+  .swatch {
+    width: 28px;
+    height: 28px;
+  }
+
+  .password {
+    max-width: none;
+  }
+
+  .section:has(.table) {
+    overflow-x: auto;
+  }
+}

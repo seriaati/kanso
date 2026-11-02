@@ -1,0 +1,39 @@
+/* Defaults inside an email's frame (EmailFrame.tsx). The email's own styles override them. The
+   tokens bring the font stacks and the :lang() overrides for Chinese. */
+@import '../../styles/tokens.css';
+
+html {
+  color-scheme: light;
+  overflow-y: hidden; /* the frame grows to fit; the reader pane scrolls */
+}
+
+body {
+  display: flow-root; /* so the measured height includes the children's margins */
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  line-height: 1.7;
+  overflow-wrap: break-word;
+  -webkit-font-smoothing: antialiased;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+a {
+  color: var(--accent);
+}
+
+blockquote {
+  margin: 0 0 0 2px;
+  padding-left: 12px;
+  border-left: 1px solid var(--line);
+  color: var(--muted);
+}
+
+pre {
+  white-space: pre-wrap;
+}

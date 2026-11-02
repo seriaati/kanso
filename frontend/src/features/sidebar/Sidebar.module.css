@@ -1,0 +1,230 @@
+.sidebar {
+  flex: 0 0 200px;
+  min-height: 0;
+  padding: 14px 10px;
+  background: var(--sidebar);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.compose {
+  margin: 10px 0 12px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: var(--radius-card);
+  background: var(--accent);
+  color: var(--surface);
+  font-weight: 700;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border-radius: var(--radius);
+}
+
+.nav:hover {
+  background: var(--hover);
+}
+
+.active,
+.active:hover {
+  background: var(--selected);
+  font-weight: 700;
+}
+
+.quiet:not(.active) {
+  color: var(--muted);
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.count {
+  flex-shrink: 0;
+}
+
+.label .count {
+  font-size: var(--text-small);
+  color: var(--muted);
+}
+
+.label {
+  padding: 6px 10px;
+}
+
+.dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.heading {
+  margin: 16px 10px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+/* Only the labels scroll; the account switcher, Compose and mailboxes stay in place. */
+.labels {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* On hover, the unread count gives way to the edit button. */
+.labelRow {
+  position: relative;
+  display: flex;
+}
+
+.labelRow .nav {
+  flex: 1;
+  min-width: 0;
+}
+
+.edit {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  width: 26px;
+  height: 26px;
+  display: none;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.edit:focus-visible {
+  display: grid;
+}
+
+/* With a mouse only; on a touch screen labels are edited in Settings. */
+@media (hover: hover) {
+  .labelRow:hover .edit {
+    display: grid;
+  }
+
+  .labelRow:hover .count {
+    visibility: hidden;
+  }
+}
+
+.edit:hover {
+  background: var(--selected);
+  color: var(--ink);
+}
+
+.newLabel {
+  margin-top: 6px;
+  flex-shrink: 0;
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  text-align: left;
+}
+
+.newLabel:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.notice {
+  margin: 8px 0 6px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  font-size: var(--text-small);
+}
+
+.notice span {
+  flex: 1;
+  min-width: 0;
+}
+
+.notice button {
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.sync {
+  padding: 8px 10px 0;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.sync p {
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A phone: the sidebar is a drawer over the list, opened from the list's menu button. Rows are
+   44px tap targets. */
+@media (max-width: 767px) {
+  .drawer {
+    position: fixed;
+    z-index: 30;
+    inset: 0 auto 0 0;
+    width: min(300px, 86vw);
+    padding: 12px 10px;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+  }
+
+  .open {
+    transform: none;
+    border-right: 1px solid var(--line);
+  }
+
+  .compose {
+    display: none; /* the list has its own Compose button */
+  }
+
+  .heading {
+    margin-top: 20px;
+  }
+
+  .nav,
+  .label {
+    min-height: 44px;
+    padding: 0 12px;
+  }
+
+  .newLabel {
+    height: 44px;
+    padding: 0 12px;
+  }
+}

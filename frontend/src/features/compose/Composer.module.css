@@ -1,0 +1,398 @@
+/* The composer: a card in the email pane (or docked under a thread). Hairlines, no shadows. */
+.composer {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.inline {
+  margin-top: 14px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 10px 4px 16px;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: var(--text-pane-title);
+  font-weight: 700;
+}
+
+.fields {
+  padding: 0 16px;
+}
+
+.row {
+  position: relative;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.rowLabel {
+  flex: 0 0 52px;
+  font-size: var(--text-small);
+  color: var(--muted);
+}
+
+.select,
+.subject,
+.recipientInput,
+.linkInput {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+}
+
+.select {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.subject {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0;
+}
+
+.select:focus,
+.subject:focus,
+.recipientInput:focus,
+.linkInput:focus {
+  outline: none;
+}
+
+.recipients {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.recipientInput {
+  flex: 1;
+  min-width: 140px;
+  height: 26px;
+  padding: 0;
+}
+
+.chip {
+  max-width: 100%;
+  height: 24px;
+  padding: 0 4px 0 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chip button,
+.attachment button {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  line-height: 1;
+}
+
+.chip button:hover,
+.attachment button:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.copies {
+  flex-shrink: 0;
+  height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  font-size: var(--text-small);
+  color: var(--muted);
+}
+
+.copies:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+/* Autocomplete: drops down inside the email pane, over the composer only. */
+.suggestions {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 2px);
+  left: 52px;
+  width: min(360px, calc(100% - 52px));
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.suggestions button {
+  width: 100%;
+  padding: 5px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  text-align: left;
+}
+
+[aria-selected='true'] > button,
+.suggestions button:hover {
+  background: var(--hover);
+}
+
+.suggestionName {
+  font-weight: 700;
+}
+
+.suggestionEmail {
+  font-size: var(--text-small);
+  color: var(--muted);
+}
+
+.formatBar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 12px 0;
+}
+
+.formatTool,
+.tool {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-heading);
+  font-size: 14px;
+}
+
+.formatTool:hover,
+.tool:hover {
+  background: var(--hover);
+}
+
+.linkInput {
+  flex: 1;
+  max-width: 320px;
+  height: 28px;
+  margin-left: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--paper);
+}
+
+.linkInput:focus {
+  border-color: var(--accent);
+}
+
+.editor {
+  min-height: 180px;
+  padding: 8px 16px 12px;
+  font-size: var(--text-body);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  outline: none;
+}
+
+.inline .editor {
+  min-height: 120px;
+}
+
+.editor:empty::before {
+  content: 'Write your message';
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.editor a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.editor ul,
+.editor ol {
+  margin: 4px 0;
+  padding-left: 24px;
+}
+
+.quote {
+  padding: 0 16px 8px;
+}
+
+.quoteToggle {
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  font-size: var(--text-small);
+  color: var(--muted);
+  line-height: 1;
+}
+
+.quoteToggle:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.quote iframe {
+  margin-top: 8px;
+}
+
+.attachments {
+  margin: 0;
+  padding: 0 16px 8px;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.attachment {
+  max-width: 100%;
+  height: 30px;
+  padding: 0 6px 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.attachmentName {
+  min-width: 0;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.muted {
+  font-size: var(--text-small);
+  color: var(--muted);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px 10px 16px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.send {
+  height: 32px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--surface);
+  font-weight: 700;
+}
+
+.send:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.status {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-small);
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.statusError {
+  color: var(--label-health);
+  white-space: normal;
+}
+
+.loadError {
+  margin: 48px 0 0;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* A phone: a new message is the whole screen (no card), and tap targets are 44px. */
+@media (max-width: 767px) {
+  .composer:not(.inline) {
+    min-height: calc(100% + 38px);
+    margin: -14px -16px -24px;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .composer:not(.inline) .editor {
+    flex: 1;
+  }
+
+  .header {
+    padding: 4px 4px 0 16px;
+  }
+
+  .row {
+    min-height: 44px;
+  }
+
+  .formatTool,
+  .tool {
+    width: 44px;
+    height: 44px;
+  }
+
+  .send {
+    height: 44px;
+  }
+
+  .footer {
+    padding: 6px 4px 6px 16px;
+  }
+}

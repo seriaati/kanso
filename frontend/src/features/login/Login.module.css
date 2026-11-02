@@ -1,0 +1,74 @@
+.page {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.form {
+  width: 100%;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.title {
+  margin: 0 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-heading);
+  font-size: var(--text-subject);
+  font-weight: 700;
+}
+
+.title span {
+  margin-left: 6px;
+  color: var(--muted);
+}
+
+/* The ensō's paper tile matches the page, so only the brush stroke shows. */
+.title img {
+  margin-left: -9px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--muted);
+}
+
+.field input {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.field input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.submit {
+  height: 38px;
+  border: 0;
+  border-radius: var(--radius-card);
+  background: var(--accent);
+  color: var(--surface);
+  font-weight: 700;
+}
+
+.submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.error {
+  margin: 0;
+  color: var(--ink);
+}

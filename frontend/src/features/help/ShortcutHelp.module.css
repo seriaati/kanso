@@ -1,0 +1,62 @@
+/* The one overlay in the app: a small card, closed with Esc, ? or a click outside. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  background: rgb(36 37 32 / 0.12);
+}
+
+.card {
+  width: 320px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.title {
+  margin: 0 0 12px;
+  font-family: var(--font-heading);
+  font-size: var(--text-pane-title);
+  font-weight: 700;
+}
+
+.list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.item {
+  display: flex;
+  gap: 12px;
+}
+
+.item dt {
+  width: 96px;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.item dd {
+  margin: 0;
+}
+
+.item kbd {
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--paper);
+  font-family: inherit;
+  font-size: var(--text-small);
+  color: var(--ink);
+}
+
+.note {
+  margin: 14px 0 0;
+  font-size: var(--text-small);
+  color: var(--muted);
+}

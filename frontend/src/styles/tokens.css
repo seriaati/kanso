@@ -1,0 +1,53 @@
+/* Design tokens from CLAUDE.md ("Design system"). Light theme only. */
+:root {
+  --paper: #f1efe7;
+  --sidebar: #eae7dc;
+  --surface: #f7f5ee;
+  --assistant: #ece9df;
+  --line: #dad6c8;
+  --line-soft: #e3e0d4;
+  --hover: #e8e5da;
+  --selected: #dedacb;
+  --ink: #242520;
+  --muted: #63655c;
+  --accent: #2f4b6e;
+
+  --label-home: #a07338;
+  --label-personal: #4f6e8c;
+  --label-work: #6b6b66;
+  --label-travel: #556b3f;
+  --label-finance: #87607e;
+  --label-health: #a35a3a;
+  --label-bundle: #b8b3a2;
+
+  --font-ui: 'Zen Maru Gothic', 'Noto Sans SC', 'Noto Sans TC', sans-serif;
+  --font-heading: 'Shippori Mincho B1', 'Noto Serif SC', 'Noto Serif TC', serif;
+  --text-ui: 13px;
+  --text-small: 12px;
+  --text-body: 14px;
+  --text-pane-title: 18px;
+  --text-subject: 21px;
+
+  --radius: 8px; /* rows, buttons */
+  --radius-card: 10px; /* inputs, cards */
+}
+
+/* Text tagged as Chinese puts the Chinese fonts first; otherwise the Japanese fonts would draw the
+   shared Han characters with Japanese glyph shapes. Plain zh means Simplified; Traditional is last
+   so it wins over the zh prefix match. */
+:lang(zh),
+:lang(zh-Hans),
+:lang(zh-CN),
+:lang(zh-SG) {
+  --font-ui: 'Noto Sans SC', 'Zen Maru Gothic', sans-serif;
+  --font-heading: 'Noto Serif SC', 'Shippori Mincho B1', serif;
+  font-family: var(--font-ui);
+}
+
+:lang(zh-Hant),
+:lang(zh-TW),
+:lang(zh-HK) {
+  --font-ui: 'Noto Sans TC', 'Zen Maru Gothic', sans-serif;
+  --font-heading: 'Noto Serif TC', 'Shippori Mincho B1', serif;
+  font-family: var(--font-ui);
+}

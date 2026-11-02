@@ -1,0 +1,127 @@
+.shell {
+  height: 100%;
+  display: flex;
+  overflow: hidden;
+}
+
+/* Email pane: the open thread on top, the assistant docked below it. */
+.pane {
+  flex: 1 1 420px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+
+.notice {
+  margin: 0;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.notice {
+  gap: 12px;
+  align-content: center;
+}
+
+.notice p {
+  margin: 0;
+}
+
+.notice button {
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+/* Phones only (all of the below). The sidebar drawer's backdrop. */
+.scrim {
+  position: fixed;
+  z-index: 25;
+  inset: 0;
+  background: rgb(36 37 32 / 0.25);
+}
+
+/* Compose, at the foot of the list: the sidebar's Compose is in the drawer. */
+.compose {
+  position: fixed;
+  z-index: 5;
+  right: 16px;
+  bottom: 16px;
+  width: 56px;
+  height: 56px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--accent);
+  color: var(--surface);
+  display: grid;
+  place-items: center;
+}
+
+.toast {
+  position: fixed;
+  z-index: 20;
+  left: 12px;
+  right: 12px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.toast.list {
+  right: 84px; /* clear of Compose */
+}
+
+.toast.sheet {
+  bottom: 70px; /* above the assistant's bar */
+}
+
+.toast p {
+  margin: 0;
+  min-height: 44px;
+  padding: 4px 4px 4px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.toast span {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast button {
+  flex: none;
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+@media (max-width: 767px) {
+  .shell {
+    position: relative;
+  }
+
+  /* The email pane is a screen of its own over the list (which keeps its place underneath). */
+  .pane {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+  }
+
+  [data-screen='list'] > .pane {
+    display: none;
+  }
+}
