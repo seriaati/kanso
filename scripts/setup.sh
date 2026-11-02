@@ -1,12 +1,5 @@
 #!/usr/bin/env bash
-# Sets up Google Cloud for kanso with the gcloud CLI and writes .env.
-#
-# Automated: project, Gmail + Pub/Sub APIs, Pub/Sub topic and pull subscription, Gmail's publish
-# permission, the kanso-pubsub service account and its key, secrets and the password hash.
-# Manual (Google has no CLI for these): the OAuth consent screen and the OAuth client. The script
-# pauses there with direct links.
-#
-# Safe to re-run: existing resources are reused and existing secrets in .env are kept.
+# Sets up Google Cloud for kanso with the gcloud CLI and writes .env. Safe to re-run.
 # Usage: scripts/setup.sh [project-id]
 set -euo pipefail
 
@@ -32,8 +25,7 @@ env_set() {
   ' "$ENV_FILE" > "$ENV_FILE.tmp" && mv "$ENV_FILE.tmp" "$ENV_FILE"
 }
 
-# Retry a command a few times (new service accounts take a moment to become usable). Errors from
-# early attempts are hidden; the last attempt shows them.
+# New service accounts take a moment to become usable.
 retry() {
   local i
   for i in 1 2 3 4 5; do "$@" 2>/dev/null && return 0; sleep 5; done
@@ -46,7 +38,6 @@ done
 [[ -n $(gcloud auth list --filter=status:ACTIVE --format='value(account)') ]] \
   || die "gcloud is not logged in. Run: gcloud auth login"
 
-# --- .env ------------------------------------------------------------------------------------
 umask 077
 if [[ -f $ENV_FILE ]]; then
   cp "$ENV_FILE" "$ENV_FILE.bak.$(date +%Y%m%d%H%M%S)"
@@ -55,7 +46,6 @@ else
   cp .env.example "$ENV_FILE"
 fi
 
-# --- 1. Project and APIs ------------------------------------------------------------------------
 say "1. Google Cloud project"
 PROJECT="${1:-$(ask 'Project ID (created if it does not exist)' "kanso-$(openssl rand -hex 3)")}"
 if gcloud projects describe "$PROJECT" >/dev/null 2>&1; then
@@ -67,7 +57,6 @@ fi
 say "2. Enabling the Gmail API"
 gcloud services enable gmail.googleapis.com --project "$PROJECT"
 
-# --- 2. Pub/Sub (optional) ----------------------------------------------------------------------
 say "3. Pub/Sub for instant new-mail notifications (optional)"
 PUBSUB=yes
 if ! gcloud services enable pubsub.googleapis.com --project "$PROJECT"; then
@@ -81,8 +70,7 @@ fi
 
 if [[ $PUBSUB == yes ]]; then
   SA_EMAIL="$SA_NAME@$PROJECT.iam.gserviceaccount.com"
-  # A brand-new project's location policy takes a few minutes to initialize; until then topic
-  # creation fails with an organization-policy error, so keep trying for up to ~5 minutes.
+  # A new project's location policy takes minutes to initialize; topic creation fails until then.
   for i in $(seq 10); do
     gcloud pubsub topics describe "$TOPIC" --project "$PROJECT" >/dev/null 2>&1 && break
     gcloud pubsub topics create "$TOPIC" --project "$PROJECT" 2>/dev/null && break
@@ -116,7 +104,6 @@ if [[ $PUBSUB == yes ]]; then
   fi
 fi
 
-# --- 3. OAuth consent screen and client (manual) ---------------------------------------------------
 PUBLIC_URL=$(ask 'Address you will open kanso at (no trailing slash)' "$(env_get PUBLIC_URL || true)")
 PUBLIC_URL="${PUBLIC_URL:-http://localhost:8000}"
 env_set PUBLIC_URL "$PUBLIC_URL"
@@ -146,7 +133,6 @@ else
   echo "Keeping the OAuth client already in .env (redirect URI: $PUBLIC_URL/api/accounts/callback)."
 fi
 
-# --- 4. Secrets, password, Anthropic key -------------------------------------------------------------
 say "5. Secrets and your login password"
 PG=$(env_get POSTGRES_PASSWORD)
 [[ -z $PG || $PG == change-me ]] && env_set POSTGRES_PASSWORD "$(openssl rand -hex 24)"

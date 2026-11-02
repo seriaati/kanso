@@ -1,15 +1,5 @@
-# A kanso demo instance: the same app as docker-compose.yml, showing a made-up mailbox (DEMO DATA)
-# instead of Gmail. Archive, delete, labels, compose and send all work, on the demo data only:
-# nothing reaches Google, and no Gmail account can be connected. The mailbox goes back to its
-# starting state on every start and every day at midnight UTC. The password is "demo".
-#
-#   ./demo.sh [anthropic-api-key]                         (see the script)
-#   docker compose -f docker-compose.demo.yml up --build
-#
-# None of kanso's own .env settings apply; only the DEMO_* variables below are read (from the
-# shell or .env). AI is off unless DEMO_ANTHROPIC_API_KEY is set; then the demo mail is sent to
-# Claude like real mail would be, on that key's bill. Optional: DEMO_PORT (default 8001) and
-# DEMO_PUBLIC_URL, the address it is opened at when that isn't http://localhost:<port>.
+# A demo instance with made-up mail and no Gmail, reset on every start and daily at midnight UTC.
+# Start it with ./demo.sh. Only the DEMO_* variables below are read, not kanso's .env settings.
 name: kanso-demo
 
 x-kanso: &kanso
@@ -26,7 +16,6 @@ x-kanso: &kanso
 services:
   app:
     <<: *kanso
-    # As the image's command, plus the demo reset before the app starts.
     command: ["sh", "-c", "alembic upgrade head && python -m kanso.demo_seed && exec uvicorn kanso.main:app --host 0.0.0.0 --port 8000"]
     ports:
       - "${DEMO_PORT:-8001}:8000"

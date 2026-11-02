@@ -1,6 +1,5 @@
 # syntax=docker/dockerfile:1
 
-# 1. Build the frontend.
 FROM oven/bun:1.4-slim AS frontend
 WORKDIR /frontend
 RUN --mount=type=cache,target=/root/.bun/install/cache \
@@ -10,7 +9,6 @@ RUN --mount=type=cache,target=/root/.bun/install/cache \
 COPY frontend/ .
 RUN bun run build
 
-# 2. Install the backend. Dependencies get their own layer so code changes don't reinstall them.
 FROM ghcr.io/astral-sh/uv:python3.13-trixie-slim AS backend
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_NO_DEV=1 UV_PYTHON_DOWNLOADS=0
 WORKDIR /app
@@ -22,7 +20,7 @@ COPY backend/ /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked
 
-# 3. Runtime: no uv, no bun. Must use the same Python as the builder (the venv points to it).
+# Must use the same Python as the builder: the venv points to it.
 FROM python:3.13-slim-trixie
 RUN groupadd --system --gid 999 nonroot \
  && useradd --system --gid 999 --uid 999 --create-home nonroot

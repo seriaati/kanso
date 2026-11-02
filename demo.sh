@@ -1,10 +1,5 @@
 #!/usr/bin/env bash
-# Start a kanso demo instance (docker-compose.demo.yml): made-up mail, no Gmail, reset every day.
-#
-#   ./demo.sh                     AI off
-#   ./demo.sh <anthropic-api-key> AI on, using this key
-#
-# Stop it with: docker compose -f docker-compose.demo.yml down
+# Starts the demo instance in docker-compose.demo.yml. Usage: ./demo.sh [anthropic-api-key]
 set -euo pipefail
 cd "$(dirname "$0")"
 
