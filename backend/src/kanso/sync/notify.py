@@ -22,6 +22,7 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from sqlalchemy import delete, exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kanso.api.threads import _images
 from kanso.core.settings import settings
 from kanso.db.models import Label, Message, MessageLabel, PushSubscription
 
@@ -197,16 +198,19 @@ async def new_mail(
                 }
             ]
         else:
+            # The title carries the subject: collapsed, Android shows only the title's line in full.
+            images = await _images(db, {(account_id, r.from_email.lower()) for r in rows})
             payloads = [
                 {
-                    "title": _clip(r.from_name or r.from_email, 100),
-                    "body": "\n".join(
-                        filter(
-                            None, [_clip(r.subject or "(no subject)", 200), _clip(r.snippet, 200)]
-                        )
-                    ),
+                    "title": f"{_clip(r.from_name or r.from_email, 60)} | "
+                    f"{_clip(r.subject or '(no subject)', 140)}",
+                    "body": _clip(r.snippet, 200),
                     "url": f"/inbox/{r.thread_id}",
                     "tag": f"thread-{r.thread_id}",  # a newer message replaces its thread's
+                    # For the Done and Delete buttons, and the sender's picture (push-sw.js).
+                    "thread_id": r.thread_id,
+                    "sender": r.from_name or r.from_email,
+                    "image": images[account_id, r.from_email.lower()],
                 }
                 for r in rows
             ]

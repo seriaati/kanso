@@ -203,7 +203,15 @@ def test_new_unread_inbox_mail_is_pushed(mail: tuple[FakeGmail, Browser]) -> Non
     gmail.add("m5", "t5", ["UNREAD"], make_raw("Filtered", "Skipped the inbox"))
     sync(gmail)
     assert browser.received == [
-        {"title": "Daniel", "body": "Re: Old news\nA reply", "url": "/inbox/1", "tag": "thread-1"}
+        {
+            "title": "Daniel | Re: Old news",
+            "body": "A reply",
+            "url": "/inbox/1",
+            "tag": "thread-1",
+            "thread_id": 1,
+            "sender": "Daniel",
+            "image": "/api/logos/example.com",
+        }
     ]
 
 

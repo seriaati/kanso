@@ -252,7 +252,8 @@ online. When a new version of kanso is running on the server, the app offers **R
 
 **Notifications of new mail**: in the installed app, open **Settings → Notifications** and turn on
 **New inbox mail on this device**, then allow notifications when asked. Each new unread message
-in the inbox then shows its sender, subject and first line; tap it to open the thread. Turn it on
+in the inbox then shows its sender, subject and first line; tap it to open the thread, or use its
+**Done** and **Delete** buttons to deal with it from there. Turn it on
 in each phone, browser or installed app where you want them (a desktop browser works too, over
 HTTPS or at `http://localhost`). On an iPhone or iPad this works only in the app added to the Home
 Screen (iOS 16.4 or later), not in a Safari tab. The notification goes through the push service of

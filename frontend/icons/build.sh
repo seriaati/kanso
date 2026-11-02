@@ -10,10 +10,13 @@ shot() { # svg, out.png: render at 512x512 with a transparent background
 }
 shot icons/icon.svg "$TMP/icon.png"
 shot icons/maskable.svg "$TMP/maskable.png"
+shot icons/badge.svg "$TMP/badge.png"
 cp icons/icon.svg public/favicon.svg
 magick "$TMP/icon.png" -resize 192x192 public/icon-192.png
 cp "$TMP/icon.png" public/icon-512.png
 cp "$TMP/maskable.png" public/icon-maskable-512.png
+# The small icon of a notification on Android (push-sw.js).
+magick "$TMP/badge.png" -resize 96x96 public/badge-96.png
 # iOS rounds the corners itself and shows transparency as black: full bleed, like the maskable one.
 magick "$TMP/maskable.png" -resize 180x180 public/apple-touch-icon.png
 # The link preview (docs/, not public/: crawlers fetch it from GitHub, so no client downloads it).
