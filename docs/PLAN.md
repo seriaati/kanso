@@ -475,8 +475,9 @@ Record deviations and decisions here: date, decision, reason.
 - 2026-11-02 (Phase 3): Attachment responses are `private, max-age=31536000, immutable`
   (attachment ids are never reused), so inline images and repeat downloads cost no Gmail fetch.
   Demo attachments are now served from `demo_seed.DEMO_FILES` (a real PNG and a tiny PDF), the
-  demo newsletters carry remote images on `images.example.com` (an `<img>` and a CSS
-  background), and the Big5 and ISO-2022-JP demo mails have an HTML part in their own charset.
+  demo newsletters carry remote images (an `<img>` and a CSS background; since 2026-11-02 real
+  photos on `images.unsplash.com`, the user's choice, so "Show images" shows something; the
+  browser fetches them only after that click), and the Big5 and ISO-2022-JP demo mails have an HTML part in their own charset.
 - 2026-11-02 (Phase 3): UI details. Sidebar: user labels only, alphabetical, with their unread
   thread count; a Gmail label color outside the design's palette is drawn in the nearest palette
   color (uncolored labels are neutral), so Gmail's bright colors don't break the calm palette.

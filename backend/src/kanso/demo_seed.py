@@ -149,6 +149,9 @@ def _png(width: int, height: int, rgb: tuple[int, int, int]) -> bytes:
     )
 
 
+# The demo newsletters' remote images: photos on Unsplash's image CDN.
+UNSPLASH = "https://images.unsplash.com"
+
 # The content of the demo attachments, served by the attachment endpoint for demo accounts (the
 # mirror keeps only metadata, and demo mail has no Gmail copy to fetch from).
 DEMO_FILES = {
@@ -181,14 +184,17 @@ def _mime(
                 f"<html><body>{paragraphs}</body></html>", subtype="html", charset=charset
             )
         else:
-            # Remote images (an <img> and a CSS background on the reserved example.com domain)
-            # that the reader blocks until "Show images".
+            # Remote images (an <img> and a CSS background, real photos hotlinked from Unsplash)
+            # that the reader blocks until "Show images"; only then does the browser fetch them.
             msg.add_alternative(
                 f'<html><body style="font-family:Georgia,serif"><img src="cid:logo@kanso.demo" '
                 f'alt="logo" width="120"><h1>{subject}</h1>'
-                f'<img src="https://images.example.com/hero.png" alt="Hero image" width="480">'
+                f'<img src="{UNSPLASH}/photo-1506744038136-46273834b3fb?w=960&q=70&auto=format&fit=crop" '
+                f'alt="Hero image" width="480">'
                 f"{paragraphs}"
-                f'<div style="height:40px;background:url(https://images.example.com/band.png)"></div>'
+                f'<div style="padding:56px 24px;background:#556b3f url({UNSPLASH}/'
+                f"photo-1470071459604-3b5ec3a7fe05?w=960&q=60&auto=format&fit=crop) center/cover;"
+                f'color:#fff;font-size:20px;font-weight:bold">Read the long read &rarr;</div>'
                 f"<script>alert('stripped by the sanitizer')</script></body></html>",
                 subtype="html",
             )
