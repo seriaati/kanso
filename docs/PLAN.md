@@ -975,3 +975,23 @@ Record deviations and decisions here: date, decision, reason.
   stay docked in the thread, and a thread of drafts only still opens in the pane). Clicking the
   open thread's row, or the toolbar's new ×, closes it. The label edit dialog has no Delete (the
   label's menu has it; Settings keeps its own).
+- 2026-11-02 (user request): **Notifications of new inbox mail** (Web Push), on every device
+  that turns them on in Settings → Notifications ("New inbox mail on this device"). The user chose
+  "every new inbox message": each message an incremental sync fetches that is in the inbox and
+  unread, not sent by the user and not a draft (never the backfill), one notification each, with
+  the sender as title and the subject and snippet as body; a newer message in the same thread
+  replaces that thread's notification (`tag`, `renotify`). More than 5 in one sync (e.g. after the
+  worker was down) make one "N new messages" notification instead. **No new dependency**: RFC 8291
+  encryption (aes128gcm) and the RFC 8292 VAPID JWT are written out on `cryptography`
+  (`kanso/sync/notify.py`, checked against RFC 8291's example). **No new setting**: the VAPID key is
+  derived from `SECRET_KEY` (HKDF), so changing it means turning notifications on again. Table
+  `push_subscriptions` (migration 0011); `GET /api/notifications/key`, `PUT` / `DELETE
+  /api/notifications/subscription` (https endpoints only); a subscription the push service answers
+  404/410 is deleted. A failed push never fails the sync. The service worker part is
+  `public/push-sw.js`, pulled into the generated worker with `workbox.importScripts`; a tap focuses
+  an open kanso window and opens the thread there (`postMessage`, no reload), or opens a new
+  window. Hidden on a demo instance (its mailbox never syncs). New outbound traffic: the worker
+  posts to the browser makers' push services (Google, Apple, Mozilla), with the payload encrypted
+  for the device. Verified: backend tests, and in Chromium the Settings toggle and the service
+  worker showing a push delivered through DevTools and opening its thread; subscribing itself
+  needs a real (non-automated) browser and was not tested end to end.

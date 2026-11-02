@@ -44,6 +44,8 @@ const pwa = VitePWA({
     navigateFallback: '/index.html',
     navigateFallbackDenylist: [/^\/api(\/|$)/],
     cleanupOutdatedCaches: true,
+    // Notifications of new inbox mail: the push and notificationclick handlers.
+    importScripts: ['/push-sw.js'],
     runtimeCaching: [
       {
         // Fonts and the deferred font CSS as they are used: hashed, so they never change.

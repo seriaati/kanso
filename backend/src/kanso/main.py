@@ -17,6 +17,7 @@ from kanso.api import (
     events,
     health,
     labels,
+    notifications,
     prefs,
     sync,
     threads,
@@ -57,6 +58,7 @@ for router in (
     ai.router,
     assistant.router,
     prefs.router,
+    notifications.router,
 ):
     protected.include_router(router)
 app.include_router(protected)

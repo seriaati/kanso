@@ -244,6 +244,15 @@ The app keeps only kanso itself on the phone, so it starts quickly. Your mail is
 phone: without a connection kanso says it can't reach the server and tries again when you are back
 online. When a new version of kanso is running on the server, the app offers **Reload**.
 
+**Notifications of new mail**: in the installed app, open **Settings → Notifications** and turn on
+**New inbox mail on this device**, then allow notifications when asked. Each new unread message
+in the inbox then shows its sender, subject and first line; tap it to open the thread. Turn it on
+in each phone, browser or installed app where you want them (a desktop browser works too, over
+HTTPS or at `http://localhost`). On an iPhone or iPad this works only in the app added to the Home
+Screen (iOS 16.4 or later), not in a Safari tab. The notification goes through the push service of
+your phone's or browser's maker (Google, Apple or Mozilla), encrypted so that only your device can
+read it. Changing `SECRET_KEY` turns notifications off: turn them on again on each device.
+
 ## Your password
 
 Change it in **Settings → Password**. It signs out every other browser and phone. The new password
@@ -316,6 +325,9 @@ and `.env.example` say so.
 - **An account stops syncing after a week**: the consent screen is still in *Testing*. Publish it
   (step 3) and connect the account again.
 - **The phone offers no "Install"**: kanso must be opened over HTTPS (step 8), at `PUBLIC_URL`.
+- **No notifications**: check that Settings → Notifications is on *on that device* and that the
+  phone allows notifications for kanso (or for the browser). New mail must reach kanso first: with
+  Gmail push (step 5) that takes seconds, without it up to 2 minutes.
 - **"Missing the X-Requested-With header"**: something between the browser and kanso drops request
   headers. kanso refuses changes without that header, so other websites can't make them in your
   name. Caddy and Tailscale pass it through as is.

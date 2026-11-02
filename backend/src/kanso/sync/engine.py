@@ -18,7 +18,7 @@ from kanso.db.models import Account, Label, Message
 from kanso.db.session import Session
 from kanso.gmail import mime
 from kanso.gmail.client import Gmail, GmailError, NotFound
-from kanso.sync import outbox, store
+from kanso.sync import notify, outbox, store
 
 log = logging.getLogger(__name__)
 
@@ -252,6 +252,8 @@ async def incremental(db: AsyncSession, gmail: Gmail, account: Account) -> None:
     await events.threads_changed(account.id, thread_ids)
     if had_error:
         await events.sync_changed(account.id)
+    # Notifications of new inbox mail (never the backfill: history isn't news).
+    await notify.new_mail(db, gmail.http, account.id, fetched)
     if records:
         log.info("account %s: %s changes synced", account.id, len(records))
 

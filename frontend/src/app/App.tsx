@@ -123,6 +123,16 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   )
   const navigate = useNavigate()
   const location = useLocation()
+  // A tapped notification of new mail opens its thread in this window (public/push-sw.js).
+  useEffect(() => {
+    const container = navigator.serviceWorker
+    if (!container) return
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'kanso:open' && typeof event.data.url === 'string') void navigate(event.data.url)
+    }
+    container.addEventListener('message', onMessage)
+    return () => container.removeEventListener('message', onMessage)
+  }, [navigate])
   // An unknown ?account= falls back to All accounts.
   const route = { ...urlRoute, accountId: accounts.some((a) => a.id === urlRoute.accountId) ? urlRoute.accountId : null }
   const { view, threadId, accountId } = route

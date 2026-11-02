@@ -330,3 +330,16 @@ class Setting(Base):
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
     value: Mapped[Any] = mapped_column(JSONB)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PushSubscription(Base):
+    """A browser or installed PWA that asked for notifications of new inbox mail
+    (kanso.sync.notify). The endpoint is the browser vendor's push service URL for it."""
+
+    __tablename__ = "push_subscriptions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    endpoint: Mapped[str] = mapped_column(Text, unique=True)
+    p256dh: Mapped[str] = mapped_column(Text)  # the browser's public key, base64url
+    auth: Mapped[str] = mapped_column(Text)  # the browser's auth secret, base64url
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

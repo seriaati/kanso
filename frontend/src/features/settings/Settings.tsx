@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { accountColors, useDisconnectAccount, useUpdateAccount, type Account } from '../../app/accounts'
 import { useAiUsage } from '../../app/ai'
 import { userLabels, type Label, type NamedLabel, type SyncStatus } from '../../app/mail'
+import { usePush } from '../../app/notifications'
 import { useChangePassword, useDemoPassword, useLogoutEverywhere, useSettings, useUpdateSettings } from '../../app/settings'
 import { Icon } from '../../components/Icon'
 import { Avatar } from '../sidebar/AccountSwitcher'
@@ -36,6 +37,7 @@ export function Settings({ accounts, labels, sync, ai, onMenu }: Props) {
         <div className={styles.page}>
           <Accounts accounts={accounts} sync={sync} demo={demo} />
           <Labels labels={labels} accountIds={accounts.map((a) => a.id)} ai={ai} />
+          {!demo && <Notifications />}
           {ai && <Assistant />}
           {ai && <Usage />}
           {!demo && <Password />}
@@ -216,6 +218,33 @@ function Labels({ labels, accountIds, ai }: { labels: Label[]; accountIds: numbe
           + New label
         </button>
       )}
+    </Section>
+  )
+}
+
+function Notifications() {
+  const { state, set, pending, error } = usePush()
+  return (
+    <Section title="Notifications">
+      {state === 'unsupported' ? (
+        <p className={styles.intro}>
+          This browser can’t show notifications from kanso. They need kanso opened over HTTPS; on an iPhone or iPad, add kanso to the Home
+          Screen (Share → Add to Home Screen) and turn them on in the app.
+        </p>
+      ) : (
+        <label className={styles.toggle}>
+          <input type="checkbox" checked={state === 'on'} disabled={!state || state === 'denied' || pending} onChange={(event) => set(event.target.checked)} />
+          <span>
+            New inbox mail on this device
+            <span className={styles.muted}>
+              {state === 'denied'
+                ? 'Notifications are blocked for kanso in this browser’s site settings. Allow them there, then turn this on.'
+                : 'A notification for each new unread message in the inbox, with its sender, subject and first line. Turn it on in each browser or installed app where you want them.'}
+            </span>
+          </span>
+        </label>
+      )}
+      {error && <p className={styles.note}>Couldn’t change notifications: {error}</p>}
     </Section>
   )
 }
