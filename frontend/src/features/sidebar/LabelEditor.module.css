@@ -8,6 +8,24 @@
   background: var(--paper);
 }
 
+.plain {
+  margin: 0;
+  padding: 0;
+  gap: 12px;
+  background: transparent;
+}
+
+.plain .actions {
+  margin-top: 4px;
+}
+
+.plain .delete,
+.plain .cancel,
+.plain .save {
+  height: 30px;
+  padding: 0 12px;
+}
+
 .input {
   height: 30px;
   min-width: 0;

@@ -4,9 +4,11 @@ import type { Account } from '../../app/accounts'
 import type { Label, NamedLabel, SyncStatus } from '../../app/mail'
 import { href, sameView, type Mailbox, type Route, type View } from '../../app/nav'
 import { applyUpdate } from '../../app/update'
+import { Dialog } from '../../components/Dialog'
 import { Icon, type IconName } from '../../components/Icon'
+import { Menu } from '../../components/Menu'
 import { AccountSwitcher } from './AccountSwitcher'
-import { LabelEditor } from './LabelEditor'
+import { DeleteLabel, LabelEditor } from './LabelEditor'
 import styles from './Sidebar.module.css'
 
 /** A quiet message at the foot of the sidebar: "Done", with Undo (z), or why an action failed. */
@@ -41,8 +43,12 @@ type Props = {
 
 export function Sidebar(props: Props) {
   const { accounts, route, labels, userLabels, sync, notice, ai, update, drawer, onSelectAccount, onCompose, onLabelChanged } = props
-  // The label being edited (by name), or '' for a new one.
+  // The label whose menu is open, and the one being edited ('' for a new one) or deleted.
+  const [menu, setMenu] = useState<{ name: string; anchor: HTMLElement } | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const edited = userLabels.find((l) => l.name === editing)
+  const deleted = userLabels.find((l) => l.name === deleting)
   const accountIds = route.accountId === null ? accounts.map((a) => a.id) : [route.accountId]
   const selected = accounts.find((a) => a.id === route.accountId) ?? null
   const inboxTotal = labels.filter((l) => l.gmail_id === 'INBOX').reduce((sum, l) => sum + l.threads_total, 0)
@@ -83,19 +89,6 @@ export function Sidebar(props: Props) {
         {userLabels.map((label) => {
           const view: View = { kind: 'label', name: label.name }
           const current = !route.settings && sameView(view, route.view)
-          if (editing === label.name)
-            return (
-              <LabelEditor
-                key={label.name}
-                label={label}
-                accountIds={accountIds}
-                ai={ai}
-                onDone={(change) => {
-                  setEditing(null)
-                  if (change) onLabelChanged(label.name, change)
-                }}
-              />
-            )
           return (
             <div key={label.name} className={styles.labelRow}>
               <Link
@@ -113,24 +106,62 @@ export function Sidebar(props: Props) {
               </Link>
               <button
                 type="button"
-                className={styles.edit}
-                aria-label={`Edit ${label.name}`}
-                title={ai ? 'Rename, recolor, describe for AI or delete' : 'Rename, recolor or delete'}
-                onClick={() => setEditing(label.name)}
+                className={`${styles.edit} ${menu?.name === label.name ? styles.menuOpen : ''}`}
+                aria-label={`More actions for ${label.name}`}
+                aria-haspopup="menu"
+                aria-expanded={menu?.name === label.name}
+                title="More actions"
+                onClick={(event) => {
+                  const anchor = event.currentTarget
+                  setMenu(menu?.name === label.name ? null : { name: label.name, anchor })
+                }}
               >
                 <Icon name="more" size={14} />
               </button>
             </div>
           )
         })}
-        {editing === '' ? (
-          <LabelEditor accountIds={accountIds} ai={ai} onDone={() => setEditing(null)} />
-        ) : (
-          <button type="button" className={styles.newLabel} onClick={() => setEditing('')}>
-            + New label
-          </button>
-        )}
+        <button type="button" className={styles.newLabel} onClick={() => setEditing('')}>
+          <Icon name="plus" size={15} />
+          New label
+        </button>
       </div>
+      {menu && (
+        <Menu
+          anchor={menu.anchor}
+          label={`${menu.name} actions`}
+          onClose={() => setMenu(null)}
+          items={[
+            { icon: 'compose', label: 'Edit label…', onSelect: () => setEditing(menu.name) },
+            { icon: 'delete', label: 'Delete label…', onSelect: () => setDeleting(menu.name) },
+          ]}
+        />
+      )}
+      {editing !== null && (editing === '' || edited) && (
+        <Dialog title={edited ? 'Edit label' : 'New label'} onClose={() => setEditing(null)}>
+          <LabelEditor
+            label={edited}
+            accountIds={accountIds}
+            ai={ai}
+            plain
+            onDone={(change) => {
+              setEditing(null)
+              if (change && edited) onLabelChanged(edited.name, change)
+            }}
+          />
+        </Dialog>
+      )}
+      {deleted && (
+        <Dialog title="Delete label" onClose={() => setDeleting(null)}>
+          <DeleteLabel
+            label={deleted}
+            onDone={(done) => {
+              setDeleting(null)
+              if (done) onLabelChanged(deleted.name, { deleted: true })
+            }}
+          />
+        </Dialog>
+      )}
 
       {notice && (
         <div className={styles.notice} role="status" key={notice.id}>

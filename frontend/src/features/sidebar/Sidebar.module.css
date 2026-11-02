@@ -101,7 +101,7 @@
   gap: 2px;
 }
 
-/* On hover, the unread count gives way to the edit button. */
+/* On hover, the unread count gives way to the "more actions" button. */
 .labelRow {
   position: relative;
   display: flex;
@@ -126,8 +126,18 @@
   color: var(--muted);
 }
 
-.edit:focus-visible {
+.edit:focus-visible,
+.edit.menuOpen {
   display: grid;
+}
+
+.labelRow:has(.menuOpen) .count {
+  visibility: hidden;
+}
+
+.edit.menuOpen {
+  background: var(--selected);
+  color: var(--ink);
 }
 
 /* With a mouse only; on a touch screen labels are edited in Settings. */
@@ -151,6 +161,9 @@
   flex-shrink: 0;
   height: 30px;
   padding: 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
   border: 0;
   border-radius: var(--radius);
   background: transparent;

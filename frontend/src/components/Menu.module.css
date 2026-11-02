@@ -1,0 +1,57 @@
+.menu {
+  position: fixed;
+  z-index: 40;
+  min-width: 170px;
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  transform-origin: top left;
+  transition:
+    opacity var(--fast) ease,
+    scale var(--medium) var(--ease);
+}
+
+@starting-style {
+  .menu {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+
+.item {
+  height: 30px;
+  padding: 0 10px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.item {
+  scale: none;
+}
+
+.item svg {
+  flex: none;
+  color: var(--muted);
+}
+
+.item:hover,
+.item:focus-visible {
+  background: var(--hover);
+  outline: none;
+}
+
+@media (max-width: 767px) {
+  .item {
+    height: 44px;
+  }
+}

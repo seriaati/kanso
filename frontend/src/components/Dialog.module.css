@@ -1,0 +1,36 @@
+.dialog {
+  width: min(340px, calc(100vw - 32px));
+  padding: 18px 20px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  color: var(--ink);
+  opacity: 1;
+  translate: 0 0;
+  transition:
+    opacity var(--medium) var(--ease),
+    translate var(--medium) var(--ease);
+}
+
+.dialog::backdrop {
+  background: var(--scrim);
+  transition: opacity var(--medium) ease;
+}
+
+@starting-style {
+  .dialog[open] {
+    opacity: 0;
+    translate: 0 8px;
+  }
+
+  .dialog[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+.title {
+  margin: 0 0 12px;
+  font-family: var(--font-heading);
+  font-size: var(--text-pane-title);
+  font-weight: 700;
+}

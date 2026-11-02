@@ -11,11 +11,13 @@ type Props = {
   /** AI is on: the description and AI-managed settings show. */
   ai: boolean
   onDone: (change?: { renamed?: string; deleted?: boolean }) => void
+  /** In a dialog (the sidebar's): no card of its own, and no Delete (the label's menu has it). */
+  plain?: boolean
 }
 
-/** Inline in the sidebar: name, color, kanso's own settings (description and AI-managed with AI
+/** In a dialog from the sidebar, or inline in Settings: name, color, kanso's own settings (description and AI-managed with AI
  * on, bundle always), and Delete for an existing label. Name and color changes go to Gmail. */
-export function LabelEditor({ label, accountIds, ai, onDone }: Props) {
+export function LabelEditor({ label, accountIds, ai, onDone, plain }: Props) {
   const [name, setName] = useState(label?.name ?? '')
   const [color, setColor] = useState(label?.color ?? labelColors[0].value)
   const [description, setDescription] = useState(label?.description ?? '')
@@ -48,7 +50,7 @@ export function LabelEditor({ label, accountIds, ai, onDone }: Props) {
 
   return (
     <form
-      className={styles.editor}
+      className={`${styles.editor} ${plain ? styles.plain : ''}`}
       aria-label={label ? `Edit label ${label.name}` : 'New label'}
       onSubmit={(event) => {
         event.preventDefault()
@@ -116,7 +118,7 @@ export function LabelEditor({ label, accountIds, ai, onDone }: Props) {
         </p>
       )}
       <div className={styles.actions}>
-        {label && (
+        {label && !plain && (
           <button
             type="button"
             className={styles.delete}
@@ -134,5 +136,36 @@ export function LabelEditor({ label, accountIds, ai, onDone }: Props) {
         </button>
       </div>
     </form>
+  )
+}
+
+/** Delete a label (from the sidebar's label menu): asks first. */
+export function DeleteLabel({ label, onDone }: { label: NamedLabel; onDone: (deleted: boolean) => void }) {
+  const remove = useDeleteLabel()
+  return (
+    <div className={`${styles.editor} ${styles.plain}`}>
+      <p className={styles.hint}>
+        “{label.name}” is removed in Gmail too. The mail stays.
+      </p>
+      {remove.error && (
+        <p role="alert" className={styles.hint}>
+          {remove.error.message}
+        </p>
+      )}
+      <div className={styles.actions}>
+        <button type="button" className={styles.cancel} onClick={() => onDone(false)}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={styles.save}
+          disabled={remove.isPending}
+          autoFocus
+          onClick={() => remove.mutate(label.ids, { onSuccess: () => onDone(true) })}
+        >
+          Delete
+        </button>
+      </div>
+    </div>
   )
 }
