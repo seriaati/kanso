@@ -428,6 +428,20 @@ def test_follow_up_resends_the_conversation_and_this_thread(
     ]
 
 
+def test_a_demo_instance_shows_its_demo_mail_to_claude(
+    claude: FakeClaude, logged_in: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "demo_mode", True)  # all mail is made up there
+    run(demo_seed.seed())
+    found = call("search_threads", {"query": "lisbon"})
+    assert "Flight itinerary: Lisbon, Dec 12" in [t["subject"] for t in found["threads"]]
+    assert "Travel" in [label["name"] for label in call("list_labels", {})["labels"]]
+    [offsite] = [t.id for t in rows(Thread) if t.subject == "Team offsite in March"]
+    assert call("get_thread", {"thread_id": offsite})["subject"] == "Team offsite in March"
+    ask(logged_in, "summarize this", thread=offsite)
+    assert "This thread: [Team offsite in March]" in json.dumps(claude.requests[0])
+
+
 def test_demo_thread_is_never_the_context(claude: FakeClaude, logged_in: TestClient) -> None:
     run(demo_seed.seed())
     [demo] = [t.id for t in rows(Thread)][:1]

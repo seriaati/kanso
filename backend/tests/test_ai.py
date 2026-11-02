@@ -570,6 +570,20 @@ def test_demo_mail_is_never_sent_to_claude(
     assert run_["pending"] == 0 and run_["total"] == eligible
 
 
+def test_a_demo_instance_sends_its_demo_mail_to_claude(
+    ai_on: None, logged_in: TestClient, claude: FakeClaude, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from kanso import demo_seed
+
+    monkeypatch.setattr(settings, "demo_mode", True)  # all mail is made up there
+    run(demo_seed.seed())
+    eligible = logged_in.get("/api/ai/label-inbox").json()["eligible"]
+    assert eligible > 0
+    logged_in.post("/api/ai/label-inbox", json={})
+    process(claude)
+    assert len(claude.requests) == eligible
+
+
 # AI off.
 
 

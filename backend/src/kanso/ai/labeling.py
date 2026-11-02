@@ -305,7 +305,8 @@ async def classify(
     if not labels or email is None:
         row.last_error = "no AI-managed labels" if not labels else "no inbox message"
         return "skipped", set()
-    if account.demo:  # demo mail is made up: it is never sent to Claude
+    # Demo mail is made up: never sent to Claude, except on a demo instance, where all mail is.
+    if account.demo and not settings.demo_mode:
         row.last_error = "demo account"
         return "skipped", set()
 

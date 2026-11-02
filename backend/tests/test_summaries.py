@@ -495,6 +495,18 @@ def test_demo_threads_get_a_canned_summary(
     assert {u.feature for u in rows(AiUsage)} == {"labeling"}  # the seed's simulated usage only
 
 
+def test_a_demo_instance_summarizes_demo_threads_with_claude(
+    ai_on: None, logged_in: TestClient, claude: FakeClaude, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "demo_mode", True)  # all mail is made up there
+    run(demo_seed.seed())
+    [offsite] = [t.id for t in rows(Thread) if t.subject == "Team offsite in March"]
+    done = summarize(logged_in, offsite)[-1]["summary"]
+    assert (done["text"], done["model"]) == (SUMMARY, "claude-sonnet-5-5")
+    assert len(claude.requests) == 1
+    assert {u.feature for u in rows(AiUsage)} == {"summary"}  # no simulated usage
+
+
 def test_ai_off_has_no_summaries(thread: int, logged_in: TestClient, claude: FakeClaude) -> None:
     assert logged_in.get(f"/api/threads/{thread}/summary").status_code == 409
     assert logged_in.post(f"/api/threads/{thread}/summary").status_code == 409

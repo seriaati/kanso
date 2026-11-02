@@ -3,7 +3,8 @@
 - Read tools (search_threads, get_thread, list_labels) answer at once with lean JSON: capped
   result counts, short snippets, and bodies trimmed by ai/trim.py (no quoted replies or
   signatures) within a budget. Never recipients, attachments or drafts, and never anything from
-  the demo mailbox (its threads don't exist as far as the tools are concerned).
+  the demo mailbox (its threads don't exist as far as the tools are concerned), except on a demo
+  instance (DEMO_MODE), where all mail is made up.
 - Change tools (archive, apply_label, star, mark_read) only *propose*: `propose` checks the input
   and returns the proposal the user sees with Confirm and Cancel. Nothing changes until the user
   confirms it in the browser (kanso.api.assistant), and then it goes through the same actions
@@ -15,10 +16,11 @@ from datetime import datetime, tzinfo
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
-from sqlalchemy import func, select
+from sqlalchemy import false, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kanso.ai import summaries, trim
+from kanso.core.settings import settings
 from kanso.db import search
 from kanso.db.models import Account, Label, Thread
 
@@ -182,6 +184,8 @@ def _when(moment: datetime, zone: tzinfo) -> str:
 
 
 def _demo_accounts() -> Any:
+    if settings.demo_mode:  # a demo instance: all of its mail is made up and may be sent
+        return select(Account.id).where(false())
     return select(Account.id).where(Account.demo)
 
 

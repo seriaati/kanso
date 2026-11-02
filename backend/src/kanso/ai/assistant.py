@@ -16,7 +16,7 @@ proposes changes to it, through the tools in ai/tools.py.
   date and the open thread go in each user message, not in the system prompt). The system prompt
   and tools never change, and are cached; so is the conversation so far.
 - Sent to Claude: the user's words, the date, the open thread's id and subject, and what the
-  tools return (lean JSON, see ai/tools.py). Never demo mail.
+  tools return (lean JSON, see ai/tools.py). Never demo mail, except on a demo instance.
 """
 
 import asyncio

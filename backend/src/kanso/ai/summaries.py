@@ -11,7 +11,8 @@
   who moves on before it ends still gets the stored summary later, and the tokens aren't wasted.
 - What is sent: the subject, and per message the sender ("me" for the user's own), the date and
   the body trimmed by ai/trim.py, newest first up to TOTAL_LIMIT. Never recipients or
-  attachments. Demo threads get a canned summary (DEMO DATA) and are never sent.
+  attachments. Demo threads get a canned summary (DEMO DATA) and are never sent, except on a
+  demo instance (DEMO_MODE), where all mail is made up and summarized like real mail.
 - Streamed: the text goes to the browser as it arrives (Server-Sent Events).
 """
 
@@ -129,7 +130,7 @@ async def load(db: AsyncSession, thread_id: int) -> Context | None:
         lang=thread.lang,
         latest=messages[-1].gmail_id if messages else None,
         entries=entries,
-        demo=account.demo,
+        demo=account.demo and not settings.demo_mode,
     )
 
 
