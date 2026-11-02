@@ -1,6 +1,6 @@
 x-kanso: &kanso
-  image: kanso
-  build: .
+  image: ghcr.io/seriaati/kanso:latest
+  build: . # used by `docker compose up --build` to run from source
   restart: unless-stopped
   env_file: .env
   environment:

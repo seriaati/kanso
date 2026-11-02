@@ -143,7 +143,7 @@ if [[ -z $(env_get PASSWORD_HASH) ]]; then
   read -r -s -p "Again: " PW2; echo
   [[ $PW == "$PW2" ]] || die "The passwords don't match."
   (( ${#PW} >= 8 )) || die "Use at least 8 characters."
-  echo "Building the kanso image to hash it (the first time takes a minute)..."
+  echo "Pulling the kanso image to hash it (only the first time)..."
   HASH_LINE=$(printf '%s\n' "$PW" | docker compose run --rm -T --no-deps app python -m kanso.hash_password \
     | grep '^PASSWORD_HASH=') || die "Hashing the password failed (see the output above)."
   env_set PASSWORD_HASH "${HASH_LINE#PASSWORD_HASH=}"

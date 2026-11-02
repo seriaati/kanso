@@ -1,7 +1,7 @@
 # Setting up kanso
 
-This guide takes you from a fresh clone to kanso running with your Gmail accounts connected. It
-takes about 20 minutes, most of it in the Google Cloud console.
+This guide takes you from the two files in the README's quick start to kanso running with your
+Gmail accounts connected. It takes about 20 minutes, most of it in the Google Cloud console.
 
 kanso talks to Gmail with **your own** Google Cloud OAuth client, so nothing goes through a third
 party. Google treats Gmail access as a "restricted" scope, which is why you set up the client
@@ -17,9 +17,11 @@ You need:
 ## Quick setup with the gcloud CLI
 
 If you have the [gcloud CLI](https://cloud.google.com/sdk/docs/install) and have run
-`gcloud auth login`, one script does steps 1, 2, 5 and 6 for you and writes `.env`:
+`gcloud auth login`, one script does steps 1, 2, 5 and 6 for you and writes `.env`. It lives in
+the repository, so clone it and run kanso from the clone:
 
 ```sh
+git clone https://github.com/seriaati/kanso.git && cd kanso
 scripts/setup.sh            # or: scripts/setup.sh <existing-project-id>
 ```
 
@@ -146,7 +148,7 @@ Open `.env` and fill it in:
 | `GOOGLE_PUBSUB_CREDENTIALS` | The service account key from step 5 on one line: `base64 -w0 key.json` (macOS: `base64 -i key.json`). |
 | `ANTHROPIC_API_KEY` | Optional. A Claude API key from [console.anthropic.com](https://console.anthropic.com), which turns on AI labeling and thread summaries. Without it kanso is a plain email client and shows no AI controls. If summaries feel slow, set `AI_SUMMARY_MODEL=claude-haiku-5-5`. |
 
-Then set your login password. This builds the image the first time, which takes a minute:
+Then set your login password. This downloads the kanso image the first time:
 
 ```sh
 docker compose run --rm --no-deps app python -m kanso.hash_password
@@ -293,13 +295,19 @@ Gmail tokens in it. Treat both as secrets.
 
 ## Upgrading
 
-kanso has no published image; Docker builds it from the source on your machine. To upgrade:
+kanso's image is published to `ghcr.io/seriaati/kanso`, and `latest` follows the main branch. To
+upgrade:
 
 ```sh
-git pull
-docker compose pull --ignore-buildable   # newer Postgres 18 and Redis 8 patch releases
-docker compose up -d --build
+# The latest compose file and .env.example (in a clone: git pull)
+curl -fsSLO https://raw.githubusercontent.com/seriaati/kanso/main/docker-compose.yml
+curl -fsSLO https://raw.githubusercontent.com/seriaati/kanso/main/.env.example
+docker compose pull     # the new kanso image, plus Postgres 18 and Redis 8 patch releases
+docker compose up -d
 ```
+
+To run your own changes instead, build the image from the source in a clone with
+`docker compose up -d --build`.
 
 Database changes apply by themselves when the new version starts (the `app` container runs the
 migrations first, and the `worker` waits for it). Take a backup first if you want to be able to go

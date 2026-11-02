@@ -10,12 +10,14 @@ You can try out Kanso at https://demo.kanso.seria.moe with the password `demo`. 
 
 ## Quick start
 
-You need Docker Compose.
+You need Docker Compose. kanso runs from a prebuilt image,
+[`ghcr.io/seriaati/kanso`](https://github.com/seriaati/kanso/pkgs/container/kanso), so you only
+need two files, the compose file and the `.env` template:
 
 ```sh
-git clone <this repository's URL> kanso
-cd kanso
-scripts/setup.sh    # needs the gcloud CLI; or: cp .env.example .env and set it up by hand
+mkdir kanso && cd kanso
+curl -fsSLO https://raw.githubusercontent.com/seriaati/kanso/main/docker-compose.yml
+curl -fsSLO https://raw.githubusercontent.com/seriaati/kanso/main/.env.example
 ```
 
 Then follow [docs/SETUP.md](docs/SETUP.md). It walks you through creating your own Google OAuth
