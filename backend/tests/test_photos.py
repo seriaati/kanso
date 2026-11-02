@@ -122,9 +122,9 @@ def test_threads_show_the_senders_photo(logged_in: TestClient) -> None:
     threads = logged_in.get("/api/threads", params={"account_id": 1, "mailbox": "inbox"}).json()
     photo = {t["subject"]: t["sender_photo"] for t in threads["threads"]}
     # The newest message is the user's own: the photo is of Daniel, who wrote before. Ana has
-    # only Google's letter avatar.
+    # only Google's letter avatar, so her row falls back to her domain's logo (test_logos.py).
     daniel = f"/api/photos/{stored()['daniel@example.com'][0]}"
-    assert photo == {"Lease renewal": daniel, "Hi": None}
+    assert photo == {"Lease renewal": daniel, "Hi": "/api/logos/example.com"}
     response = logged_in.get(daniel)
     assert response.content == b"https://lh3.googleusercontent.com/cm/daniel=s64-c"
     assert response.headers["content-type"] == "image/jpeg"

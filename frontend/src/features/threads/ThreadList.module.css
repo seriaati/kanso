@@ -296,19 +296,21 @@
   background: var(--accent);
 }
 
-.photo {
+.avatar {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
   margin-right: -2px; /* a little closer to its name than the row's gap */
-}
-
-.photo img {
-  display: block;
-  width: 100%;
-  height: 100%;
   border-radius: 50%;
+  /* Logos with transparency need a light ground, also in the dark theme. */
+  background: #f7f5ee;
   object-fit: cover;
+  color: #f7f5ee; /* on the account colors, which stay mid-tone in both themes */
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  display: grid;
+  place-items: center;
 }
 
 .from {
@@ -672,7 +674,7 @@
     grid-area: 1 / 1;
   }
 
-  .photo {
+  .avatar {
     grid-area: 1 / 2;
     margin-right: 0;
   }

@@ -25,6 +25,8 @@ export type ThreadSummary = {
   me: string[]
   /** Sent and Drafts only: shown instead of the senders. */
   recipients: string[] | null
+  /** The newest sender who isn't the user, and their photo or their domain's logo. */
+  sender_name: string | null
   sender_photo: string | null
 }
 

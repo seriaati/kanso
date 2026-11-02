@@ -102,7 +102,7 @@ def test_thread_list_item_shape(demo: TestClient) -> None:
     assert set(thread) == {
         "id", "account_id", "subject", "snippet", "senders", "last_message_at", "message_count",
         "label_ids", "unread", "starred", "important", "in_inbox", "in_trash", "has_attachments",
-        "lang", "section", "me", "recipients", "sender_photo",
+        "lang", "section", "me", "recipients", "sender_name", "sender_photo",
     }  # fmt: skip
 
 

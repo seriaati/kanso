@@ -11,13 +11,14 @@ from sqlalchemy import ColumnElement, case, exists, func, null, select, true, tu
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kanso import demo_seed
+from kanso import demo_seed, logos
 from kanso.core.settings import settings
 from kanso.db import search
 from kanso.db.models import (
     Account,
     Attachment,
     ContactPhoto,
+    DomainLogo,
     Label,
     Message,
     MessageLabel,
@@ -56,7 +57,9 @@ class ThreadOut(BaseModel):
     me: list[str] = []
     # Sent and Drafts: who the user's messages in the thread went to, shown instead of senders.
     recipients: list[str] | None = None
-    # The photo of the newest sender who isn't the user, from Google Contacts (sync/photos.py).
+    # The newest sender who isn't the user, and their image: a photo from Google Contacts
+    # (sync/photos.py), else their domain's logo (logos.py). None: draw their initial.
+    sender_name: str | None = None
     sender_photo: str | None = None
 
 
@@ -115,29 +118,68 @@ class ThreadDetail(ThreadOut):
     messages: list[MessageOut]
 
 
-async def _people(db: AsyncSession, threads: list[ThreadOut], recipients: bool) -> list[ThreadOut]:
-    """Mark the user's own names among each thread's senders and, with `recipients` (Sent and
-    Drafts), list who the user wrote to, as Gmail shows them: "Daniel Reyes, me", "To: Daniel".
-    Also each thread's sender photo."""
-    if not threads:
-        return threads
-    mine = {email.lower() for email in await db.scalars(select(Account.email))}
-    ids = [t.id for t in threads]
+async def _senders(
+    db: AsyncSession, ids: list[int], mine: set[str]
+) -> dict[int, tuple[str, str | None]]:
+    """Each thread's newest sender who isn't the user: (name, image URL). The image is their
+    contact photo, else their domain's logo, unless the domain is known to have none."""
+    name = func.coalesce(func.nullif(Message.from_name, ""), Message.from_email)  # as `senders`
     newest = (
-        select(Message.thread_id, Message.account_id, func.lower(Message.from_email).label("email"))
+        select(
+            Message.thread_id,
+            Message.account_id,
+            name.label("name"),
+            func.lower(Message.from_email).label("email"),
+        )
         .where(Message.thread_id.in_(ids), func.lower(Message.from_email).not_in(mine))
         .ext(distinct_on(Message.thread_id))
         .order_by(Message.thread_id, Message.internal_date.desc(), Message.id.desc())
         .subquery()
     )
-    photo_rows = await db.execute(
-        select(newest.c.thread_id, ContactPhoto.id).join(
-            ContactPhoto,
-            (ContactPhoto.account_id == newest.c.account_id)
-            & (ContactPhoto.email == newest.c.email),
+    rows = (
+        await db.execute(
+            select(newest.c.thread_id, newest.c.name, newest.c.email, ContactPhoto.id).outerjoin(
+                ContactPhoto,
+                (ContactPhoto.account_id == newest.c.account_id)
+                & (ContactPhoto.email == newest.c.email),
+            )
+        )
+    ).all()
+    domains = {
+        thread_id: domain
+        for thread_id, _, email, photo_id in rows
+        if photo_id is None and (domain := logos.domain_of(email))
+    }
+    no_logo = set(
+        await db.scalars(
+            select(DomainLogo.domain).where(
+                DomainLogo.domain.in_(set(domains.values())),
+                DomainLogo.content.is_(None),
+                DomainLogo.fetched_at >= func.now() - logos.REFRESH,
+            )
         )
     )
-    photos = {thread_id: photo_id for thread_id, photo_id in photo_rows}
+    out: dict[int, tuple[str, str | None]] = {}
+    for thread_id, sender, _, photo_id in rows:
+        domain = domains.get(thread_id)
+        if photo_id is not None:
+            out[thread_id] = (sender, f"/api/photos/{photo_id}")
+        elif domain and domain not in no_logo:
+            out[thread_id] = (sender, f"/api/logos/{domain}")
+        else:
+            out[thread_id] = (sender, None)
+    return out
+
+
+async def _people(db: AsyncSession, threads: list[ThreadOut], recipients: bool) -> list[ThreadOut]:
+    """Mark the user's own names among each thread's senders and, with `recipients` (Sent and
+    Drafts), list who the user wrote to, as Gmail shows them: "Daniel Reyes, me", "To: Daniel".
+    Also each thread's sender and their image."""
+    if not threads:
+        return threads
+    mine = {email.lower() for email in await db.scalars(select(Account.email))}
+    ids = [t.id for t in threads]
+    senders = await _senders(db, ids, mine)
     name = func.coalesce(func.nullif(Message.from_name, ""), Message.from_email)  # as `senders`
     rows = await db.execute(
         select(Message.thread_id, name, Message.to_addrs, Message.cc_addrs)
@@ -159,7 +201,8 @@ async def _people(db: AsyncSession, threads: list[ThreadOut], recipients: bool) 
             update={
                 "me": me.get(t.id, []),
                 "recipients": list(to.get(t.id, {}).values()) if recipients else None,
-                "sender_photo": f"/api/photos/{photos[t.id]}" if t.id in photos else None,
+                "sender_name": senders[t.id][0] if t.id in senders else None,
+                "sender_photo": senders[t.id][1] if t.id in senders else None,
             }
         )
         for t in threads
@@ -482,5 +525,24 @@ async def contact_photo(photo_id: int, db: DB) -> Response:
             "X-Content-Type-Options": "nosniff",
             # A changed photo gets a new id.
             "Cache-Control": "private, max-age=31536000, immutable",
+        },
+    )
+
+
+@router.get("/logos/{domain}")
+async def domain_logo(domain: str, db: DB) -> Response:
+    if logos.domain_of(f"x@{domain}") != domain:  # only what thread rows link to
+        raise HTTPException(status_code=404, detail="No logo")
+    logo = await logos.load(db, domain)
+    if logo is None or logo.content is None or logo.mime_type is None:
+        raise HTTPException(status_code=404, detail="No logo")
+    return Response(
+        logo.content,
+        media_type=logo.mime_type,
+        headers={
+            "X-Content-Type-Options": "nosniff",
+            # BIMI logos are SVG: never let one run script, even opened on its own.
+            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+            "Cache-Control": "private, max-age=604800",
         },
     )

@@ -70,6 +70,18 @@ class ContactPhoto(Base):
     mime_type: Mapped[str] = mapped_column(Text)
 
 
+class DomainLogo(Base):
+    """A sender domain's logo (kanso/logos.py); no content when it has none."""
+
+    __tablename__ = "domain_logos"
+
+    domain: Mapped[str] = mapped_column(Text, primary_key=True)
+    content: Mapped[bytes | None] = mapped_column(LargeBinary)
+    mime_type: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str | None] = mapped_column(String(10))  # "bimi" | "google"
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Label(Base):
     __tablename__ = "labels"
     __table_args__ = (UniqueConstraint("account_id", "gmail_id"),)

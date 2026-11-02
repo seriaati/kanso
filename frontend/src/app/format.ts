@@ -1,3 +1,5 @@
+import { accountColors } from './accounts'
+
 const time = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', hourCycle: 'h23' })
 const weekday = new Intl.DateTimeFormat(undefined, { weekday: 'short' })
 const monthDay = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
@@ -32,4 +34,12 @@ export function initials(name: string): string {
   if (words.length === 0) return '?'
   if (words.length === 1) return [...words[0]].slice(0, 2).join('').toUpperCase()
   return (words[0][0] + words[words.length - 1][0]).toUpperCase()
+}
+
+/** A letter avatar: the name's first letter, on a color that stays the same for that name. */
+export function letterAvatar(name: string): { letter: string; color: string } {
+  const letter = [...name.replace(/[^\p{L}\p{N}]/gu, '')][0]?.toUpperCase() ?? '?'
+  let hash = 0
+  for (const char of name.toLowerCase()) hash = (hash * 31 + char.codePointAt(0)!) | 0
+  return { letter, color: accountColors[Math.abs(hash) % accountColors.length].value }
 }
