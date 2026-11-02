@@ -3,6 +3,7 @@ import logging
 import signal
 from pathlib import Path
 
+from kanso import demo_seed
 from kanso.ai import labeling
 from kanso.core.settings import settings
 from kanso.db.session import engine
@@ -50,6 +51,12 @@ async def run() -> None:
     else:
         classify = None
         log.info("AI labeling off (no ANTHROPIC_API_KEY)")
+    # A demo instance goes back to its starting state every day.
+    if settings.demo_mode:
+        demo_reset = asyncio.create_task(demo_seed.reset_daily())
+        log.info("demo instance: the mailbox resets every day at midnight UTC")
+    else:
+        demo_reset = None
     while not stop.is_set():
         await asyncio.to_thread(HEARTBEAT.touch)
         try:
@@ -65,6 +72,8 @@ async def run() -> None:
     housekeeping.cancel()
     if classify:
         classify.cancel()
+    if demo_reset:
+        demo_reset.cancel()
     if pull:
         pull.cancel()
     await http.aclose()

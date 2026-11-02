@@ -13,7 +13,8 @@ from kanso.main import app
 
 PASSWORD_HASH = os.environ["PASSWORD_HASH"]
 EXPIRED = int(time.time()) - 60
-PUBLIC = {"/api/health", "/api/auth/login"}
+# /api/auth/demo: a demo instance shows its password on the login page (null elsewhere).
+PUBLIC = {"/api/health", "/api/auth/login", "/api/auth/demo"}
 
 
 def test_login_sets_session_cookie(client: TestClient, password: str) -> None:

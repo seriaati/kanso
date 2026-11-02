@@ -16,6 +16,7 @@ from kanso.core.security import (
     set_session_cookie,
     verify_password,
 )
+from kanso.core.settings import DEMO_PASSWORD, settings
 from kanso.db import prefs
 from kanso.db.redis import redis
 from kanso.db.session import get_session
@@ -31,6 +32,10 @@ MIN_PASSWORD = 8  # as kanso.hash_password
 
 class Login(BaseModel):
     password: str
+
+
+class DemoOut(BaseModel):
+    password: str | None  # a demo instance's password, for its login page; None otherwise
 
 
 class PasswordChange(BaseModel):
@@ -59,6 +64,12 @@ async def _check_password(request: Request, password: str) -> str:
     return current
 
 
+@router.get("/demo")
+async def demo() -> DemoOut:
+    """Public, like login: the login page of a demo instance shows its password."""
+    return DemoOut(password=DEMO_PASSWORD if settings.demo_mode else None)
+
+
 @router.post("/login", status_code=204)
 async def login(body: Login, request: Request, response: Response) -> None:
     set_session_cookie(
@@ -77,6 +88,8 @@ async def change_password(
 ) -> None:
     """Change the login password. It is stored in the database (PASSWORD_HASH in .env stays the
     starting value). Every session is signed out, except this browser, which gets a new one."""
+    if settings.demo_mode:  # visitors share the password shown on the login page
+        raise HTTPException(status_code=403, detail="The demo's password can't be changed")
     try:
         await _check_password(request, body.current)
     except HTTPException as error:

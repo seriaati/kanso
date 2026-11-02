@@ -2,6 +2,10 @@
 """Fill the database with a fake mailbox (DEMO DATA) for UI work without Google credentials:
 `python -m kanso.demo_seed`. Safe to run again: it replaces the previous demo account.
 
+On a demo instance (DEMO_MODE, docker-compose.demo.yml) the same command resets everything
+instead: every table is emptied and the demo mailbox seeded again. The app does that on start and
+the worker every day at midnight UTC.
+
 The demo account is flagged `demo`, so the worker never syncs it and disconnecting it doesn't
 call Google. The mails are built as real MIME (some in GB2312, Big5 and ISO-2022-JP) and stored
 through the same parser and store functions as synced mail.
@@ -15,11 +19,12 @@ from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage
 from email.utils import format_datetime, make_msgid
 
-from sqlalchemy import delete, update
+from sqlalchemy import delete, exists, select, text, update
 
+from kanso.core.settings import settings
 from kanso.db import contacts
 from kanso.db import redis as events
-from kanso.db.models import Account, AiUsage, Label
+from kanso.db.models import Account, AiUsage, Base, Label
 from kanso.db.session import Session, engine
 from kanso.gmail import mime
 from kanso.sync import store
@@ -267,24 +272,26 @@ async def seed() -> int:
                 .where(Label.account_id == account.id, Label.name == name)
                 .values(description=description, ai_managed=True, is_bundle=name in BUNDLES)
             )
-        # AI usage as if Claude had labeled the demo mail (DEMO DATA: no request was made).
+        # AI usage as if Claude had labeled the demo mail (DEMO DATA: no request was made). Not
+        # on a demo instance: with a key, its usage is real.
         today = now.date()
-        await db.execute(
-            delete(AiUsage).where(
-                AiUsage.feature == "labeling", AiUsage.day >= today - timedelta(days=1)
-            )
-        )
-        for day, requests in ((today - timedelta(days=1), 18), (today, 7)):
-            db.add(
-                AiUsage(
-                    day=day,
-                    feature="labeling",
-                    model="claude-haiku-5-5",
-                    requests=requests,
-                    input_tokens=requests * 340,
-                    output_tokens=requests * 24,
+        if not settings.demo_mode:
+            await db.execute(
+                delete(AiUsage).where(
+                    AiUsage.feature == "labeling", AiUsage.day >= today - timedelta(days=1)
                 )
             )
+            for day, requests in ((today - timedelta(days=1), 18), (today, 7)):
+                db.add(
+                    AiUsage(
+                        day=day,
+                        feature="labeling",
+                        model="claude-haiku-5-5",
+                        requests=requests,
+                        input_tokens=requests * 340,
+                        output_tokens=requests * 24,
+                    )
+                )
         await db.commit()
         account_id = account.id
         await contacts.refresh(db)  # autocomplete knows the demo people at once
@@ -296,9 +303,33 @@ async def seed() -> int:
     return len(thread_ids)
 
 
+async def reset() -> int:
+    """Back to the demo instance's starting state: every table emptied, then seeded. Ids start
+    over, so a browser left open finds the same threads under the same ids again."""
+    async with Session() as db:
+        if await db.scalar(select(exists().where(Account.demo.is_(False)))):
+            raise RuntimeError("Not resetting: this database has a connected Gmail account.")
+        tables = ", ".join(table.name for table in Base.metadata.sorted_tables)
+        await db.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
+        await db.commit()
+    return await seed()
+
+
+async def reset_daily() -> None:
+    """The worker's loop on a demo instance: reset every day at midnight UTC."""
+    while True:
+        now = datetime.now(UTC)
+        midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        await asyncio.sleep((midnight - now).total_seconds())
+        try:
+            log.info("demo reset: %d threads", await reset())
+        except Exception:
+            log.exception("demo reset failed")
+
+
 async def main() -> None:
     try:
-        count = await seed()
+        count = await (reset() if settings.demo_mode else seed())
     finally:
         await engine.dispose()
         await events.redis.aclose()

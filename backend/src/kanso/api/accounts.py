@@ -74,6 +74,11 @@ async def disconnect_account(account_id: int, db: DB) -> None:
 
 @router.get("/connect")
 async def connect() -> Response:
+    if settings.demo_mode:
+        return PlainTextResponse(
+            "This is a kanso demo: it shows made-up mail and can't connect Gmail accounts.",
+            status_code=403,
+        )
     if not settings.google_client_id or not settings.google_client_secret:
         return PlainTextResponse(
             "Google OAuth is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in "

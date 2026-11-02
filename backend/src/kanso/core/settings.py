@@ -1,8 +1,14 @@
 import tempfile
 from pathlib import Path
+from typing import Any
 
-from pydantic import Field
+from argon2 import PasswordHasher
+from argon2.low_level import hash_secret
+from pydantic import Field, TypeAdapter, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# The password of a demo instance (DEMO_MODE), shown on its login page.
+DEMO_PASSWORD = "demo"
 
 
 class Settings(BaseSettings):
@@ -41,6 +47,34 @@ class Settings(BaseSettings):
     ai_model: str = "claude-sonnet-5-5"
     # Thread summaries only, e.g. claude-haiku-5-5 if they arrive too slowly. Empty: AI_MODEL.
     ai_summary_model: str = ""
+    # A demo instance (docker-compose.demo.yml): the made-up mailbox from kanso.demo_seed, reset
+    # every day, and no Gmail accounts can be connected. With an Anthropic key, its mail is sent
+    # to Claude like real mail would be.
+    demo_mode: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _demo_secrets(cls, data: Any) -> Any:
+        """A demo instance has nothing to keep secret: its key is public and its password is
+        DEMO_PASSWORD, whatever the environment says."""
+        if not TypeAdapter(bool).validate_python(data.get("demo_mode") or False):
+            return data
+        # A fixed salt: the same hash on every start, so a restart doesn't sign visitors out (the
+        # session signature covers the hash).
+        p = PasswordHasher()
+        demo_hash = hash_secret(
+            DEMO_PASSWORD.encode(),
+            b"kanso-demo",
+            p.time_cost,
+            p.memory_cost,
+            p.parallelism,
+            p.hash_len,
+            p.type,
+        ).decode()
+        return data | {
+            "secret_key": "kanso-demo-instance-public-key-not-a-secret",
+            "password_hash": demo_hash,
+        }
 
     @property
     def redirect_uri(self) -> str:
