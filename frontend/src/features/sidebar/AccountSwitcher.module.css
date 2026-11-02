@@ -66,6 +66,26 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-card);
   background: var(--surface);
+  transform-origin: top left;
+  transition:
+    opacity var(--fast) ease,
+    scale var(--medium) var(--ease);
+}
+
+@starting-style {
+  .popover {
+    opacity: 0;
+    scale: 0.97;
+  }
+}
+
+.trigger svg {
+  flex: none;
+  transition: rotate var(--medium) var(--ease);
+}
+
+.trigger[aria-expanded='true'] > svg {
+  rotate: 180deg;
 }
 
 .row {
@@ -84,6 +104,11 @@
 
 .row:hover {
   background: var(--hover);
+}
+
+.trigger,
+.row {
+  scale: none;
 }
 
 .row[aria-current='true'] {

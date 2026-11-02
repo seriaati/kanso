@@ -30,6 +30,13 @@
 
   --radius: 8px; /* rows, buttons */
   --radius-card: 10px; /* inputs, cards */
+
+  /* Motion: short and soft. Everything that moves turns off with prefers-reduced-motion
+     (base.css). */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --fast: 120ms; /* hovers, presses */
+  --medium: 200ms; /* menus, rows moving, panes */
+  --slow: 360ms;
 }
 
 /* Text tagged as Chinese puts the Chinese fonts first; otherwise the Japanese fonts would draw the

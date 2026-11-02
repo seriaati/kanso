@@ -46,6 +46,11 @@
 
 .search:focus-within {
   outline: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.search {
+  transition: background-color var(--fast) ease;
 }
 
 .search input {
@@ -69,6 +74,45 @@
   color: var(--muted);
 }
 
+/* Inbox zero: the ensō is drawn in one stroke, then the line fades in under it. */
+.enso {
+  display: block;
+  width: 64px;
+  height: 64px;
+  margin: 8px auto 14px;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  opacity: 0.7;
+  animation: draw 1.4s var(--ease) 0.1s forwards;
+}
+
+.zero {
+  opacity: 0;
+  animation: rise var(--slow) var(--ease) 0.7s forwards;
+}
+
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
 /* Thread rows: compact single lines. On hover the time swaps for quick actions. */
 .row {
   position: absolute;
@@ -79,6 +123,10 @@
   display: flex;
   align-items: center;
   border-radius: var(--radius);
+  /* When threads leave (Done, Delete) or a bundle opens, the rows below glide into place. */
+  transition:
+    transform var(--medium) var(--ease),
+    background-color var(--fast) ease;
 }
 
 .row:hover {
@@ -132,6 +180,7 @@
   height: 6px;
   flex-shrink: 0;
   border-radius: 50%;
+  transition: background-color var(--slow) ease;
 }
 
 .unread .unreadDot {
@@ -212,6 +261,9 @@
   gap: 2px;
   flex-shrink: 0;
   padding-right: 8px;
+  transition:
+    opacity var(--fast) ease,
+    translate var(--fast) ease;
 }
 
 /* Only with a mouse: on a touch screen rows are swiped instead (a tap would leave a row
@@ -225,6 +277,13 @@
 
   .row:hover .actions {
     display: flex;
+  }
+
+  @starting-style {
+    .row:hover .actions {
+      opacity: 0;
+      translate: 4px 0;
+    }
   }
 
   .row:hover .main {
@@ -262,6 +321,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  transition: transform var(--medium) var(--ease);
 }
 
 .section {
@@ -355,6 +415,15 @@
 .bundleToggle svg {
   flex-shrink: 0;
   color: var(--muted);
+  transition: rotate var(--medium) var(--ease);
+}
+
+.bundleToggle[aria-expanded='true'] svg {
+  rotate: 90deg;
+}
+
+.bundleToggle {
+  scale: none;
 }
 
 .bundleToggle:hover {

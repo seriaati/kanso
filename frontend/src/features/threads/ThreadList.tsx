@@ -230,13 +230,25 @@ function BundleRow({ row, top, onDoneAll, onToggle }: BundleProps) {
   return (
     <div className={`${styles.bundle} ${row.first ? styles.firstBundle : ''}`} style={{ transform: `translateY(${top}px)` }}>
       <button type="button" className={styles.bundleToggle} aria-expanded={row.open} onClick={() => onToggle(name)}>
-        <Icon name={row.open ? 'chevronDown' : 'chevronRight'} size={12} strokeWidth={2.2} />
+        <Icon name="chevronRight" size={12} strokeWidth={2.2} />
         <span className={styles.groupName}>{name}</span>
         {count(row.section)}
         <span className={styles.bundleSenders}>{row.section.senders.join(', ')}</span>
       </button>
       {doneAllButton(row.section, onDoneAll, name)}
     </div>
+  )
+}
+
+/** The empty inbox: an ensō that draws itself once, and a quiet line. */
+export function InboxZero() {
+  return (
+    <>
+      <svg className={styles.enso} viewBox="0 0 64 64" aria-hidden="true">
+        <path d="M38.2 8.8A24 24 0 1 0 54.6 23.8" pathLength={1} />
+      </svg>
+      <span className={styles.zero}>Inbox zero. Nothing left to triage.</span>
+    </>
   )
 }
 

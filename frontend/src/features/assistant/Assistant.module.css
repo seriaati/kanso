@@ -13,6 +13,13 @@
   flex: none;
 }
 
+.toggle svg {
+  transition: rotate var(--medium) var(--ease);
+}
+
+.toggle[aria-expanded='false'] svg {
+  rotate: 180deg;
+}
 .header {
   flex: none;
   display: flex;
@@ -144,6 +151,28 @@
 .offer {
   align-self: flex-start;
   font-size: var(--text-small);
+}
+
+.question,
+.answer,
+.activity,
+.proposal,
+.card {
+  transition:
+    opacity var(--medium) ease,
+    translate var(--medium) var(--ease);
+}
+
+/* Questions, answers and proposals rise in as they arrive. */
+@starting-style {
+  .question,
+  .answer,
+  .activity,
+  .proposal,
+  .card {
+    opacity: 0;
+    translate: 0 6px;
+  }
 }
 
 .question {
@@ -278,6 +307,7 @@
 }
 
 .historyOpen {
+  scale: none;
   flex: 1;
   min-width: 0;
   display: flex;

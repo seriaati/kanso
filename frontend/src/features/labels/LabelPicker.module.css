@@ -12,6 +12,17 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-card);
   background: var(--surface);
+  transform-origin: top left;
+  transition:
+    opacity var(--fast) ease,
+    scale var(--medium) var(--ease);
+}
+
+@starting-style {
+  .picker {
+    opacity: 0;
+    scale: 0.97;
+  }
 }
 
 .input {
@@ -36,6 +47,7 @@
 }
 
 .option {
+  scale: none;
   width: 100%;
   height: 30px;
   padding: 0 8px;

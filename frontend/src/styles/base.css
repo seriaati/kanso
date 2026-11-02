@@ -29,6 +29,21 @@ button {
   cursor: pointer;
 }
 
+/* Hovers fade in and out, and buttons give a little when pressed. Zero specificity (:where), so
+   a wide, row-like button turns the press off with `scale: none`: shrinking a whole row reads as
+   the row jumping, not as a press. */
+button,
+a {
+  transition:
+    background-color var(--fast) ease,
+    color var(--fast) ease,
+    scale var(--fast) ease;
+}
+
+:where(button:active:not(:disabled, [aria-disabled='true'])) {
+  scale: 0.96;
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -45,5 +60,15 @@ a:hover {
   select,
   [contenteditable] {
     font-size: 16px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

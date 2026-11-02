@@ -9,7 +9,7 @@ import { Reader, type ThreadDraft } from '../features/reader/Reader'
 import { Settings } from '../features/settings/Settings'
 import { Sidebar, type Notice } from '../features/sidebar/Sidebar'
 import { LabelInbox } from '../features/threads/LabelInbox'
-import { ThreadList, type LabelChip, type ListRow } from '../features/threads/ThreadList'
+import { InboxZero, ThreadList, type LabelChip, type ListRow } from '../features/threads/ThreadList'
 import { useAccounts, type Account } from './accounts'
 import { applied, inList, quickTarget, useThreadAction, useUndo, type Quick, type SectionScope, type ThreadAction } from './actions'
 import { useConfig } from './ai'
@@ -383,7 +383,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   else if (view.kind === 'search') empty = `No mail matches “${view.q}”.`
   else if (view.kind === 'label' && !label) empty = `There is no label named “${view.name}”.`
   else if (syncing) empty = 'Mail shows up here as it syncs.'
-  else if (view.kind === 'mailbox' && view.mailbox === 'inbox') empty = 'Inbox zero. Nothing left to triage.'
+  else if (view.kind === 'mailbox' && view.mailbox === 'inbox') empty = <InboxZero />
   const missingLabel = view.kind === 'label' && labels.isSuccess && !label
 
   const onKey = useEffectEvent((event: KeyboardEvent) => {
