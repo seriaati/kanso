@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { accountColors, useDisconnectAccount, useUpdateAccount, type Account } from '../../app/accounts'
 import { useAiUsage } from '../../app/ai'
 import { userLabels, type Label, type NamedLabel, type SyncStatus } from '../../app/mail'
-import { useChangePassword, useLogoutEverywhere, useSettings, useUpdateSettings } from '../../app/settings'
+import { useChangePassword, useDemoPassword, useLogoutEverywhere, useSettings, useUpdateSettings } from '../../app/settings'
 import { Icon } from '../../components/Icon'
 import { Avatar } from '../sidebar/AccountSwitcher'
 import { LabelEditor } from '../sidebar/LabelEditor'
@@ -21,6 +21,7 @@ type Props = {
 /** Settings, in place of the list and the email pane: accounts and their sync, labels, the
  * assistant, AI usage and the password. Everything else is in .env. */
 export function Settings({ accounts, labels, sync, ai, onMenu }: Props) {
+  const demo = useDemoPassword() !== null // until known, too: no flash of Connect on a demo
   return (
     <section className={styles.settings} aria-label="Settings">
       <header className={styles.header}>
@@ -33,11 +34,11 @@ export function Settings({ accounts, labels, sync, ai, onMenu }: Props) {
       </header>
       <div className={styles.scroll}>
         <div className={styles.page}>
-          <Accounts accounts={accounts} sync={sync} />
+          <Accounts accounts={accounts} sync={sync} demo={demo} />
           <Labels labels={labels} accountIds={accounts.map((a) => a.id)} ai={ai} />
           {ai && <Assistant />}
           {ai && <Usage />}
-          <Password />
+          {!demo && <Password />}
           <Sessions />
         </div>
       </div>
@@ -74,7 +75,7 @@ function syncLine(status: SyncStatus | undefined): string {
   }
 }
 
-function Accounts({ accounts, sync }: { accounts: Account[]; sync: SyncStatus[] }) {
+function Accounts({ accounts, sync, demo }: { accounts: Account[]; sync: SyncStatus[]; demo: boolean }) {
   const [editing, setEditing] = useState<number | null>(null)
   return (
     <Section title="Accounts">
@@ -103,10 +104,14 @@ function Accounts({ accounts, sync }: { accounts: Account[]; sync: SyncStatus[] 
         })}
       </ul>
       {accounts.length === 0 && <p className={styles.note}>No Gmail account connected yet.</p>}
-      {/* A full-page navigation: the backend redirects on to Google's consent screen. */}
-      <a href="/api/accounts/connect" className={styles.add}>
-        + Connect a Gmail account
-      </a>
+      {demo ? (
+        <p className={styles.note}>This is a demo: its mail is made up, no Gmail account can be connected, and every change resets each day.</p>
+      ) : (
+        /* A full-page navigation: the backend redirects on to Google's consent screen. */
+        <a href="/api/accounts/connect" className={styles.add}>
+          + Connect a Gmail account
+        </a>
+      )}
     </Section>
   )
 }

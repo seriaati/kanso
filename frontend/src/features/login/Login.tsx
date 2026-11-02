@@ -1,10 +1,13 @@
 import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api, queryClient } from '../../app/api'
+import { useDemoPassword } from '../../app/settings'
 import styles from './Login.module.css'
 
 export function Login() {
-  const [password, setPassword] = useState('')
+  const demo = useDemoPassword()
+  const [typed, setPassword] = useState<string | null>(null)
+  const password = typed ?? demo ?? '' // a demo's password is filled in
   const login = useMutation({
     mutationFn: () => api('/auth/login', { method: 'POST', body: { password } }),
     onSuccess: () => queryClient.resetQueries(),
@@ -36,6 +39,11 @@ export function Login() {
         <button type="submit" className={styles.submit} disabled={!password || login.isPending}>
           Log in
         </button>
+        {demo && (
+          <p className={styles.demo}>
+            A demo with made-up mail. The password is <strong>{demo}</strong>; changes reset every day.
+          </p>
+        )}
         {login.error && (
           <p role="alert" className={styles.error}>
             {login.error.message}

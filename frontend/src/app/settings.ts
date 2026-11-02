@@ -22,6 +22,18 @@ export function useUpdateSettings() {
   })
 }
 
+/** A demo instance's password (docker-compose.demo.yml), null on a real one, undefined until
+ * known. Public, so the login page can show it. A demo connects no Gmail and its password can't
+ * be changed. */
+export function useDemoPassword() {
+  const query = useQuery({
+    queryKey: ['demo'],
+    queryFn: () => api<{ password: string | null }>('/auth/demo'),
+    staleTime: Infinity,
+  })
+  return query.data?.password
+}
+
 /** Every other browser is signed out; this one gets a new session. */
 export function useChangePassword() {
   return useMutation({
