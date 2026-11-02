@@ -94,7 +94,7 @@ def test_login_from_a_bare_client_needs_the_header(password: str) -> None:
 @pytest.mark.parametrize("path", ["/docs", "/redoc", "/openapi.json", "/docs/oauth2-redirect"])
 def test_api_docs_are_off(client: TestClient, path: str) -> None:
     response = client.get(path)
-    # The SPA answers unknown paths with its index.html (or 404 without a built frontend).
+    # The SPA answers unknown paths with its index.html.
     assert "swagger" not in response.text.lower() and "redoc" not in response.text.lower()
     assert not response.headers.get("content-type", "").startswith("application/json")
     assert app.openapi_url is None and app.docs_url is None and app.redoc_url is None

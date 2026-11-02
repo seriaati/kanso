@@ -1,5 +1,6 @@
 import asyncio
 import os
+import tempfile
 from collections.abc import Iterator
 
 import fakeredis
@@ -21,6 +22,12 @@ os.environ |= {
     "GOOGLE_PUBSUB_SUBSCRIPTION": "",
     "GOOGLE_PUBSUB_CREDENTIALS": "",
 }
+# A stand-in for the built frontend, so the SPA routes behave the same whether or not
+# `bun run build` has run (CI's backend job doesn't build it).
+_dist = tempfile.mkdtemp(prefix="kanso-dist-")
+with open(os.path.join(_dist, "index.html"), "w") as index:
+    index.write("<!doctype html><title>kanso</title>")
+os.environ["FRONTEND_DIST"] = _dist
 # Database tests need a real, disposable Postgres (its tables are dropped and recreated), e.g.
 # TEST_DATABASE_URL=postgresql+asyncpg://postgres:test@localhost:55432/postgres
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
