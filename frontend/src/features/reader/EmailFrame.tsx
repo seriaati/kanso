@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useAccent, type Accent } from '../../app/accent'
 import type { Attachment } from '../../app/mail'
 import { useTheme } from '../../app/theme'
 import fullFonts from '../../styles/fonts-full.css?url'
@@ -25,7 +26,7 @@ const STYLED = /\b(?:bgcolor|background|color)\s*[:=]/i
 
 type Theme = 'light' | 'dark' | 'sheet'
 
-function buildDocument(html: string, lang: string | null, attachments: Attachment[], showImages: boolean, theme: Theme) {
+function buildDocument(html: string, lang: string | null, attachments: Attachment[], showImages: boolean, theme: Theme, accent: Accent) {
   const origin = location.origin
   const byCid = new Map(
     attachments.flatMap((a) => (a.content_id ? [[a.content_id.toLowerCase(), `${origin}/api/attachments/${a.id}`] as const] : [])),
@@ -40,7 +41,7 @@ function buildDocument(html: string, lang: string | null, attachments: Attachmen
   const langAttr = lang && /^[A-Za-z0-9-]+$/.test(lang) ? ` lang="${lang}"` : ''
   const themeAttr = theme === 'dark' ? ' data-theme="dark"' : theme === 'sheet' ? ' data-theme="light" data-sheet' : ' data-theme="light"'
   return (
-    `<!doctype html><html${themeAttr}${langAttr}><head><meta charset="utf-8">` +
+    `<!doctype html><html${themeAttr} data-accent="${accent}"${langAttr}><head><meta charset="utf-8">` +
     `<meta http-equiv="Content-Security-Policy" content="${csp}">` +
     `<base target="_blank"><link rel="stylesheet" href="${fullFonts}"><link rel="stylesheet" href="${emailCss}">` +
     `</head><body>${body}</body></html>`
@@ -51,8 +52,12 @@ type Props = { html: string; lang: string | null; attachments: Attachment[]; sho
 
 export function EmailFrame({ html, lang, attachments, showImages }: Props) {
   const { dark } = useTheme()
+  const accent = useAccent()
   const theme: Theme = !dark ? 'light' : STYLED.test(html) ? 'sheet' : 'dark'
-  const srcDoc = useMemo(() => buildDocument(html, lang, attachments, showImages, theme), [html, lang, attachments, showImages, theme])
+  const srcDoc = useMemo(
+    () => buildDocument(html, lang, attachments, showImages, theme, accent),
+    [html, lang, attachments, showImages, theme, accent],
+  )
   const [height, setHeight] = useState(0)
   const observer = useRef<ResizeObserver>(null)
   useEffect(() => () => observer.current?.disconnect(), [])

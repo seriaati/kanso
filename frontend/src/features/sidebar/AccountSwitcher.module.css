@@ -185,6 +185,21 @@
   color: var(--accent);
 }
 
+.accent button {
+  width: 26px;
+}
+
+.accent i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.accent button[aria-checked='true'] i {
+  outline: 1.5px solid currentColor;
+  outline-offset: 2px;
+}
+
 @media (max-width: 767px) {
   .popover {
     width: 100%;
@@ -199,5 +214,9 @@
   .theme button {
     width: 44px;
     height: 36px;
+  }
+
+  .accent button {
+    width: 32px;
   }
 }

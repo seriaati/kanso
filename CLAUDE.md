@@ -141,6 +141,12 @@ follows the system by default; the account menu's Theme row picks System, Light 
 per browser). HTML emails that set their own colors or backgrounds keep the light tokens and sit
 on a light sheet in the dark pane; HTML without its own colors follows the dark theme.
 
+**Accent**: the account menu's Accent row picks the accent (stored per browser): Indigo (the
+default), Teal `#2B5E5B`/`#86B4AF`, Moss `#4A5D2C`/`#A0B381`, Ochre `#704C20`/`#CCA979`, Rust
+`#8F4127`/`#DF9C80`, Plum `#6A3F62`/`#C7A2C0` (light/dark). Every shade is at least 5:1 against
+every background in its theme, including surface-colored text on the accent; a new palette must be
+too.
+
 - **Type**: Zen Maru Gothic for the UI and body text (13px UI, 14px message body, line-height
   1.6–1.75); the open email's subject is Zen Maru Gothic too, bold at 21px, like the subjects in
   the list. Shippori Mincho B1 for pane and dialog titles (18px).

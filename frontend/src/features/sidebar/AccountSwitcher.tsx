@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { logout, type Account } from '../../app/accounts'
+import { accents, setAccent, useAccent } from '../../app/accent'
 import { useAiUsage } from '../../app/ai'
 import { setDensity, useDensity, type Density } from '../../app/density'
 import { setTheme, useTheme, type Theme } from '../../app/theme'
@@ -36,7 +37,8 @@ const densities: { density: Density; icon: IconName; name: string }[] = [
 export function AccountSwitcher({ accounts, selected, ai, onSelect }: Props) {
   const [open, setOpen] = useState(false)
   const keyRejected = useAiUsage(open && ai).data?.key_rejected
-  const { theme } = useTheme()
+  const { theme, dark } = useTheme()
+  const accent = useAccent()
   const density = useDensity()
   const ref = useRef<HTMLDivElement>(null)
 
@@ -125,6 +127,23 @@ export function AccountSwitcher({ accounts, selected, ai, onSelect }: Props) {
                 onClick={() => setTheme(t.theme)}
               >
                 <Icon name={t.icon} size={15} />
+              </button>
+            ))}
+          </div>
+          <div className={`${styles.theme} ${styles.accent}`} role="radiogroup" aria-label="Accent">
+            <span>Accent</span>
+            {accents.map((a) => (
+              <button
+                key={a.accent}
+                type="button"
+                role="radio"
+                aria-checked={accent === a.accent}
+                aria-label={a.name}
+                title={a.name}
+                data-accent={a.accent}
+                onClick={() => setAccent(a.accent)}
+              >
+                <i style={{ background: dark ? 'var(--accent-dark)' : 'var(--accent-light)' }} />
               </button>
             ))}
           </div>

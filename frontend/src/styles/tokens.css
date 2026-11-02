@@ -10,7 +10,7 @@
   --selected: #dedacb;
   --ink: #242520;
   --muted: #63655c;
-  --accent: #2f4b6e;
+  --accent: var(--accent-light);
 
   --label-home: #a07338;
   --label-personal: #4f6e8c;
@@ -55,7 +55,7 @@
     --selected: #35362f;
     --ink: #e8e5da;
     --muted: #a3a497;
-    --accent: #93abcd;
+    --accent: var(--accent-dark);
     --avatar: #3d3628;
     --avatar-ink: #e0cfa8;
     --scrim: rgb(0 0 0 / 0.4);
@@ -75,11 +75,44 @@
   --selected: #35362f;
   --ink: #e8e5da;
   --muted: #a3a497;
-  --accent: #93abcd;
+  --accent: var(--accent-dark);
   --avatar: #3d3628;
   --avatar-ink: #e0cfa8;
   --scrim: rgb(0 0 0 / 0.4);
   --float-shadow: 0 10px 32px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.3);
+}
+
+/* The accent palettes (account menu → Accent, stored per browser). Each has a light and a dark
+   shade, both at least 5:1 against every background, including text on the accent itself. */
+:root,
+[data-accent='indigo'] {
+  --accent-light: #2f4b6e;
+  --accent-dark: #93abcd;
+}
+
+[data-accent='teal'] {
+  --accent-light: #2b5e5b;
+  --accent-dark: #86b4af;
+}
+
+[data-accent='moss'] {
+  --accent-light: #4a5d2c;
+  --accent-dark: #a0b381;
+}
+
+[data-accent='ochre'] {
+  --accent-light: #704c20;
+  --accent-dark: #cca979;
+}
+
+[data-accent='rust'] {
+  --accent-light: #8f4127;
+  --accent-dark: #df9c80;
+}
+
+[data-accent='plum'] {
+  --accent-light: #6a3f62;
+  --accent-dark: #c7a2c0;
 }
 
 /* Chinese fonts first, or the Japanese ones draw shared Han characters with Japanese glyphs.
