@@ -126,7 +126,18 @@ export function ThreadList(props: Props) {
             searchRef.current?.blur()
           }}
         >
-          <Icon name="search" size={13} strokeWidth={2} />
+          {/* With the email pane open the box folds to this icon; a click (or /) opens it again. */}
+          <button
+            type="button"
+            className={styles.searchIcon}
+            aria-label="Search"
+            title="Search (/)"
+            tabIndex={-1}
+            onMouseDown={(event) => event.preventDefault()} // the input keeps its focus
+            onClick={() => searchRef.current?.focus()}
+          >
+            <Icon name="search" size={13} strokeWidth={2} />
+          </button>
           <input
             key={query}
             ref={searchRef}

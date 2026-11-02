@@ -61,7 +61,51 @@
 }
 
 .search {
-  transition: background-color var(--fast) ease;
+  overflow: hidden;
+  transition:
+    background-color var(--fast) ease,
+    flex-basis var(--slow) var(--ease),
+    padding var(--slow) var(--ease),
+    gap var(--slow) var(--ease);
+}
+
+.searchIcon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  margin: 0 -2px;
+  padding: 2px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: text;
+}
+
+.search input {
+  transition: opacity var(--medium) ease;
+}
+
+/* With the email pane open, an empty search box folds to its icon, and unfolds while focused. */
+:global([data-pane='open']) .search:not(:focus-within):has(input:placeholder-shown) {
+  flex-basis: 32px;
+  gap: 0;
+  padding: 0 9.5px; /* the 13px icon in the middle */
+  background: transparent;
+  cursor: pointer;
+}
+
+:global([data-pane='open']) .search:not(:focus-within):has(input:placeholder-shown):hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+:global([data-pane='open']) .search:not(:focus-within):has(input:placeholder-shown) input {
+  opacity: 0;
+}
+
+:global([data-pane='open']) .search:not(:focus-within):has(input:placeholder-shown) .searchIcon {
+  cursor: pointer;
 }
 
 .ask {
