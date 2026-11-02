@@ -1,10 +1,11 @@
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useEffect, useEffectEvent, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useEffect, useEffectEvent, useRef, type ReactNode, type RefObject } from 'react'
 import { Link } from 'react-router'
-import { letterAvatar, shortDate } from '../../app/format'
+import { shortDate } from '../../app/format'
 import { quickAction, type Quick } from '../../app/actions'
 import { useDensity } from '../../app/density'
 import type { Section, ThreadSummary } from '../../app/mail'
+import { Avatar } from '../../components/Avatar'
 import { Icon } from '../../components/Icon'
 import { InstallButton } from '../install/InstallButton'
 import { useSwipe } from './swipe'
@@ -280,22 +281,6 @@ function people(thread: ThreadSummary) {
   return [...new Set(thread.senders.map((name) => (thread.me.includes(name) ? 'me' : name)))].join(', ')
 }
 
-/** Their photo or their domain's logo, else their initial (also when the image fails to load). */
-function SenderAvatar({ thread }: { thread: ThreadSummary }) {
-  const [failed, setFailed] = useState<string | null>(null)
-  const url = thread.sender_photo
-  if (url && url !== failed) {
-    return <img className={styles.avatar} src={url} alt="" loading="lazy" decoding="async" onError={() => setFailed(url)} />
-  }
-  // Threads only the user wrote in: whoever they wrote to.
-  const { letter, color } = letterAvatar(thread.sender_name ?? thread.recipients?.[0] ?? thread.senders[0] ?? '')
-  return (
-    <span className={styles.avatar} style={{ background: color }} aria-hidden="true">
-      {letter}
-    </span>
-  )
-}
-
 type RowProps = {
   thread: ThreadSummary
   chips: LabelChip[]
@@ -372,7 +357,12 @@ function ThreadRow(props: RowProps) {
         ) : (
           <span className={styles.unreadDot} aria-label={thread.unread ? 'Unread' : undefined} />
         )}
-        <SenderAvatar thread={thread} />
+        <Avatar
+          className={styles.avatar}
+          // Threads only the user wrote in: whoever they wrote to.
+          name={thread.sender_name ?? thread.recipients?.[0] ?? thread.senders[0] ?? ''}
+          src={thread.sender_photo}
+        />
         <span className={styles.from} lang={lang}>
           {people(thread)}
           {thread.message_count > 1 && <span className={styles.count}> {thread.message_count}</span>}

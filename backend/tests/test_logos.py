@@ -128,6 +128,22 @@ def test_rows_link_photos_then_logos(logged_in: TestClient, web: FakeWeb) -> Non
 
 
 @pytest.mark.usefixtures("db")
+def test_reader_shows_each_senders_image(logged_in: TestClient, web: FakeWeb) -> None:
+    gmail = FakeGmail()
+    gmail.add("m1", "t1", ["INBOX"], make_raw("Lease", "Hi"))  # daniel@example.com
+    gmail.add("m2", "t1", ["INBOX"], make_raw("Re: Lease", "Hi", "Shop <news@mail.shop.example>"))
+    gmail.add("m3", "t1", ["INBOX"], make_raw("Re: Lease", "Hi", "Bo <bo@gmail.com>"))
+    run(_create_account())
+    sync(gmail)
+    sync_photos(FakePeople())
+    thread_id = logged_in.get("/api/threads", params={"account_id": 1}).json()["threads"][0]["id"]
+    messages = logged_in.get(f"/api/threads/{thread_id}").json()["messages"]
+    photos = [m["sender_photo"] for m in messages]
+    assert photos[0].startswith("/api/photos/")  # the same images as the rows
+    assert photos[1:] == ["/api/logos/shop.example", None]
+
+
+@pytest.mark.usefixtures("db")
 def test_logo_endpoint_only_serves_sender_domains(logged_in: TestClient, web: FakeWeb) -> None:
     for domain in ("gmail.com", "mail.shop.example", "localhost"):
         assert logged_in.get(f"/api/logos/{domain}").status_code == 404

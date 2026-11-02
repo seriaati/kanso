@@ -53,6 +53,7 @@ export type Message = {
   cc: Address[]
   bcc: Address[]
   reply_to: Address[]
+  sender_photo: string | null // as in ThreadSummary
   label_ids: number[]
   unread: boolean
   draft: boolean

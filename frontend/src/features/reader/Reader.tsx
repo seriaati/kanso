@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Account } from '../../app/accounts'
 import { openDraft, useOpenDraft, type ComposeMode } from '../../app/compose'
-import { fileSize, initials, longDateTime } from '../../app/format'
+import { fileSize, longDateTime } from '../../app/format'
 import { quickAction, type Quick } from '../../app/actions'
 import { useThread, type Address, type Message, type ThreadDetail, type ThreadSummary } from '../../app/mail'
+import { Avatar } from '../../components/Avatar'
 import { Icon, type IconName } from '../../components/Icon'
 import { Composer, type Focus } from '../compose/Composer'
 import { EmailFrame } from './EmailFrame'
@@ -304,7 +305,7 @@ function ThreadView({ thread, myEmails, composer, onOpenDraft }: ThreadViewProps
           />
         ) : (
           <button key={message.id} type="button" className={styles.collapsed} onClick={() => flip(message.id)}>
-            <Avatar name={senderName(message.sender)} />
+            <Avatar className={styles.avatar} name={senderName(message.sender)} src={message.sender_photo} />
             <span className={styles.collapsedName}>{senderName(message.sender)}</span>
             <span className={styles.collapsedSnippet} lang={message.lang ?? undefined}>
               {message.snippet}
@@ -329,14 +330,6 @@ function ThreadView({ thread, myEmails, composer, onOpenDraft }: ThreadViewProps
 
 const senderName = (address: Address) => address.name || address.email
 
-function Avatar({ name }: { name: string }) {
-  return (
-    <span className={styles.avatar} aria-hidden="true">
-      {initials(name)}
-    </span>
-  )
-}
-
 function recipients(message: Message, myEmails: Set<string>) {
   const names = [...message.to, ...message.cc].map((a) => (myEmails.has(a.email.toLowerCase()) ? 'me' : senderName(a)))
   return names.length ? `to ${names.join(', ')}` : ''
@@ -360,7 +353,7 @@ function MessageView({ message, myEmails, onCollapse, expanding }: MessageViewPr
   return (
     <section className={styles.message}>
       <button type="button" className={styles.sender} onClick={onCollapse} disabled={!onCollapse} title={onCollapse ? 'Collapse' : undefined}>
-        <Avatar name={name} />
+        <Avatar className={styles.avatar} name={name} src={message.sender_photo} />
         <span className={styles.senderText}>
           <span className={styles.senderName} lang={message.lang ?? undefined} title={message.sender.email}>
             {name}

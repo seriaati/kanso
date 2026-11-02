@@ -252,18 +252,11 @@
   margin-top: 4px;
 }
 
-/* Avatar tint from the mockup (tokens.css). */
+/* Its size; the look is the shared Avatar (components/Avatar.module.css). */
 .avatar {
-  flex-shrink: 0;
   width: 30px;
   height: 30px;
-  border-radius: 50%;
-  background: var(--avatar);
-  color: var(--avatar-ink);
   font-size: var(--text-small);
-  font-weight: 700;
-  display: grid;
-  place-items: center;
 }
 
 .senderText {

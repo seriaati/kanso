@@ -1,0 +1,12 @@
+.avatar {
+  flex-shrink: 0;
+  border-radius: 50%;
+  /* Logos with transparency need a light ground, also in the dark theme. */
+  background: #f7f5ee;
+  object-fit: cover;
+  color: #f7f5ee; /* on the account colors, which stay mid-tone in both themes */
+  font-weight: 700;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+}

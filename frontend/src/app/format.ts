@@ -29,13 +29,6 @@ export function fileSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-export function initials(name: string): string {
-  const words = name.replace(/[^\p{L}\p{N}\s]/gu, '').split(/\s+/).filter(Boolean)
-  if (words.length === 0) return '?'
-  if (words.length === 1) return [...words[0]].slice(0, 2).join('').toUpperCase()
-  return (words[0][0] + words[words.length - 1][0]).toUpperCase()
-}
-
 /** A letter avatar: the name's first letter, on a color that stays the same for that name. */
 export function letterAvatar(name: string): { letter: string; color: string } {
   const letter = [...name.replace(/[^\p{L}\p{N}]/gu, '')][0]?.toUpperCase() ?? '?'

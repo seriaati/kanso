@@ -105,6 +105,7 @@ class MessageOut(BaseModel):
     cc: list[Address]
     bcc: list[Address]
     reply_to: list[Address]
+    sender_photo: str | None  # as in ThreadOut
     label_ids: list[int]
     unread: bool
     draft: bool  # a draft being written: the reader opens it in the composer
@@ -136,19 +137,33 @@ async def _senders(
         .order_by(Message.thread_id, Message.internal_date.desc(), Message.id.desc())
         .subquery()
     )
-    rows = (
-        await db.execute(
-            select(newest.c.thread_id, newest.c.name, newest.c.email, ContactPhoto.id).outerjoin(
-                ContactPhoto,
-                (ContactPhoto.account_id == newest.c.account_id)
-                & (ContactPhoto.email == newest.c.email),
+    rows = (await db.execute(select(newest))).all()
+    images = await _images(db, {(account_id, email) for _, account_id, _, email in rows})
+    return {
+        thread_id: (sender, images[account_id, email])
+        for thread_id, account_id, sender, email in rows
+    }
+
+
+async def _images(
+    db: AsyncSession, senders: set[tuple[int, str]]
+) -> dict[tuple[int, str], str | None]:
+    """The image of each sender, by (account id, lowercase email): their contact photo, else
+    their domain's logo, unless the domain is known to have none. None: draw their initial."""
+    if not senders:
+        return {}
+    photos = {
+        (account_id, email): photo_id
+        for account_id, email, photo_id in await db.execute(
+            select(ContactPhoto.account_id, ContactPhoto.email, ContactPhoto.id).where(
+                tuple_(ContactPhoto.account_id, ContactPhoto.email).in_(senders)
             )
         )
-    ).all()
+    }
     domains = {
-        thread_id: domain
-        for thread_id, _, email, photo_id in rows
-        if photo_id is None and (domain := logos.domain_of(email))
+        sender: domain
+        for sender in senders
+        if sender not in photos and (domain := logos.domain_of(sender[1]))
     }
     no_logo = set(
         await db.scalars(
@@ -159,15 +174,15 @@ async def _senders(
             )
         )
     )
-    out: dict[int, tuple[str, str | None]] = {}
-    for thread_id, sender, _, photo_id in rows:
-        domain = domains.get(thread_id)
-        if photo_id is not None:
-            out[thread_id] = (sender, f"/api/photos/{photo_id}")
+    out: dict[tuple[int, str], str | None] = {}
+    for sender in senders:
+        domain = domains.get(sender)
+        if sender in photos:
+            out[sender] = f"/api/photos/{photos[sender]}"
         elif domain and domain not in no_logo:
-            out[thread_id] = (sender, f"/api/logos/{domain}")
+            out[sender] = f"/api/logos/{domain}"
         else:
-            out[thread_id] = (sender, None)
+            out[sender] = None
     return out
 
 
@@ -444,6 +459,7 @@ async def get_thread(thread_id: int, db: DB) -> ThreadDetail:
         attachments.setdefault(attachment.message_id, []).append(
             AttachmentOut.model_validate(attachment)
         )
+    images = await _images(db, {(m.account_id, m.from_email.lower()) for m in messages})
     return ThreadDetail(
         **ThreadOut.model_validate(thread).model_dump(),
         messages=[
@@ -457,6 +473,7 @@ async def get_thread(thread_id: int, db: DB) -> ThreadDetail:
                 cc=[Address(**a) for a in m.cc_addrs],
                 bcc=[Address(**a) for a in m.bcc_addrs],
                 reply_to=[Address(**a) for a in m.reply_to],
+                sender_photo=images[m.account_id, m.from_email.lower()],
                 label_ids=sorted(labels.get(m.id, [])),
                 unread=m.id in unread,
                 draft=m.id in draft,

@@ -20,8 +20,6 @@
   --label-health: #a35a3a;
   --label-bundle: #b8b3a2;
 
-  --avatar: #e5dcc8;
-  --avatar-ink: #5a4520;
   --scrim: rgb(36 37 32 / 0.18);
   --float-shadow: 0 10px 32px rgb(36 37 32 / 0.14), 0 1px 3px rgb(36 37 32 / 0.08);
 
@@ -56,8 +54,6 @@
     --ink: #e8e5da;
     --muted: #a3a497;
     --accent: var(--accent-dark);
-    --avatar: #3d3628;
-    --avatar-ink: #e0cfa8;
     --scrim: rgb(0 0 0 / 0.4);
     --float-shadow: 0 10px 32px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.3);
   }
@@ -76,8 +72,6 @@
   --ink: #e8e5da;
   --muted: #a3a497;
   --accent: var(--accent-dark);
-  --avatar: #3d3628;
-  --avatar-ink: #e0cfa8;
   --scrim: rgb(0 0 0 / 0.4);
   --float-shadow: 0 10px 32px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.3);
 }
