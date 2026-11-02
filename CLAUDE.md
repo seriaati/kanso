@@ -89,19 +89,29 @@ The reference mockup is the "3 · Chosen — Koke + indigo, split view" artboard
 
 **Layout: split view**
 - **Sidebar** (~200px): the account switcher at the top ("All accounts" or one account), then
-  Compose (the primary button), mailboxes (Inbox, Done, Sent, Drafts), labels with color dots,
-  and "+ New label".
-- **Thread list** (~500px, left): search at the top. Threads are grouped into sections by AI label
+  Compose (the primary button), mailboxes with line icons (Inbox, Done, Sent, Drafts), labels with
+  color dots, and "+ New label". A label's "⋯" opens a small "more actions" menu (Edit, Delete);
+  editing, creating and deleting labels happen in a small centered dialog, never inline.
+- **Thread list** (~500px, left; **the full width while nothing is open**): search at the top. Threads are grouped into sections by AI label
   (Home, Personal, Work…), each with a count and "Done all". Bundles (Newsletters, Receipts,
   Notifications) are collapsed rows at the bottom. Rows are compact single lines (~31px): unread
   dot, sender, subject — snippet, star, time. **On hover, the time is replaced by quick-action
   icons**: Done, Delete, Star, Important.
-- **Email pane** (right): an **icon toolbar** across the top with Done (archive), Delete | Label,
+- **Email pane** (right): shown only with something in it (a thread or the assistant); it slides
+  in as it opens and the list narrows to make room. The divider between list and pane can be
+  dragged (arrow keys too; double-click resets); the list's width is remembered per browser. A
+  thread closes with Esc, the toolbar's × at the far right, or a click on its row again. An
+  **icon toolbar** across the top with Done (archive), Delete | Label,
   Important, Star, and then Reply, Forward and More on the right. Toggle icons show their state
   (filled in the accent color when on). Each tooltip names its keyboard shortcut.
 - **Assistant**: docked at the bottom of the email pane (~45% of its height). It is aware of the
-  open thread ("this thread" chip), can also search all mail, and can be minimized. It never
-  overlays the list or the email.
+  open thread ("this thread" chip), can also search all mail, and can be minimized. With no
+  thread open, `q` (or the list header's assistant button) opens it alone in the email pane. It
+  never overlays the list or the email.
+- **New message** (c): a window of its own at the bottom right, over the corner of the email
+  pane, so mail can still be read and triaged while writing. It minimizes to its title bar and
+  closes (keeping the draft). One at a time; c brings it back. On a phone it is the whole screen.
+  Replies and forwards stay docked in their thread.
 
 **Tokens**
 
@@ -118,11 +128,22 @@ The reference mockup is the "3 · Chosen — Koke + indigo, split view" artboard
 | accent (indigo) | `#2F4B6E` | Compose, unread dots, active toggles, summary label, send |
 | label colors | Home `#A07338`, Personal `#4F6E8C`, Work `#6B6B66`, Travel `#556B3F`, Finance `#87607E`, Health `#A35A3A`, bundles `#B8B3A2` | label dots only |
 
+**Dark theme** (sumi ink on warm charcoal; same structure, the label colors are unchanged): paper
+`#1D1E1A`, sidebar `#181915`, surface `#242520`, assistant `#20211C`, line `#3A3B34` / `#2E2F29`,
+hover / selected `#2B2C26` / `#35362F`, ink `#E8E5DA`, muted `#A3A497`, accent `#93ABCD`. It
+follows the system by default; the account menu's Theme row picks System, Light or Dark (stored
+per browser). HTML emails keep the light tokens and sit on a light sheet in the dark pane.
+
 - **Type**: Zen Maru Gothic for the UI and body text (13px UI, 14px message body, line-height
   1.6–1.75). Shippori Mincho B1 for headings (pane titles 18px, email subject 21px).
-- **Shape**: 8px radius on rows and buttons, 10px on inputs and cards. Hairline borders, no shadows.
+- **Shape**: 8px radius on rows and buttons, 10px on inputs and cards. Hairline borders, no
+  shadows, except one soft shadow under the floating new-message window.
 - **Icons**: line icons, 1.8px stroke, 15–17px, in `currentColor`.
-- Light theme only for now. A dark theme has not been designed.
+- **Motion**: subtle and purposeful, from the `--fast` (120ms) / `--medium` (200ms) / `--slow`
+  (360ms) tokens with one soft ease. Menus, dialogs and notices fade and rise in; the email pane
+  slides in; rows glide into place when threads leave; toggles pop; inbox zero draws an ensō.
+  Nothing loops or delays work, and all of it is off under `prefers-reduced-motion`. Only
+  compact buttons shrink when pressed; wide, row-like ones (message headers, menu rows) don't.
 
 ## Architecture
 

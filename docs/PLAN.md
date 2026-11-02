@@ -308,7 +308,7 @@ the README and `SETUP.md`, and a production-like deploy behind HTTPS passes a ba
 
 ## Open questions (resolve when the phase arrives)
 
-- **Dark theme**: not designed yet. Decide after v1.
+- ~~**Dark theme**: not designed yet. Decide after v1.~~ Added 2026-11-02 at the user's request (see the Decision log).
 
 ## Decision log
 
@@ -958,3 +958,19 @@ Record deviations and decisions here: date, decision, reason.
   app runs it before starting and the worker every day at midnight UTC. It refuses to run on a
   database holding a non-demo account. Triage, labels, drafts and send already worked locally for
   demo accounts (outbox, drafts).
+- 2026-11-02: **UI feedback round** (user request): subtle motion across the app (tokens and rules
+  in `CLAUDE.md` → Motion; CSS transitions and `@starting-style`, no animation library); the
+  email pane is hidden until something is open, so the list takes the full width (the assistant
+  opens alone with `q` or a list-header button); a label's "⋯" is a real "more actions" menu
+  (`components/Menu.tsx`), with editing and deleting in a modal dialog (`components/Dialog.tsx`,
+  a native `<dialog>`) instead of inline in the sidebar; line icons for the mailboxes and in the
+  account menu; and a **dark theme** that follows the system or a per-browser pick in the account
+  menu, applied before the first paint by `public/theme.js` (a file, since the CSP allows no
+  inline script). HTML emails keep the light tokens on a light sheet in the dark theme.
+- 2026-11-02: **Second UI feedback round** (user request): the list/email divider is draggable
+  (`components/Resizer.tsx`; width in localStorage `kanso.listWidth`); a new message opens in a
+  floating window (minimize, close) instead of the email pane, so mail stays readable while
+  writing; this replaces Phase 5's "docked compose panel" for new messages (replies and forwards
+  stay docked in the thread, and a thread of drafts only still opens in the pane). Clicking the
+  open thread's row, or the toolbar's new ×, closes it. The label edit dialog has no Delete (the
+  label's menu has it; Settings keeps its own).
