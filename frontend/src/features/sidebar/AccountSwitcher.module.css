@@ -152,7 +152,7 @@
   color: var(--ink);
 }
 
-/* Theme: System, Light or Dark, as three icon buttons on one line. */
+/* Theme (System, Light, Dark) and Density (Compact, Comfortable): icon buttons on one line. */
 .theme {
   display: flex;
   align-items: center;

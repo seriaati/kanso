@@ -3,6 +3,7 @@ import { useEffect, useEffectEvent, useRef, type ReactNode, type RefObject } fro
 import { Link } from 'react-router'
 import { shortDate } from '../../app/format'
 import { quickAction, type Quick } from '../../app/actions'
+import { useDensity } from '../../app/density'
 import type { Section, ThreadSummary } from '../../app/mail'
 import { Icon } from '../../components/Icon'
 import { useSwipe } from './swipe'
@@ -19,6 +20,7 @@ export type ListRow =
   | { kind: 'bundle'; section: Section; color: string | null; open: boolean; first: boolean }
 
 const ROW = 31
+const COMFORTABLE_ROW = 40 // the account menu's Density: Comfortable
 const SECTION = 34
 const BUNDLE = 32
 const BUNDLES_GAP = 17 // above the first bundle: a margin, a hairline and padding
@@ -27,8 +29,8 @@ const PHONE_ROW = 64
 const PHONE_SECTION = 44
 const PHONE_BUNDLE = 48
 
-function rowHeight(row: ListRow, phone: boolean) {
-  if (row.kind === 'thread') return phone ? PHONE_ROW : ROW
+function rowHeight(row: ListRow, phone: boolean, comfortable: boolean) {
+  if (row.kind === 'thread') return phone ? PHONE_ROW : comfortable ? COMFORTABLE_ROW : ROW
   if (row.kind === 'section') return phone ? PHONE_SECTION : SECTION
   return (phone ? PHONE_BUNDLE : BUNDLE) + (row.first ? BUNDLES_GAP : 0)
 }
@@ -71,11 +73,12 @@ export function ThreadList(props: Props) {
   const { title, query, rows, status, error, empty, cursorId, openId, selected, labelsById, hideLabel, hideChips } = props
   const { labelInbox, onDoneAll, onToggleBundle, threadHref, onOpen, onQuick, onSearch, searchRef, phone, onMenu, onAsk } = props
   const scrollRef = useRef<HTMLDivElement>(null)
+  const comfortable = useDensity() === 'comfortable'
   // eslint-disable-next-line react-hooks/incompatible-library -- the build doesn't use React Compiler
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: (index) => rowHeight(rows[index], phone),
+    estimateSize: (index) => rowHeight(rows[index], phone, comfortable),
     getItemKey: (index) => {
       const row = rows[index]
       return row.kind === 'thread' ? row.thread.id : `${row.kind}:${row.section.name ?? ''}`
@@ -91,8 +94,8 @@ export function ThreadList(props: Props) {
   const rangeEnd = useEffectEvent(props.onRangeEnd)
   useEffect(() => rangeEnd(lastIndex), [lastIndex, rows.length])
 
-  // Row heights change with the layout.
-  useEffect(() => virtualizer.measure(), [phone, virtualizer])
+  // Row heights change with the layout and the density.
+  useEffect(() => virtualizer.measure(), [phone, comfortable, virtualizer])
 
   // Keep the keyboard cursor in view.
   const cursorIndex = rows.findIndex((row) => row.kind === 'thread' && row.thread.id === cursorId)
@@ -101,7 +104,7 @@ export function ThreadList(props: Props) {
   }, [cursorIndex, virtualizer])
 
   return (
-    <section className={styles.list} aria-label={title}>
+    <section className={`${styles.list} ${comfortable ? styles.comfortable : ''}`} aria-label={title}>
       <header className={styles.header}>
         {onMenu && (
           <button type="button" className={styles.menu} aria-label="Mailboxes and labels" onClick={onMenu}>

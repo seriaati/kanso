@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { logout, type Account } from '../../app/accounts'
 import { useAiUsage } from '../../app/ai'
+import { setDensity, useDensity, type Density } from '../../app/density'
 import { setTheme, useTheme, type Theme } from '../../app/theme'
 import { Icon, type IconName } from '../../components/Icon'
 import styles from './AccountSwitcher.module.css'
@@ -28,12 +29,18 @@ const themes: { theme: Theme; icon: IconName; name: string }[] = [
   { theme: 'dark', icon: 'moon', name: 'Dark' },
 ]
 
+const densities: { density: Density; icon: IconName; name: string }[] = [
+  { density: 'compact', icon: 'compact', name: 'Compact' },
+  { density: 'comfortable', icon: 'comfortable', name: 'Comfortable' },
+]
+
 /** Choose All accounts or one; the menu also leads to Settings (where accounts are connected,
  * renamed and disconnected) and logs out. */
 export function AccountSwitcher({ accounts, selected, ai, onSelect }: Props) {
   const [open, setOpen] = useState(false)
   const keyRejected = useAiUsage(open && ai).data?.key_rejected
   const { theme } = useTheme()
+  const density = useDensity()
   const ref = useRef<HTMLDivElement>(null)
 
   const close = () => setOpen(false)
@@ -121,6 +128,22 @@ export function AccountSwitcher({ accounts, selected, ai, onSelect }: Props) {
                 onClick={() => setTheme(t.theme)}
               >
                 <Icon name={t.icon} size={15} />
+              </button>
+            ))}
+          </div>
+          <div className={styles.theme} role="radiogroup" aria-label="Density">
+            <span>Density</span>
+            {densities.map((d) => (
+              <button
+                key={d.density}
+                type="button"
+                role="radio"
+                aria-checked={density === d.density}
+                aria-label={d.name}
+                title={d.name}
+                onClick={() => setDensity(d.density)}
+              >
+                <Icon name={d.icon} size={15} />
               </button>
             ))}
           </div>

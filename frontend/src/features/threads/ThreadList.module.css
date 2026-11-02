@@ -166,6 +166,13 @@
   background: var(--selected);
 }
 
+/* Density: Comfortable (the account menu). On a phone, rows keep their own height (below). */
+@media (min-width: 768px) {
+  .comfortable .row {
+    height: 40px;
+  }
+}
+
 /* Picked with x: actions apply to every checked row. */
 .row.checked {
   background: var(--hover);
