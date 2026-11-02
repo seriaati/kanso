@@ -9,9 +9,6 @@ no 90-day limit and no paid tier**.
 It is a personal project for personal use, not a SaaS product. Optimize for one person running it
 on their own machine or server with `docker compose up`.
 
-**Implementation plan: [`docs/PLAN.md`](docs/PLAN.md).** Read it before starting any work. Follow
-the phases in order and tick off tasks and phases there as you finish them.
-
 ## Core principles
 
 Check every change against these. If a change conflicts with one, stop and ask.

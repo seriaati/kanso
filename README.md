@@ -83,7 +83,7 @@ like real mail would be, and anyone you let into the demo uses AI on your key. S
 ## Development
 
 The backend is Python (FastAPI, SQLAlchemy, uv) in `backend/`, the frontend React and TypeScript
-(Vite, Bun) in `frontend/`. [docs/PLAN.md](docs/PLAN.md) has the design decisions.
+(Vite, Bun) in `frontend/`.
 
 ```sh
 cd backend && uv run pytest    # set TEST_DATABASE_URL to a throwaway Postgres for the database tests
