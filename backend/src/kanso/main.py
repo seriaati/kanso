@@ -1,0 +1,91 @@
+import mimetypes
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, FastAPI, HTTPException
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import FileResponse
+
+from kanso.api import (
+    accounts,
+    actions,
+    ai,
+    assistant,
+    auth,
+    compose,
+    events,
+    health,
+    labels,
+    prefs,
+    sync,
+    threads,
+)
+from kanso.core.hardening import Hardening
+from kanso.core.security import require_session
+from kanso.core.settings import settings
+from kanso.db.redis import redis
+from kanso.db.session import engine
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
+    yield
+    await engine.dispose()
+    await redis.aclose()
+
+
+# No /docs, /redoc or /openapi.json: kanso's API is for its own frontend only.
+app = FastAPI(title="kanso", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+# Compresses JSON, JS and CSS. Starlette skips text/event-stream (so SSE isn't buffered) and
+# already-compressed types such as font/woff2.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+# Security headers and CSRF protection (added last, so it runs first).
+app.add_middleware(Hardening)
+# Public: health and login. Every other API router goes on `protected`, behind the session.
+app.include_router(health.router, prefix="/api")
+app.include_router(auth.router, prefix="/api")
+protected = APIRouter(prefix="/api", dependencies=[Depends(require_session)])
+for router in (
+    accounts.router,
+    threads.router,
+    actions.router,
+    labels.router,
+    compose.router,
+    sync.router,
+    events.router,
+    ai.router,
+    assistant.router,
+    prefs.router,
+):
+    protected.include_router(router)
+app.include_router(protected)
+
+
+# Slim images have no /etc/mime.types; without this, fonts go out as application/octet-stream
+# and get gzipped again.
+mimetypes.add_type("font/woff2", ".woff2")
+mimetypes.add_type("application/manifest+json", ".webmanifest")
+
+
+def serve_frontend(dist: Path) -> None:
+    """Serve the built SPA: real files as-is, every other non-API path gets index.html."""
+    dist = dist.resolve()
+
+    @app.get("/{path:path}", include_in_schema=False)
+    def spa(path: str) -> FileResponse:
+        if path == "api" or path.startswith("api/"):
+            raise HTTPException(status_code=404)
+        file = (dist / path).resolve()
+        if path and file.is_file() and file.is_relative_to(dist):
+            # Vite's assets/ have content hashes in their names, so they never change. Each email
+            # frame links the font CSS again; this keeps that a cache hit. Everything else
+            # (index.html, the service worker, the manifest) is checked for a new version.
+            immutable = path.startswith("assets/")
+            cache = "public, max-age=31536000, immutable" if immutable else "no-cache"
+            return FileResponse(file, headers={"Cache-Control": cache})
+        return FileResponse(dist / "index.html", headers={"Cache-Control": "no-cache"})
+
+
+if settings.frontend_dist.is_dir():
+    serve_frontend(settings.frontend_dist)

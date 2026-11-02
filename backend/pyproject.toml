@@ -1,0 +1,56 @@
+[project]
+name = "kanso"
+version = "0.1.0"
+description = "Self-hosted Gmail client for reaching inbox zero"
+license = "AGPL-3.0-only"
+requires-python = ">=3.13"
+dependencies = [
+    "alembic>=1.20.1",
+    "anthropic>=2.3.0",
+    "argon2-cffi>=25.1.0",
+    "asyncpg>=0.32.0",
+    "cryptography>=50.0.2",
+    "fastapi>=0.162.0",
+    "google-auth>=2.62.0",
+    "httpx2>=2.16.0",
+    "nh3>=0.3.7",
+    "pydantic-settings>=2.16.2",
+    "redis>=8.1.0",
+    "sqlalchemy[asyncio]>=2.1.6",
+    "uvicorn>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.22,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "fakeredis>=2.40.0",
+    "pyrefly>=1.4.0",
+    "pytest>=9.2.0",
+    "ruff>=0.17.3",
+]
+
+
+[tool.alembic]
+script_location = "%(here)s/alembic"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.ruff.lint.isort]
+# The local alembic/ migrations folder would otherwise make alembic look first-party.
+known-third-party = ["alembic"]
+
+[tool.pyrefly]
+project-includes = ["src", "tests", "alembic"]
+# tests/ holds shared helpers (conftest.py, fake_gmail.py) imported by the test modules.
+search-path = ["src", "tests"]
+
+[tool.pytest]
+testpaths = ["tests"]
+addopts = ["-rs"]
