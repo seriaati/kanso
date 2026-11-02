@@ -60,6 +60,9 @@ type Props = {
   onNotice: (text: string, undo?: () => void) => void
   /** The phone layout: a bottom sheet under the thread, closed until opened. */
   phone: boolean
+  /** Alone in the email pane (no thread open): it fills the pane, and closes instead of
+   * minimizing. */
+  onClose?: () => void
   ref?: Ref<AssistantHandle>
 }
 
@@ -67,9 +70,11 @@ type Props = {
  * since, and how it ended. Shown until the stored conversation has caught up. */
 type Live = { base: ChatItem[]; items: ChatItem[]; error: string | null; endedAt: number | null }
 
-export function Assistant({ threadId, threadHref, onOpenThread, onNotice, phone, ref }: Props) {
+export function Assistant({ threadId, threadHref, onOpenThread, onNotice, phone, onClose, ref }: Props) {
   // On a phone the sheet starts closed with every thread opened from the list (not remembered).
-  const [minimized, setMinimized] = useState(() => phone || read(MINIMIZED_KEY) === '1')
+  const [minimizedDocked, setMinimized] = useState(() => phone || read(MINIMIZED_KEY) === '1')
+  const alone = !!onClose
+  const minimized = minimizedDocked && !alone
   const [conversationId, setConversationId] = useState(() => Number(read(CONVERSATION_KEY)) || null)
   const [history, setHistory] = useState(false)
   // "this thread" is on for each newly opened thread; removing the chip asks about all mail.
@@ -104,6 +109,10 @@ export function Assistant({ threadId, threadHref, onOpenThread, onNotice, phone,
     if (!phone) write(MINIMIZED_KEY, '0')
     setMinimized(false)
   }
+  // Opened on its own (q): ready to type in.
+  useEffect(() => {
+    if (alone) inputRef.current?.focus()
+  }, [alone])
   useImperativeHandle(ref, () => ({
     focus: () => {
       restore()
@@ -218,7 +227,10 @@ export function Assistant({ threadId, threadHref, onOpenThread, onNotice, phone,
   const openThread = (id: number) => onOpenThread(id)
 
   return (
-    <aside className={`${styles.assistant} ${minimized ? styles.minimized : ''} ${phone ? styles.sheet : ''}`} aria-label="Assistant">
+    <aside
+      className={`${styles.assistant} ${minimized ? styles.minimized : ''} ${phone ? styles.sheet : ''} ${alone ? styles.alone : ''}`}
+      aria-label="Assistant"
+    >
       {phone && <button type="button" className={styles.handle} aria-hidden="true" tabIndex={-1} onClick={toggle} />}
       <div className={styles.header}>
         <span className={styles.title}>Assistant</span>
@@ -250,16 +262,22 @@ export function Assistant({ threadId, threadHref, onOpenThread, onNotice, phone,
             </button>
           </>
         )}
-        <button
-          type="button"
-          className={styles.icon}
-          aria-label={minimized ? 'Restore assistant' : 'Minimize assistant'}
-          aria-expanded={!minimized}
-          title={minimized ? 'Restore (q)' : 'Minimize'}
-          onClick={toggle}
-        >
-          <Icon name={minimized ? 'chevronUp' : 'chevronDown'} size={14} strokeWidth={2} />
-        </button>
+        {onClose ? (
+          <button type="button" className={styles.icon} aria-label="Close assistant" title="Close (Esc)" onClick={onClose}>
+            <Icon name="close" size={14} strokeWidth={2} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={`${styles.icon} ${styles.toggle}`}
+            aria-label={minimized ? 'Restore assistant' : 'Minimize assistant'}
+            aria-expanded={!minimized}
+            title={minimized ? 'Restore (q)' : 'Minimize'}
+            onClick={toggle}
+          >
+            <Icon name="chevronDown" size={14} strokeWidth={2} />
+          </button>
+        )}
       </div>
       {!minimized && (
         <>

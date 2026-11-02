@@ -49,6 +49,38 @@
   background: var(--surface);
 }
 
+/* A new message: a window at the foot of the screen, over the corner of the email pane, so mail
+   can be read while writing. Minimized, it is a title bar. On a phone, the whole screen. */
+.composeWindow {
+  position: fixed;
+  z-index: 15;
+  right: 24px;
+  bottom: 16px;
+  width: min(540px, calc(100vw - 48px));
+  height: min(620px, calc(100vh - 32px));
+  border-radius: var(--radius-card);
+  box-shadow: var(--float-shadow);
+  transition:
+    opacity var(--medium) ease,
+    translate var(--slow) var(--ease),
+    width var(--slow) var(--ease),
+    height var(--slow) var(--ease);
+}
+
+@starting-style {
+  .composeWindow {
+    opacity: 0;
+    translate: 0 24px;
+  }
+}
+
+/* Minimizing shrinks it into the corner down to its title bar (a fixed height, so it animates;
+   Composer.module.css clips and then hides the rest). */
+.composeWindow.minimized {
+  width: 320px;
+  height: 46px;
+}
+
 /* Phones only (all of the below). The sidebar drawer's backdrop. */
 .scrim {
   position: fixed;
@@ -131,6 +163,21 @@
 }
 
 @media (max-width: 767px) {
+  .composeWindow,
+  .composeWindow.minimized {
+    z-index: 35;
+    inset: 0;
+    width: auto;
+    height: auto;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .composeWindow > * {
+    border: 0;
+    border-radius: 0;
+  }
+
   .shell {
     position: relative;
   }

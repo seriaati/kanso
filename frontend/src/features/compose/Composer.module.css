@@ -361,6 +361,85 @@
   color: var(--muted);
 }
 
+/* A new message: a window of its own at the foot of the screen (App.tsx, ComposeWindow), so mail
+   can still be read beside it. The editor scrolls; the title bar and the footer stay. Minimized,
+   it is the title bar only. */
+.window {
+  height: 100%;
+  overflow: hidden;
+}
+
+.window .header {
+  flex: none;
+  gap: 2px;
+  padding: 6px 6px 6px 8px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.window .fields {
+  flex: none;
+}
+
+.window .editor {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.window .footer {
+  flex: none;
+}
+
+.titleButton {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  text-align: left;
+}
+
+.titleButton .title {
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.titleButton,
+.suggestions button {
+  scale: none;
+}
+
+.titleButton:hover {
+  background: var(--hover);
+}
+
+.minimize svg {
+  transition: rotate var(--medium) var(--ease);
+}
+
+.minimize[aria-expanded='false'] svg {
+  rotate: 180deg;
+}
+
+.minimized .header {
+  border-bottom: 0;
+}
+
+/* Clipped while the window shrinks, then hidden (out of the tab order too); shown at once when
+   it is restored. */
+.window > :not(.header) {
+  transition: visibility 0s;
+}
+
+.minimized > :not(.header) {
+  visibility: hidden;
+  transition-delay: var(--slow);
+}
+
 /* A phone: a new message is the whole screen (no card), and tap targets are 44px. */
 @media (max-width: 767px) {
   .composer:not(.inline) {
@@ -372,6 +451,16 @@
 
   .composer:not(.inline) .editor {
     flex: 1;
+  }
+
+  /* The new-message window fills the screen (App.module.css); it can't be minimized. */
+  .composer.window {
+    min-height: 0;
+    margin: 0;
+  }
+
+  .minimize {
+    display: none;
   }
 
   .header {

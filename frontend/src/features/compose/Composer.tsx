@@ -29,9 +29,13 @@ export type Focus = 'to' | 'body'
 type Props = {
   draftId: number
   accounts: Account[]
-  /** Docked under the thread it replies to; otherwise it fills the email pane. */
+  /** Docked under the thread it replies to; otherwise it fills the email pane, or with
+   * `onToggleMinimize`, a window of its own (a new message). */
   inline?: boolean
   title?: string
+  /** The window is minimized to its title bar. */
+  minimized?: boolean
+  onToggleMinimize?: () => void
   focus?: Focus | null
   /** Closed with Esc or ×: the draft stays (or is dropped if nothing was ever written). */
   onClose: () => void
@@ -50,7 +54,7 @@ export function Composer(props: Props) {
 
 type Status = { kind: 'idle' | 'saving' | 'saved' | 'error'; text?: string }
 
-function Form({ initial: latest, accounts, inline, title, focus, onClose, onFinished }: Props & { initial: Draft }) {
+function Form({ initial: latest, accounts, inline, title, minimized, onToggleMinimize, focus, onClose, onFinished }: Props & { initial: Draft }) {
   // The draft as it was when opened; autosaves update the cached copy, not what is on screen.
   const [initial] = useState(latest)
   const id = initial.id
@@ -289,13 +293,32 @@ function Form({ initial: latest, accounts, inline, title, focus, onClose, onFini
   return (
     <section
       ref={rootRef}
-      className={`${styles.composer} ${inline ? styles.inline : ''}`}
+      className={[styles.composer, inline && styles.inline, onToggleMinimize && styles.window, minimized && styles.minimized].filter(Boolean).join(' ')}
       aria-label={title ?? 'Reply'}
       onKeyDown={onKeyDown}
     >
       {title && (
         <header className={styles.header}>
-          <h2 className={styles.title}>{title}</h2>
+          {onToggleMinimize ? (
+            // The window's title bar: a click on it minimizes or restores.
+            <button type="button" className={styles.titleButton} onClick={onToggleMinimize}>
+              <h2 className={styles.title}>{subject.trim() || title}</h2>
+            </button>
+          ) : (
+            <h2 className={styles.title}>{title}</h2>
+          )}
+          {onToggleMinimize && (
+            <button
+              type="button"
+              className={`${styles.tool} ${styles.minimize}`}
+              aria-label={minimized ? 'Restore' : 'Minimize'}
+              aria-expanded={!minimized}
+              title={minimized ? 'Restore' : 'Minimize'}
+              onClick={onToggleMinimize}
+            >
+              <Icon name="chevronDown" size={15} />
+            </button>
+          )}
           <button type="button" className={styles.tool} aria-label="Close" title="Close and keep the draft (Esc)" onClick={close}>
             <Icon name="close" size={15} />
           </button>

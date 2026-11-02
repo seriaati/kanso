@@ -20,10 +20,7 @@ type Props = {
   threadId: number | null
   myEmails: Set<string>
   accounts: Account[]
-  /** A new message being written (c): it takes the email pane. */
-  composing: number | null
   reply: ThreadDraft | null
-  onCloseCompose: () => void
   /** A draft was sent or discarded. */
   onComposeFinished: (notice: string, threadId?: number | null) => void
   onCloseReply: () => void
@@ -42,8 +39,8 @@ type Props = {
 }
 
 export function Reader(props: Props) {
-  const { threadId, myEmails, accounts, composing, reply, onCloseCompose, onComposeFinished, onCloseReply, onReply, onCloseThread } = props
-  const thread = useThread(composing !== null ? null : threadId)
+  const { threadId, myEmails, accounts, reply, onComposeFinished, onCloseReply, onReply, onCloseThread } = props
+  const thread = useThread(threadId)
   const detail = thread.data && thread.data.id === threadId ? thread.data : undefined
   const drafts = detail?.messages.filter((m) => m.draft) ?? []
   const draftOnly = !!detail && drafts.length === detail.messages.length
@@ -93,19 +90,7 @@ export function Reader(props: Props) {
   )
 
   let content
-  if (composing !== null)
-    content = (
-      <Composer
-        key={composing}
-        draftId={composing}
-        accounts={accounts}
-        title="New message"
-        focus="to"
-        onClose={onCloseCompose}
-        onFinished={onComposeFinished}
-      />
-    )
-  else if (threadId === null) content = <p className={styles.placeholder}>Select a thread to read it. Press ? for keyboard shortcuts.</p>
+  if (threadId === null) content = <p className={styles.placeholder}>Select a thread to read it. Press ? for keyboard shortcuts.</p>
   // A thread of drafts only is the composer itself; it also stays if the thread goes away.
   else if (active && (draftOnly || !detail)) content = composer(active, false)
   else if (draftOnly && opened.isError) content = <p className={styles.placeholder}>Couldn’t open the draft: {opened.error.message}</p>
@@ -126,14 +111,11 @@ export function Reader(props: Props) {
       />
     )
 
-  const canReply = composing === null && !!detail && !draftOnly
+  const canReply = !!detail && !draftOnly
   return (
     <article className={styles.reader} aria-label="Thread">
-      {/* On a phone a new message is the whole screen; its own Close goes back. */}
-      {!(props.phone && composing !== null) && (
-        <Toolbar {...props} targets={composing !== null ? [] : props.targets} canReply={canReply} onReply={onReply} />
-      )}
-      <div className={styles.body} key={composing !== null ? `compose-${composing}` : (threadId ?? 'none')}>
+      <Toolbar {...props} canReply={canReply} onReply={onReply} />
+      <div className={styles.body} key={threadId ?? 'none'}>
         {content}
       </div>
     </article>
@@ -160,11 +142,11 @@ function ToolButton({ icon, label, title, pressed, disabled, onClick }: ToolButt
 
 const name = (title: string) => title.replace(/ \(.*\)$/, '')
 
-type ToolbarProps = Pick<Props, 'targets' | 'onQuick' | 'onToggleRead' | 'onLabel' | 'picker' | 'onReply' | 'phone' | 'onBack'> & {
+type ToolbarProps = Pick<Props, 'targets' | 'onQuick' | 'onToggleRead' | 'onLabel' | 'picker' | 'onReply' | 'phone' | 'onBack' | 'onCloseThread'> & {
   canReply: boolean
 }
 
-function Toolbar({ targets, onQuick, onToggleRead, onLabel, picker, canReply, onReply, phone, onBack }: ToolbarProps) {
+function Toolbar({ targets, onQuick, onToggleRead, onLabel, picker, canReply, onReply, phone, onBack, onCloseThread }: ToolbarProps) {
   const none = targets.length === 0
   const quick = (q: Quick) => {
     const { icon, title, pressed } = quickAction(q, targets)
@@ -213,6 +195,13 @@ function Toolbar({ targets, onQuick, onToggleRead, onLabel, picker, canReply, on
         onReplyAll={canReply ? () => onReply('reply_all') : undefined}
         onForward={phone && canReply ? () => onReply('forward') : undefined}
       />
+      {/* On a phone, Back does this. */}
+      {!phone && (
+        <>
+          <span className={styles.separator} aria-hidden="true" />
+          <ToolButton icon="close" label="Close" title="Close (Esc)" onClick={onCloseThread} />
+        </>
+      )}
     </div>
   )
 }

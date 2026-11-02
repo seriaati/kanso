@@ -1,5 +1,6 @@
 /* Docked under the email at the design's 45% of the pane (the email keeps 55% and scrolls on its
-   own). Minimized, it is one header line. */
+   own). Minimized, it is one header line. Alone in the pane (asked with no thread open), it fills
+   it. */
 .assistant {
   flex: 1 1 45%;
   min-height: 0;
@@ -13,6 +14,10 @@
   flex: none;
 }
 
+.alone {
+  border-top: 0;
+}
+
 .toggle svg {
   transition: rotate var(--medium) var(--ease);
 }
@@ -20,6 +25,7 @@
 .toggle[aria-expanded='false'] svg {
   rotate: 180deg;
 }
+
 .header {
   flex: none;
   display: flex;

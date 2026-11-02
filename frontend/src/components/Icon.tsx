@@ -34,6 +34,7 @@ const paths = {
   ),
   moon: <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" />,
   system: <path d="M3 5h18v11H3zM8 20h8M12 16v4" />,
+  assistant: <path d="M4 5h16v11h-9l-5 4v-4H4z" />,
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
   delete: <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />,
   star: <path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z" />,

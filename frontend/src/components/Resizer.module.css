@@ -1,0 +1,38 @@
+/* No width of its own: the list's hairline is the divider. The handle is a wider strip over it,
+   and the line warms to the accent while hovered or dragged. */
+.resizer {
+  position: relative;
+  z-index: 3;
+  flex: none;
+  width: 0;
+  margin-left: -1px; /* over the list's border */
+  outline: none;
+}
+
+.resizer::before {
+  content: '';
+  position: absolute;
+  inset: 0 -4px;
+  cursor: col-resize;
+}
+
+.resizer::after {
+  content: '';
+  position: absolute;
+  inset: 0 -1px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity var(--medium) ease;
+}
+
+.resizer:hover::after,
+.resizer:focus-visible::after,
+:global([data-resizing]) .resizer::after {
+  opacity: 0.6;
+}
+
+:global([data-resizing]),
+:global([data-resizing]) * {
+  cursor: col-resize !important;
+  user-select: none;
+}

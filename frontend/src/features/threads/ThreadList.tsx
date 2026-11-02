@@ -63,11 +63,13 @@ type Props = {
   phone: boolean
   /** On a phone: opens the sidebar drawer. */
   onMenu?: () => void
+  /** With AI on and nothing open: opens the assistant (q). */
+  onAsk?: () => void
 }
 
 export function ThreadList(props: Props) {
   const { title, query, rows, status, error, empty, cursorId, openId, selected, labelsById, hideLabel, hideChips } = props
-  const { labelInbox, onDoneAll, onToggleBundle, threadHref, onOpen, onQuick, onSearch, searchRef, phone, onMenu } = props
+  const { labelInbox, onDoneAll, onToggleBundle, threadHref, onOpen, onQuick, onSearch, searchRef, phone, onMenu, onAsk } = props
   const scrollRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line react-hooks/incompatible-library -- the build doesn't use React Compiler
   const virtualizer = useVirtualizer({
@@ -137,6 +139,11 @@ export function ThreadList(props: Props) {
             }}
           />
         </form>
+        {onAsk && (
+          <button type="button" className={styles.ask} aria-label="Ask the assistant" title="Ask the assistant (q)" onClick={onAsk}>
+            <Icon name="assistant" size={16} />
+          </button>
+        )}
       </header>
 
       <div ref={scrollRef} className={styles.scroll}>

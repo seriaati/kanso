@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router'
 import { Icon } from '../components/Icon'
+import { Resizer } from '../components/Resizer'
 import { Assistant, type AssistantHandle } from '../features/assistant/Assistant'
+import { Composer } from '../features/compose/Composer'
 import { ShortcutHelp } from '../features/help/ShortcutHelp'
 import { LabelPicker, type LabelOption } from '../features/labels/LabelPicker'
 import { Login } from '../features/login/Login'
@@ -76,11 +78,33 @@ const mailboxTitles: Record<Mailbox, string> = {
   spam: 'Spam',
 }
 
+const LIST_WIDTH_KEY = 'kanso.listWidth' // the list's width beside an open thread, set by dragging
+const LIST_WIDTH = 500
+
+function storedListWidth(): number {
+  try {
+    return Number(localStorage.getItem(LIST_WIDTH_KEY)) || LIST_WIDTH
+  } catch {
+    return LIST_WIDTH // storage blocked
+  }
+}
+
+function storeListWidth(width: number | null) {
+  try {
+    if (width === null) localStorage.removeItem(LIST_WIDTH_KEY)
+    else localStorage.setItem(LIST_WIDTH_KEY, String(width))
+  } catch {
+    // storage blocked: kept until the page reloads
+  }
+}
+
 const NOTICE_MS = 5000
 const UNDO_MS = 6000 // how long Done and Delete can be undone from the notice (z)
 
 /** The split view: sidebar | thread list | email pane, with the assistant docked at the foot of
- * the email pane while a thread is open and AI is on (otherwise the email takes its space). */
+ * the email pane while a thread is open and AI is on (otherwise the email takes its space). With
+ * nothing open the list takes the whole width; the pane comes in when a thread or a new message
+ * opens, or the assistant is asked something (q). */
 function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route }) {
   const [notice, setNotice] = useState<Notice | null>(null)
   const say = useCallback((text: string, undo?: () => void) => setNotice({ id: Date.now(), text, undo }), [])
@@ -175,12 +199,16 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
 
   const [cursor, setCursor] = useState<number | null>(null)
   const cursorId = threadId ?? cursor
-  // The new message being written (c), and the reply or forward docked in the open thread.
-  const [composing, setComposing] = useState<number | null>(null)
+  // The new message being written (c), in a window of its own; and the reply or forward docked
+  // in the open thread.
+  const [composing, setComposing] = useState<{ draftId: number; minimized: boolean } | null>(null)
   const [reply, setReply] = useState<ThreadDraft | null>(null)
   const starting = useRef(false)
   const [help, setHelp] = useState(false)
+  // The assistant on its own in the email pane, asked about all mail with no thread open (q).
+  const [asking, setAsking] = useState(false)
   const [picking, setPicking] = useState(false)
+  const [listWidth, setListWidth] = useState(storedListWidth)
   const searchRef = useRef<HTMLInputElement>(null)
   const assistantRef = useRef<AssistantHandle>(null)
   const myEmails = useMemo(() => new Set(accounts.map((a) => a.email.toLowerCase())), [accounts])
@@ -188,8 +216,12 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const go = (patch: Partial<Route>, replace = false) => navigate(href({ ...route, ...patch }), { replace })
   const open = (id: number, replace = false) => {
     setCursor(id)
-    setComposing(null)
     go({ threadId: id }, replace)
+  }
+  const closeThread = () => {
+    setReply(null)
+    if (threadId !== null) setCursor(threadId)
+    go({ threadId: null })
   }
   const search = (q: string) => go({ view: q ? { kind: 'search', q } : { kind: 'mailbox', mailbox: 'inbox' }, threadId: null })
 
@@ -227,7 +259,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
             .slice(0, Math.max(index, 0))
             .reverse()
             .find((t) => !leaving.has(t.id))
-        if (threadId !== null && composing === null) {
+        if (threadId !== null) {
           if (next) open(next.id, true)
           else {
             setCursor(null)
@@ -278,7 +310,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const draftOnly = threadId !== null && !!detail.data?.messages.length && detail.data.messages.every((m) => m.draft)
   const openThread = threadId === null ? undefined : (threads.find((t) => t.id === threadId) ?? detail.data)
   const markRead = useEffectEvent(() => {
-    if (threadId === null || composing !== null) {
+    if (threadId === null) {
       markedRead.current = null
       return
     }
@@ -286,7 +318,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     markedRead.current = threadId
     run('read', [openThread])
   })
-  useEffect(() => markRead(), [threadId, openThread?.unread, composing])
+  useEffect(() => markRead(), [threadId, openThread?.unread])
 
   /** Open the composer once its draft exists on the server (one at a time). */
   const startDraft = (create: () => Promise<number>, then: (draftId: number) => void) => {
@@ -297,18 +329,18 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
       .catch((error: Error) => say(`Couldn’t start the message: ${error.message}`))
       .finally(() => (starting.current = false))
   }
-  const compose = () =>
+  /** c: a new message, or back to the one being written (one at a time). */
+  const compose = () => {
+    if (composing) return setComposing({ ...composing, minimized: false })
     startDraft(
       () => createDraft('new', { accountId: accountId ?? accounts[0]?.id }).then((d) => d.id),
-      (draftId) => {
-        setComposing(draftId)
-        if (route.settings) go({ settings: false }) // the composer is in the email pane
-      },
+      (draftId) => setComposing({ draftId, minimized: false }),
     )
+  }
   /** r, a, f: in the open thread. A thread that has a draft already opens that one. */
   const startReply = (mode: Exclude<ComposeMode, 'new'>) => {
     const thread = detail.data
-    if (threadId === null || composing !== null || !thread || thread.id !== threadId) return
+    if (threadId === null || !thread || thread.id !== threadId) return
     if (reply?.threadId === threadId) return // already writing here
     const existing = thread.messages.filter((m) => m.draft).at(-1)
     const source = thread.messages.filter((m) => !m.draft).at(-1)
@@ -362,9 +394,8 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     document.title = `${pageTitle} · kanso`
   }, [pageTitle])
 
-  /** On a phone: from the thread (or a new message) back to the list. */
+  /** On a phone: from the thread back to the list. */
   const back = () => {
-    if (composing !== null) return setComposing(null)
     setReply(null)
     if (threadId !== null) setCursor(threadId)
     // The list is usually the page before; a thread opened from a link goes to the list.
@@ -406,14 +437,14 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
         const id = threads[next]?.id
         if (id === undefined || id === cursorId) break
         // While reading, the open thread follows the cursor (without piling up history).
-        if (threadId !== null && composing === null) open(id, true)
+        if (threadId !== null) open(id, true)
         else setCursor(id)
         break
       }
       case 'Enter':
       case 'o':
         if (target?.closest('a, button')) return // the focused link or button handles it
-        if (cursorId !== null && (cursorId !== threadId || composing !== null)) open(cursorId)
+        if (cursorId !== null && cursorId !== threadId) open(cursorId)
         break
       case 'e':
         quick('done')
@@ -458,8 +489,9 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
         notice.undo()
         break
       case 'q':
-        if (!assistantRef.current) return
-        assistantRef.current.focus()
+        if (assistantRef.current) assistantRef.current.focus()
+        else if (ai && !phone && threadId === null) setAsking(true)
+        else return
         break
       case '/':
         searchRef.current?.focus()
@@ -470,11 +502,9 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
         break
       case 'Escape':
         if (selected.size) select(new Set())
-        else if (composing !== null) setComposing(null)
-        else if (threadId !== null) {
-          setCursor(threadId)
-          go({ threadId: null })
-        } else if (view.kind === 'search') search('')
+        else if (threadId !== null) closeThread()
+        else if (asking) setAsking(false)
+        else if (view.kind === 'search') search('')
         else return
         break
       default:
@@ -489,11 +519,19 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   }, [])
 
   // A phone shows one screen at a time; the others stay mounted underneath.
-  const screen = route.settings ? 'settings' : threadId !== null || composing !== null ? 'thread' : 'list'
-  const showAssistant = ai && composing === null && !draftOnly && (!phone || threadId !== null)
+  const screen = route.settings ? 'settings' : threadId !== null ? 'thread' : 'list'
+  const showAssistant = ai && !draftOnly && (threadId !== null || (asking && !phone))
+  // On a wide screen the email pane shows only with something in it (a phone shows one screen).
+  const paneOpen = phone || threadId !== null || showAssistant
+  const assistantOnly = threadId === null
 
   return (
-    <div className={styles.shell} data-screen={phone ? screen : undefined}>
+    <div
+      className={styles.shell}
+      data-screen={phone ? screen : undefined}
+      data-pane={phone ? undefined : paneOpen ? 'open' : 'closed'}
+      style={{ '--list-width': `${listWidth}px` } as CSSProperties}
+    >
       <Sidebar
         accounts={accounts}
         route={route}
@@ -526,7 +564,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
             empty={empty}
             onRangeEnd={onRangeEnd}
             cursorId={cursorId}
-            openId={composing !== null ? null : threadId}
+            openId={threadId}
             selected={selected}
             labelsById={labelsById}
             hideLabel={label?.name}
@@ -535,58 +573,90 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
             onDoneAll={doneAll}
             onToggleBundle={(name) => setBundle(openBundle === name ? null : { viewKey, name })}
             threadHref={(id) => href({ ...route, threadId: id })}
-            onOpen={open}
+            // A click on the open thread closes it again.
+            onOpen={(id) => (id === threadId ? closeThread() : open(id))}
             onQuick={(q, thread) => quick(q, [thread])}
             onSearch={search}
             searchRef={searchRef}
             phone={phone}
             onMenu={openDrawer}
+            onAsk={ai && !phone && !paneOpen ? () => setAsking(true) : undefined}
           />
-          <div className={styles.pane}>
-            <Reader
-              threadId={threadId}
-              myEmails={myEmails}
-              accounts={accounts}
-              composing={composing}
-              reply={reply}
-              onCloseCompose={() => setComposing(null)}
-              onComposeFinished={(text) => {
-                setComposing(null)
-                setReply(null)
-                say(text)
+          {paneOpen && !phone && (
+            <Resizer
+              label="Resize the thread list"
+              width={listWidth}
+              onResize={(width, done) => {
+                setListWidth(width)
+                if (done) storeListWidth(width)
               }}
-              onCloseReply={() => setReply(null)}
-              onReply={startReply}
-              onCloseThread={() => {
-                setReply(null)
-                if (threadId !== null) setCursor(threadId)
-                go({ threadId: null })
+              onReset={() => {
+                setListWidth(LIST_WIDTH)
+                storeListWidth(null)
               }}
-              targets={targets}
-              onQuick={(q) => quick(q)}
-              onToggleRead={toggleRead}
-              onLabel={() => setPicking(true)}
-              picker={picker}
-              phone={phone}
-              onBack={back}
             />
-            {showAssistant && (
-              <Assistant
-                ref={assistantRef}
-                threadId={threadId}
-                threadHref={(id) => href({ ...route, threadId: id })}
-                onOpenThread={(id) => open(id)}
-                onNotice={say}
-                phone={phone}
-              />
-            )}
-          </div>
+          )}
+          {paneOpen && (
+            <div className={styles.pane}>
+              {!(showAssistant && assistantOnly) && (
+                <Reader
+                  threadId={threadId}
+                  myEmails={myEmails}
+                  accounts={accounts}
+                  reply={reply}
+                  onComposeFinished={(text) => {
+                    setReply(null)
+                    say(text)
+                  }}
+                  onCloseReply={() => setReply(null)}
+                  onReply={startReply}
+                  onCloseThread={closeThread}
+                  targets={targets}
+                  onQuick={(q) => quick(q)}
+                  onToggleRead={toggleRead}
+                  onLabel={() => setPicking(true)}
+                  picker={picker}
+                  phone={phone}
+                  onBack={back}
+                />
+              )}
+              {showAssistant && (
+                <Assistant
+                  ref={assistantRef}
+                  threadId={threadId}
+                  threadHref={(id) => href({ ...route, threadId: id })}
+                  onOpenThread={(id) => open(id)}
+                  onNotice={say}
+                  phone={phone}
+                  onClose={assistantOnly ? () => setAsking(false) : undefined}
+                />
+              )}
+            </div>
+          )}
           {phone && screen === 'list' && (
             <button type="button" className={styles.compose} aria-label="Compose" onClick={compose}>
               <Icon name="compose" size={20} strokeWidth={2} />
             </button>
           )}
         </>
+      )}
+      {composing && (
+        <div className={`${styles.composeWindow} ${composing.minimized ? styles.minimized : ''}`}>
+          <Composer
+            key={composing.draftId}
+            draftId={composing.draftId}
+            accounts={accounts}
+            title="New message"
+            focus="to"
+            minimized={composing.minimized}
+            onToggleMinimize={() => setComposing({ ...composing, minimized: !composing.minimized })}
+            onClose={() => setComposing(null)}
+            onFinished={(text) => {
+              setComposing(null)
+              say(text)
+            }}
+          />
+        </div>
       )}
       {phone && (notice || update) && (
         <Toast notice={notice} update={update} place={screen === 'list' ? 'list' : screen === 'thread' && showAssistant ? 'sheet' : 'bottom'} />
