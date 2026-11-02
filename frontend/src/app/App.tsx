@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router'
 import { Icon } from '../components/Icon'
+import { Menu, type MenuItem } from '../components/Menu'
 import { Resizer } from '../components/Resizer'
 import { Assistant, type AssistantHandle } from '../features/assistant/Assistant'
 import { Composer } from '../features/compose/Composer'
@@ -8,12 +9,13 @@ import { ShortcutHelp } from '../features/help/ShortcutHelp'
 import { LabelPicker, type LabelOption } from '../features/labels/LabelPicker'
 import { Login } from '../features/login/Login'
 import { Reader, type ThreadDraft } from '../features/reader/Reader'
+import { Selection } from '../features/reader/Selection'
 import { Settings } from '../features/settings/Settings'
 import { Sidebar, type Notice } from '../features/sidebar/Sidebar'
 import { LabelInbox } from '../features/threads/LabelInbox'
 import { InboxZero, ThreadList, type LabelChip, type ListRow } from '../features/threads/ThreadList'
 import { useAccounts, type Account } from './accounts'
-import { applied, inList, quickTarget, useThreadAction, useUndo, type Quick, type SectionScope, type ThreadAction } from './actions'
+import { applied, inList, quickAction, quickTarget, useThreadAction, useUndo, type Quick, type SectionScope, type ThreadAction } from './actions'
 import { useConfig } from './ai'
 import { ApiError, Unauthorized } from './api'
 import { createDraft, openDraft, type ComposeMode } from './compose'
@@ -227,16 +229,19 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   }
   const search = (q: string) => go({ view: q ? { kind: 'search', q } : { kind: 'mailbox', mailbox: 'inbox' }, threadId: null })
 
-  // Threads checked with x, for this view only (switching views starts over).
-  const [selection, setSelection] = useState({ viewKey, ids: new Set<number>() })
+  // Threads checked (x, Ctrl/⌘-click, Shift-click), for this view only (switching views starts
+  // over). `anchor` is where a Shift-click range starts: the thread last checked or unchecked.
+  const [selection, setSelection] = useState({ viewKey, ids: new Set<number>(), anchor: null as number | null })
   const selected = selection.viewKey === viewKey ? selection.ids : new Set<number>()
-  const select = (ids: Set<number>) => setSelection({ viewKey, ids })
+  const select = (ids: Set<number>, anchor = ids.size ? selection.anchor : null) => setSelection({ viewKey, ids, anchor })
 
   // What actions apply to: the checked threads, else the open (or cursor) thread.
   const detail = useThread(threadId)
   const cursorThread = threads.find((t) => t.id === cursorId) ?? (cursorId === threadId ? detail.data : undefined)
   const checked = threads.filter((t) => selected.has(t.id))
   const targets = checked.length ? checked : cursorThread ? [cursorThread] : []
+  // Checked threads get a bar of batch actions at the foot of the list (on a wide screen).
+  const multi = !phone && checked.length > 0
 
   const threadAction = useThreadAction((message) => say(`Couldn’t do that: ${message}`))
   const undoAction = useUndo(say)
@@ -295,15 +300,71 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     const scope = { name: section.name, bundle: section.bundle, account_id: accountId, until: section.newest_at }
     run('done', loaded, undefined, { section: scope, count: section.count })
   }
-  const toggleRead = () => {
-    if (targets.length === 0) return
-    const markUnread = !targets.every((t) => t.unread)
-    // Back to the list: an open thread would be marked read again.
-    if (markUnread && threadId !== null && targets.some((t) => t.id === threadId)) {
+  const setUnread = (on: ThreadSummary[], unread: boolean) => {
+    if (on.length === 0) return
+    // Back to the list: an open thread would be marked read again. Until the route has caught
+    // up, it counts as already marked read for this opening.
+    if (unread && threadId !== null && on.some((t) => t.id === threadId)) {
+      markedRead.current = threadId
       setCursor(threadId)
       go({ threadId: null })
     }
-    run(markUnread ? 'unread' : 'read', targets)
+    run(unread ? 'unread' : 'read', on)
+  }
+  const toggleRead = (on = targets) => setUnread(on, !on.every((t) => t.unread))
+  const toggleSelected = (thread: ThreadSummary) => {
+    const ids = new Set(selected)
+    if (!ids.delete(thread.id)) ids.add(thread.id)
+    select(ids, thread.id)
+  }
+  /** Ctrl/⌘-click checks or unchecks one thread; Shift-click checks every thread from the anchor
+   * (else the open or cursor thread) to this one. A selection started while a thread is open
+   * includes that thread. */
+  const clickSelect = (id: number, range: boolean) => {
+    const ids = new Set(selected)
+    const starting = ids.size === 0
+    if (starting && threadId !== null) ids.add(threadId)
+    const from = starting ? cursorId : (selection.anchor ?? cursorId)
+    const a = threads.findIndex((t) => t.id === from)
+    const b = threads.findIndex((t) => t.id === id)
+    if (range && a >= 0 && b >= 0) {
+      for (const t of threads.slice(Math.min(a, b), Math.max(a, b) + 1)) ids.add(t.id)
+      select(ids, from)
+    } else {
+      if (starting) ids.add(id)
+      else if (!ids.delete(id)) ids.add(id)
+      select(ids, id)
+    }
+  }
+
+  // A right-click on a row: that thread's actions, at the pointer.
+  const [rowMenu, setRowMenu] = useState<{ thread: ThreadSummary; x: number; y: number } | null>(null)
+  const rowMenuItems = (thread: ThreadSummary): MenuItem[] => {
+    const quickItem = (q: Quick): MenuItem => {
+      const { icon, title } = quickAction(q, [thread])
+      const [, label, shortcut] = /^(.*) \((.+)\)$/.exec(title) ?? [title, title]
+      return { icon, label, shortcut, onSelect: () => quick(q, [thread]) }
+    }
+    return [
+      quickItem('done'),
+      quickItem('delete'),
+      quickItem('star'),
+      quickItem('important'),
+      // eslint-disable-next-line react-hooks/refs -- runs on a click in the menu, not during render
+      { icon: 'mail', label: thread.unread ? 'Mark as read' : 'Mark as unread', shortcut: 'u', onSelect: () => toggleRead([thread]) },
+      {
+        icon: 'label',
+        label: 'Label…',
+        shortcut: 'l',
+        // The picker drops down from the email pane's Label button, so the thread opens.
+        onSelect: () => {
+          select(new Set())
+          if (thread.id !== threadId) open(thread.id)
+          setPicking(true)
+        },
+      },
+      { icon: 'select', label: selected.has(thread.id) ? 'Deselect' : 'Select', shortcut: 'x', onSelect: () => toggleSelected(thread) },
+    ]
   }
 
   // Opening a thread marks it read (once per opening).
@@ -363,6 +424,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const picker =
     picking && targets.length > 0 ? (
       <LabelPicker
+        up={multi}
         options={pickerOptions}
         onClose={() => setPicking(false)}
         onToggle={(name, add) => run(add ? 'label' : 'unlabel', targets, named.find((l) => l.name === name))}
@@ -467,13 +529,10 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
         if (targets.length === 0) return
         setPicking(true)
         break
-      case 'x': {
+      case 'x':
         if (!cursorThread) return
-        const ids = new Set(selected)
-        if (!ids.delete(cursorThread.id)) ids.add(cursorThread.id)
-        select(ids)
+        toggleSelected(cursorThread)
         break
-      }
       case 'c':
         compose()
         break
@@ -575,14 +634,36 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
             onDoneAll={doneAll}
             onToggleBundle={(name) => setBundle(openBundle === name ? null : { viewKey, name })}
             threadHref={(id) => href({ ...route, threadId: id })}
-            // A click on the open thread closes it again.
-            onOpen={(id) => (id === threadId ? closeThread() : open(id))}
+            // A click on the open thread closes it again; a click while threads are checked opens
+            // that one thread and lets the selection go.
+            onOpen={(id) => {
+              if (selected.size) {
+                select(new Set())
+                if (id !== threadId) open(id)
+              } else if (id === threadId) closeThread()
+              else open(id)
+            }}
             onQuick={(q, thread) => quick(q, [thread])}
             onSearch={search}
             searchRef={searchRef}
             phone={phone}
             onMenu={openDrawer}
             onAsk={ai && !phone && !paneOpen ? () => setAsking(true) : undefined}
+            onRowMenu={phone ? undefined : (thread, point) => setRowMenu({ thread, ...point })}
+            menuId={rowMenu?.thread.id}
+            onSelectClick={phone ? undefined : clickSelect}
+            selectionBar={
+              multi && (
+                <Selection
+                  threads={checked}
+                  onQuick={(q) => quick(q)}
+                  onRead={(unread) => setUnread(checked, unread)}
+                  onLabel={() => setPicking((open) => !open)}
+                  picker={picker}
+                  onClear={() => select(new Set())}
+                />
+              )
+            }
           />
           {paneOpen && !phone && (
             <Resizer
@@ -615,9 +696,9 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
                   onCloseThread={closeThread}
                   targets={targets}
                   onQuick={(q) => quick(q)}
-                  onToggleRead={toggleRead}
+                  onToggleRead={() => toggleRead()}
                   onLabel={() => setPicking((open) => !open)}
-                  picker={picker}
+                  picker={multi ? null : picker}
                   phone={phone}
                   onBack={back}
                 />
@@ -641,6 +722,14 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
             </button>
           )}
         </>
+      )}
+      {rowMenu && (
+        <Menu
+          anchor={rowMenu}
+          label={`Actions for ${rowMenu.thread.subject || '(no subject)'}`}
+          items={rowMenuItems(rowMenu.thread)}
+          onClose={() => setRowMenu(null)}
+        />
       )}
       {composing && (
         <div className={`${styles.composeWindow} ${composing.minimized ? styles.minimized : ''}`}>

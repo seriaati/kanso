@@ -10,7 +10,7 @@ const shortcuts = [
   ['=', 'Important'],
   ['l', 'Label'],
   ['u', 'Mark unread / read'],
-  ['x', 'Select; actions apply to all selected'],
+  ['x', 'Select (or Ctrl/⌘-click; Shift-click for a range); actions apply to all selected'],
   ['z', 'Undo Done or Delete'],
   ['c', 'Compose'],
   ['r / a / f', 'Reply / reply all / forward'],

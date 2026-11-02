@@ -11,10 +11,12 @@ type Props = {
   onToggle: (name: string, add: boolean) => void
   onCreate: (name: string) => void
   onClose: () => void
+  /** Open upward (from the selection bar at the foot of the list). */
+  up?: boolean
 }
 
 /** The `l` popover: type to filter, ↑/↓ and Enter to toggle a label, or create a new one. */
-export function LabelPicker({ options, onToggle, onCreate, onClose }: Props) {
+export function LabelPicker({ options, onToggle, onCreate, onClose, up }: Props) {
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
   const ref = useRef<HTMLDivElement>(null)
@@ -44,7 +46,7 @@ export function LabelPicker({ options, onToggle, onCreate, onClose }: Props) {
   }
 
   return (
-    <div className={styles.picker} ref={ref} role="dialog" aria-label="Label as">
+    <div className={`${styles.picker} ${up ? styles.up : ''}`} ref={ref} role="dialog" aria-label="Label as">
       <input
         className={styles.input}
         autoFocus

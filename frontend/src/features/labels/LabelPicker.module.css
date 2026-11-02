@@ -25,6 +25,12 @@
   }
 }
 
+.up {
+  top: auto;
+  bottom: calc(100% + 10px);
+  transform-origin: bottom left;
+}
+
 .input {
   height: 32px;
   padding: 0 10px;

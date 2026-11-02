@@ -1,4 +1,5 @@
 .list {
+  position: relative; /* for the selection bar */
   flex: 0 1 var(--list-width, 500px); /* set by dragging the divider (App.tsx) */
   min-width: 0;
   display: flex;
@@ -140,6 +141,28 @@
   overflow-y: auto;
 }
 
+/* Room under the last rows for the selection bar. */
+.underBar {
+  padding-bottom: 64px;
+}
+
+/* While threads are checked: their actions (features/reader/Selection), floating at the foot of
+   the list, centered. */
+.selectionBar {
+  position: absolute;
+  z-index: 4;
+  left: 12px;
+  right: 12px;
+  bottom: 14px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none; /* only the bar itself takes clicks, not the strip around it */
+}
+
+.selectionBar > * {
+  pointer-events: auto;
+}
+
 .empty {
   margin: 0;
   padding: 48px 24px;
@@ -217,6 +240,11 @@
   }
 }
 
+/* Its right-click menu is open. */
+.row.menuOpen {
+  background: var(--hover);
+}
+
 /* Picked with x: actions apply to every checked row. */
 .row.checked {
   background: var(--hover);
@@ -227,11 +255,20 @@
 }
 
 .check {
+  position: relative;
   width: 6px;
   flex-shrink: 0;
   display: grid;
   place-items: center;
   color: var(--accent);
+  cursor: pointer;
+}
+
+/* A bigger target than the 12px mark, for the click that unchecks it. */
+.check::before {
+  content: '';
+  position: absolute;
+  inset: -9px -10px;
 }
 
 .main {

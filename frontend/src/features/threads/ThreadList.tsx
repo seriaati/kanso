@@ -67,11 +67,21 @@ type Props = {
   onMenu?: () => void
   /** With AI on and nothing open: opens the assistant (q). */
   onAsk?: () => void
+  /** A right-click on a thread row: its actions menu, at the pointer (not on a phone). */
+  onRowMenu?: (thread: ThreadSummary, point: { x: number; y: number }) => void
+  /** The thread whose actions menu is open: its row stays highlighted. */
+  menuId?: number | null
+  /** Ctrl/⌘-click (one thread) or Shift-click (a range) on a row: select instead of open. A click
+   * on a checked row's checkmark unchecks it. */
+  onSelectClick?: (id: number, range: boolean) => void
+  /** While threads are checked: their actions, floating at the foot of the list. */
+  selectionBar?: ReactNode
 }
 
 export function ThreadList(props: Props) {
   const { title, query, rows, status, error, empty, cursorId, openId, selected, labelsById, hideLabel, hideChips } = props
   const { labelInbox, onDoneAll, onToggleBundle, threadHref, onOpen, onQuick, onSearch, searchRef, phone, onMenu, onAsk } = props
+  const { onRowMenu, menuId, onSelectClick, selectionBar } = props
   const scrollRef = useRef<HTMLDivElement>(null)
   const comfortable = useDensity() === 'comfortable'
   // eslint-disable-next-line react-hooks/incompatible-library -- the build doesn't use React Compiler
@@ -112,7 +122,7 @@ export function ThreadList(props: Props) {
           </button>
         )}
         <h1 className={styles.title}>{title}</h1>
-        {selected.size > 0 && (
+        {selected.size > 0 && !selectionBar && (
           <span className={styles.selection} role="status">
             {selected.size} selected
           </span>
@@ -160,7 +170,7 @@ export function ThreadList(props: Props) {
         )}
       </header>
 
-      <div ref={scrollRef} className={styles.scroll}>
+      <div ref={scrollRef} className={`${styles.scroll} ${selectionBar ? styles.underBar : ''}`}>
         {status === 'error' && <p className={styles.empty}>Couldn’t load threads: {error?.message}</p>}
         {status === 'success' && rows.length === 0 && <p className={styles.empty}>{empty}</p>}
         <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
@@ -189,15 +199,19 @@ export function ThreadList(props: Props) {
                 top={item.start}
                 cursor={thread.id === cursorId}
                 open={thread.id === openId}
+                menu={thread.id === menuId}
                 checked={selected.has(thread.id)}
                 href={threadHref(thread.id)}
                 onOpen={onOpen}
                 onQuick={onQuick}
+                onMenu={onRowMenu}
+                onSelectClick={onSelectClick}
               />
             )
           })}
         </div>
       </div>
+      {selectionBar && <div className={styles.selectionBar}>{selectionBar}</div>}
     </section>
   )
 }
@@ -285,22 +299,38 @@ type RowProps = {
   top: number
   cursor: boolean
   open: boolean
+  menu: boolean
   checked: boolean
   href: string
   onOpen: (id: number) => void
   onQuick: (quick: Quick, thread: ThreadSummary) => void
+  onMenu?: (thread: ThreadSummary, point: { x: number; y: number }) => void
+  onSelectClick?: (id: number, range: boolean) => void
 }
 
-function ThreadRow({ thread, chips, top, cursor, open, checked, href, onOpen, onQuick }: RowProps) {
+function ThreadRow(props: RowProps) {
+  const { thread, chips, top, cursor, open, menu, checked, href, onOpen, onQuick, onMenu, onSelectClick } = props
   const swipe = useSwipe((direction) => onQuick(direction === 'right' ? 'done' : 'delete', thread))
-  const rowClass = [styles.row, thread.unread && styles.unread, (cursor || open) && styles.selected, checked && styles.checked]
+  const rowClass = [styles.row, thread.unread && styles.unread, (cursor || open) && styles.selected, checked && styles.checked, menu && styles.menuOpen]
     .filter(Boolean)
     .join(' ')
   const lang = thread.lang ?? undefined
   const done = quickAction('done', [thread])
   const remove = quickAction('delete', [thread])
   return (
-    <div className={rowClass} style={{ transform: `translateY(${top}px)` }} aria-current={open || undefined} {...swipe.handlers}>
+    <div
+      className={rowClass}
+      style={{ transform: `translateY(${top}px)` }}
+      aria-current={open || undefined}
+      onContextMenu={
+        onMenu &&
+        ((event) => {
+          event.preventDefault()
+          onMenu(thread, { x: event.clientX, y: event.clientY })
+        })
+      }
+      {...swipe.handlers}
+    >
       {swipe.offset !== 0 && (
         // What letting go does: Done to the right, Delete to the left.
         <span className={`${styles.swipe} ${swipe.offset > 0 ? styles.swipeDone : styles.swipeDelete}`} aria-hidden="true">
@@ -312,14 +342,29 @@ function ThreadRow({ thread, chips, top, cursor, open, checked, href, onOpen, on
         to={href}
         className={[styles.main, swipe.dragging && styles.dragging, swipe.offset !== 0 && styles.moving].filter(Boolean).join(' ')}
         style={swipe.offset ? { transform: `translateX(${swipe.offset}px)` } : undefined}
+        // Shift-click would also select the text between the rows.
+        onMouseDown={(event) => onSelectClick && event.shiftKey && event.preventDefault()}
         onClick={(event) => {
-          if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
+          if (event.button !== 0) return
+          const modified = event.metaKey || event.ctrlKey || event.shiftKey
+          if (modified && !onSelectClick) return // the browser's own (a new tab or window)
           event.preventDefault()
-          onOpen(thread.id)
+          if (modified) onSelectClick?.(thread.id, event.shiftKey)
+          else onOpen(thread.id)
         }}
       >
         {checked ? (
-          <span className={styles.check} aria-label="Selected">
+          <span
+            className={styles.check}
+            aria-label="Selected"
+            title={onSelectClick ? 'Deselect' : undefined}
+            onClick={(event) => {
+              if (!onSelectClick || event.button !== 0) return
+              event.preventDefault() // not also open the thread
+              event.stopPropagation()
+              onSelectClick(thread.id, false)
+            }}
+          >
             <Icon name="check" size={12} strokeWidth={2.4} />
           </span>
         ) : (

@@ -98,7 +98,14 @@ The reference mockup is the "3 · Chosen — Koke + indigo, split view" artboard
   Notifications) are collapsed rows at the bottom. Rows are compact single lines (~31px; 40px
   with the account menu's Density set to Comfortable, per browser): unread dot, sender,
   subject — snippet, star, time. **On hover, the time is replaced by quick-action
-  icons**: Done, Delete, Star, Important.
+  icons**: Done, Delete, Star, Important. A right-click on a row opens its actions menu (Done,
+  Delete, Star, Important, Mark unread, Label…, Select, each with its shortcut); a click
+  outside only closes it. While the email pane is open, an empty search box folds to its icon
+  and unfolds when clicked or on `/`.
+  Ctrl/⌘-click checks a row (with the open thread, if any), Shift-click checks a range, and `x`
+  checks the cursor's row; a click on a checked row's checkmark unchecks it. While rows are
+  checked, a bar floats at the foot of the list with the count and the batch actions (Done,
+  Delete, Mark read/unread, Star, Important, Label, clear); the email pane is unaffected.
 - **Email pane** (right): shown only with something in it (a thread or the assistant); it slides
   in as it opens and the list narrows to make room. The divider between list and pane can be
   dragged (arrow keys too; double-click resets); the list's width is remembered per browser. A
@@ -141,7 +148,8 @@ on a light sheet in the dark pane; HTML without its own colors follows the dark 
   1.6–1.75); the open email's subject is Zen Maru Gothic too, bold at 21px, like the subjects in
   the list. Shippori Mincho B1 for pane and dialog titles (18px).
 - **Shape**: 8px radius on rows and buttons, 10px on inputs and cards. Hairline borders, no
-  shadows, except one soft shadow under the floating new-message window.
+  shadows, except one soft shadow under what floats over the mail: the new-message window and the
+  selection bar.
 - **Icons**: line icons, 1.8px stroke, 15–17px, in `currentColor`.
 - **Motion**: subtle and purposeful, from the `--fast` (120ms) / `--medium` (200ms) / `--slow`
   (360ms) tokens with one soft ease. Menus, dialogs and notices fade and rise in; the email pane

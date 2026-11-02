@@ -1,0 +1,64 @@
+/* Floats at the foot of the thread list (ThreadList.module.css places it), over the rows. */
+.bar {
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 6px 5px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--float-shadow);
+  transition:
+    opacity var(--medium) ease,
+    translate var(--slow) var(--ease);
+}
+
+/* It rises into place as the first thread is checked. */
+@starting-style {
+  .bar {
+    opacity: 0;
+    translate: 0 16px;
+  }
+}
+
+.count {
+  flex: none;
+  margin-right: 4px;
+  font-weight: 700;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.separator {
+  flex: none;
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--line);
+}
+
+.anchor {
+  position: relative;
+  display: flex;
+}
+
+.action {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+}
+
+.action:hover {
+  background: var(--hover);
+}
+
+.action[aria-pressed='true'] {
+  color: var(--accent);
+}
