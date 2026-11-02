@@ -132,7 +132,8 @@ The reference mockup is the "3 · Chosen — Koke + indigo, split view" artboard
 `#1D1E1A`, sidebar `#181915`, surface `#242520`, assistant `#20211C`, line `#3A3B34` / `#2E2F29`,
 hover / selected `#2B2C26` / `#35362F`, ink `#E8E5DA`, muted `#A3A497`, accent `#93ABCD`. It
 follows the system by default; the account menu's Theme row picks System, Light or Dark (stored
-per browser). HTML emails keep the light tokens and sit on a light sheet in the dark pane.
+per browser). HTML emails that set their own colors or backgrounds keep the light tokens and sit
+on a light sheet in the dark pane; HTML without its own colors follows the dark theme.
 
 - **Type**: Zen Maru Gothic for the UI and body text (13px UI, 14px message body, line-height
   1.6–1.75); the open email's subject is Zen Maru Gothic too, bold at 21px, like the subjects in
