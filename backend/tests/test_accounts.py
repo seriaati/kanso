@@ -115,6 +115,17 @@ def test_connect_creates_account(logged_in: TestClient, google: FakeGoogle) -> N
     ]
 
 
+def test_reorder_accounts(logged_in: TestClient, google: FakeGoogle) -> None:
+    for email in ("a@gmail.com", "b@gmail.com", "c@gmail.com"):
+        google.email = email
+        connect(logged_in)
+    response = logged_in.put("/api/accounts/order", json={"ids": [3, 1, 2]})
+    assert [a["id"] for a in response.json()] == [3, 1, 2]
+    google.email = "d@gmail.com"
+    connect(logged_in)  # a new account goes last
+    assert [a["id"] for a in logged_in.get("/api/accounts").json()] == [3, 1, 2, 4]
+
+
 def test_reconnect_updates_token_and_keeps_settings(
     logged_in: TestClient, google: FakeGoogle
 ) -> None:

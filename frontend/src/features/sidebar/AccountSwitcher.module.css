@@ -119,6 +119,11 @@
   background: var(--selected);
 }
 
+/* The account being dragged, in the place it would drop into. */
+.row[data-dragging] {
+  opacity: 0.45;
+}
+
 .divider {
   width: 100%;
   margin: 4px 0;

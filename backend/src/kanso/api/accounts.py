@@ -39,6 +39,10 @@ class AccountUpdate(BaseModel):
     color: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
 
 
+class AccountOrder(BaseModel):
+    ids: list[int] = Field(max_length=100)  # top to bottom
+
+
 async def _get(db: AsyncSession, account_id: int) -> Account:
     account = await db.get(Account, account_id)
     if account is None:
@@ -48,8 +52,18 @@ async def _get(db: AsyncSession, account_id: int) -> Account:
 
 @router.get("")
 async def list_accounts(db: DB) -> list[AccountOut]:
-    accounts = await db.scalars(select(Account).order_by(Account.id))
+    accounts = await db.scalars(select(Account).order_by(Account.position, Account.id))
     return [AccountOut.model_validate(a) for a in accounts]
+
+
+@router.put("/order")
+async def reorder_accounts(body: AccountOrder, db: DB) -> list[AccountOut]:
+    accounts = {a.id: a for a in await db.scalars(select(Account))}
+    for position, account_id in enumerate(body.ids):
+        if account_id in accounts:
+            accounts[account_id].position = position
+    await db.commit()
+    return await list_accounts(db)
 
 
 @router.patch("/{account_id}")
@@ -110,12 +124,14 @@ async def callback(db: DB, state: str = "", code: str = "", error: str = "") -> 
         account.photos_synced_at = None  # Contacts access may be new: sync photos again now
     else:
         count = await db.scalar(select(func.count()).select_from(Account)) or 0
+        last = await db.scalar(select(func.max(Account.position)))
         db.add(
             Account(
                 email=grant.email,
                 display_name=grant.email.split("@")[0],
                 color=COLORS[count % len(COLORS)],
                 avatar_url=grant.picture,
+                position=0 if last is None else last + 1,
                 refresh_token=encrypt(grant.refresh_token),
             )
         )

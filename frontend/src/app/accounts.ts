@@ -38,6 +38,16 @@ export function useUpdateAccount() {
   })
 }
 
+/** Optimistic: the list takes the new order at once. */
+export function useReorderAccounts() {
+  return useMutation({
+    mutationFn: (ids: number[]) => api<Account[]>('/accounts/order', { method: 'PUT', body: { ids } }),
+    onMutate: (ids) =>
+      queryClient.setQueryData<Account[]>(key, (list) => list && ids.flatMap((id) => list.filter((a) => a.id === id))),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
+  })
+}
+
 export function useDisconnectAccount() {
   return useMutation({
     mutationFn: (id: number) => api(`/accounts/${id}`, { method: 'DELETE' }),

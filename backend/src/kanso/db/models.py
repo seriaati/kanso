@@ -34,6 +34,8 @@ class Account(Base):
     color: Mapped[str] = mapped_column(String(7))
     # Google's profile photo, refreshed on every (re)connect.
     avatar_url: Mapped[str | None] = mapped_column(Text)
+    # Its place in the account switcher, which the user can drag to change.
+    position: Mapped[int] = mapped_column(server_default="0")
     # Fernet-encrypted.
     refresh_token: Mapped[bytes] = mapped_column(LargeBinary)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
-import { logout, type Account } from '../../app/accounts'
+import { logout, useReorderAccounts, type Account } from '../../app/accounts'
 import { accents, setAccent, useAccent } from '../../app/accent'
 import { useAiUsage } from '../../app/ai'
 import { setDensity, useDensity, type Density } from '../../app/density'
@@ -40,9 +40,20 @@ const densities: { density: Density; icon: IconName; name: string }[] = [
   { density: 'comfortable', icon: 'comfortable', name: 'Comfortable' },
 ]
 
+/** `ids` with `from` moved to where `to` is. */
+function move(ids: number[], from: number, to: number): number[] {
+  const rest = ids.filter((id) => id !== from)
+  rest.splice(ids.indexOf(to), 0, from)
+  return rest
+}
+
 export function AccountSwitcher({ accounts, selected, ai, onSelect }: Props) {
   const [open, setOpen] = useState(false)
   const keyRejected = useAiUsage(open && ai).data?.key_rejected
+  const reorder = useReorderAccounts()
+  // While an account is dragged: the order shown, which follows the pointer.
+  const [drag, setDrag] = useState<{ id: number; order: number[] } | null>(null)
+  const shown = drag ? drag.order.flatMap((id) => accounts.filter((a) => a.id === id)) : accounts
   const ref = useRef<HTMLDivElement>(null)
 
   const close = () => setOpen(false)
@@ -81,13 +92,30 @@ export function AccountSwitcher({ accounts, selected, ai, onSelect }: Props) {
 
       {open && (
         <div className={styles.popover} role="dialog" aria-label="Accounts">
-          {accounts.map((account) => (
+          {shown.map((account) => (
             <button
               key={account.id}
               type="button"
               className={styles.row}
               aria-current={selected?.id === account.id || undefined}
               onClick={() => select(account.id)}
+              draggable={accounts.length > 1}
+              data-dragging={drag?.id === account.id || undefined}
+              onDragStart={(event) => {
+                event.dataTransfer.effectAllowed = 'move'
+                event.dataTransfer.setData('text/plain', '') // Firefox drags only with data
+                setDrag({ id: account.id, order: accounts.map((a) => a.id) })
+              }}
+              onDragOver={(event) => {
+                if (!drag) return
+                event.preventDefault() // a drop target
+                if (account.id !== drag.id) setDrag({ ...drag, order: move(drag.order, drag.id, account.id) })
+              }}
+              onDrop={(event) => event.preventDefault()}
+              onDragEnd={() => {
+                if (drag && drag.order.some((id, i) => id !== accounts[i]?.id)) reorder.mutate(drag.order)
+                setDrag(null)
+              }}
             >
               <Avatar account={account} />
               <span className={styles.text}>
