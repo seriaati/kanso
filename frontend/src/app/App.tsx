@@ -43,7 +43,7 @@ import { applyUpdate, useUpdateReady } from './update'
 export function App() {
   const accounts = useAccounts()
   const route = useRoute()
-  // Offline (the app shell still starts from the service worker): try again once back online.
+  // Offline (the shell still starts from the service worker): retry once back online.
   const { isError, refetch } = accounts
   useEffect(() => {
     if (!isError) return
@@ -82,7 +82,7 @@ const mailboxTitles: Record<Mailbox, string> = {
   spam: 'Spam',
 }
 
-const LIST_WIDTH_KEY = 'kanso.listWidth' // the list's width beside an open thread, set by dragging
+const LIST_WIDTH_KEY = 'kanso.listWidth'
 const LIST_WIDTH = 500
 
 function storedListWidth(): number {
@@ -103,12 +103,8 @@ function storeListWidth(width: number | null) {
 }
 
 const NOTICE_MS = 5000
-const UNDO_MS = 6000 // how long Done and Delete can be undone from the notice (z)
+const UNDO_MS = 6000
 
-/** The split view: sidebar | thread list | email pane, with the assistant docked at the foot of
- * the email pane while a thread is open and AI is on (otherwise the email takes its space). With
- * nothing open the list takes the whole width; the pane comes in when a thread or a new message
- * opens, or the assistant is asked something (q). */
 function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route }) {
   const [notice, setNotice] = useState<Notice | null>(null)
   const say = useCallback((text: string, undo?: () => void) => setNotice({ id: Date.now(), text, undo }), [])
@@ -123,7 +119,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   )
   const navigate = useNavigate()
   const location = useLocation()
-  // A tapped notification of new mail opens its thread in this window (public/push-sw.js).
+  // A tapped new-mail notification opens its thread here (public/push-sw.js).
   useEffect(() => {
     const container = navigator.serviceWorker
     if (!container) return
@@ -133,18 +129,16 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     container.addEventListener('message', onMessage)
     return () => container.removeEventListener('message', onMessage)
   }, [navigate])
-  // An unknown ?account= falls back to All accounts.
   const route = { ...urlRoute, accountId: accounts.some((a) => a.id === urlRoute.accountId) ? urlRoute.accountId : null }
   const { view, threadId, accountId } = route
   const ai = useConfig().data?.ai ?? false
   const phone = usePhone()
   const update = useUpdateReady()
-  // On a phone the sidebar is a drawer; it closes again whenever the page changes (back too).
+  // The phone's sidebar drawer closes whenever the page changes (back too).
   const [drawer, setDrawer] = useState({ open: false, at: location.key })
   if (drawer.at !== location.key) setDrawer({ open: false, at: location.key })
   const drawerOpen = phone && drawer.open
   const openDrawer = phone ? () => setDrawer({ open: true, at: location.key }) : undefined
-  // The inbox is grouped into label sections (with AI on) and bundles (always).
   const grouped = view.kind === 'mailbox' && view.mailbox === 'inbox'
 
   const labels = useLabels(accountId)
@@ -167,7 +161,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     if (!isFetching) void fetchNextPage()
   }, [isFetching, fetchNextPage])
 
-  // One bundle at a time opens below its row, and closes again when the view changes.
+  // One bundle at a time; it closes again when the view changes.
   const viewKey = href({ ...route, threadId: null })
   const [bundle, setBundle] = useState<{ viewKey: string; name: string } | null>(null)
   const openBundle = grouped && bundle?.viewKey === viewKey ? bundle.name : null
@@ -175,7 +169,6 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const bundleThreads = useMemo(() => unique(bundleList.data?.pages), [bundleList.data])
   const sections = useMemo(() => (grouped ? (list.data?.pages[0]?.sections ?? []) : []), [grouped, list.data])
 
-  // The list's rows (threads, section headers, bundle rows) and the threads in keyboard order.
   const { rows, threads, mainEnd } = useMemo(() => {
     const colors = new Map(named.map((l) => [l.name, l.color]))
     const color = (name: string | null) => (name === null ? null : (colors.get(name) ?? null))
@@ -213,13 +206,11 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
 
   const [cursor, setCursor] = useState<number | null>(null)
   const cursorId = threadId ?? cursor
-  // The new message being written (c), in a window of its own; and the reply or forward docked
-  // in the open thread.
   const [composing, setComposing] = useState<{ draftId: number; minimized: boolean } | null>(null)
   const [reply, setReply] = useState<ThreadDraft | null>(null)
   const starting = useRef(false)
   const [help, setHelp] = useState(false)
-  // The assistant on its own in the email pane, asked about all mail with no thread open (q).
+  // The assistant alone in the email pane, with no thread open (q).
   const [asking, setAsking] = useState(false)
   const [picking, setPicking] = useState(false)
   const [listWidth, setListWidth] = useState(storedListWidth)
@@ -239,18 +230,15 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   }
   const search = (q: string) => go({ view: q ? { kind: 'search', q } : { kind: 'mailbox', mailbox: 'inbox' }, threadId: null })
 
-  // Threads checked (x, Ctrl/⌘-click, Shift-click), for this view only (switching views starts
-  // over). `anchor` is where a Shift-click range starts: the thread last checked or unchecked.
+  // For this view only. `anchor` is where a Shift-click range starts.
   const [selection, setSelection] = useState({ viewKey, ids: new Set<number>(), anchor: null as number | null })
   const selected = selection.viewKey === viewKey ? selection.ids : new Set<number>()
   const select = (ids: Set<number>, anchor = ids.size ? selection.anchor : null) => setSelection({ viewKey, ids, anchor })
 
-  // What actions apply to: the checked threads, else the open (or cursor) thread.
   const detail = useThread(threadId)
   const cursorThread = threads.find((t) => t.id === cursorId) ?? (cursorId === threadId ? detail.data : undefined)
   const checked = threads.filter((t) => selected.has(t.id))
   const targets = checked.length ? checked : cursorThread ? [cursorThread] : []
-  // Checked threads get a bar of batch actions at the foot of the list (on a wide screen).
   const multi = !phone && checked.length > 0
 
   const threadAction = useThreadAction((message) => say(`Couldn’t do that: ${message}`))
@@ -260,8 +248,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const undo = (entries: number[]) =>
     undoAction.mutate(entries, { onSuccess: ({ thread_ids }) => thread_ids[0] !== undefined && setCursor(thread_ids[0]) })
 
-  /** Run an action. Threads it moves out of this view leave the list at once, and the cursor
-   * (and the open thread) moves on to the next one, so e e e works through the inbox. */
+  // Threads leaving the view go at once and the cursor moves on, so e e e works through the inbox.
   const run = (action: ThreadAction, on: ThreadSummary[], withLabel?: NamedLabel, scope?: { section: SectionScope; count: number }) => {
     if (on.length === 0 && !scope) return
     const label = withLabel && { name: withLabel.name, ids: new Map(withLabel.accountIds.map((a, i) => [a, withLabel.ids[i]])) }
@@ -288,7 +275,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     const sent = threadAction.mutateAsync({ action, threads: on, label, section: scope?.section })
     sent.catch(() => undefined) // shown by the mutation's onError
     if (action === 'done' || action === 'delete') {
-      // Undo works at once, even before the server has answered (e z in quick succession).
+      // Undo works even before the server has answered (e z in quick succession).
       const what = action === 'done' ? 'done' : 'moved to Trash'
       const count = scope?.count ?? on.length
       const text = count === 1 ? `${what.charAt(0).toUpperCase()}${what.slice(1)}.` : `${count} threads ${what}.`
@@ -299,8 +286,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     }
   }
   const quick = (q: Quick, on = targets) => run(quickTarget(q, on), on)
-  /** "Done all" on a section or bundle: every thread in it the user has seen (newer arrivals
-   * stay), loaded here or not. */
+  // Every thread the user has seen (newer arrivals stay), loaded here or not.
   const doneAll = (section: Section) => {
     const loaded = section.bundle
       ? section.name === openBundle
@@ -312,8 +298,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   }
   const setUnread = (on: ThreadSummary[], unread: boolean) => {
     if (on.length === 0) return
-    // Back to the list: an open thread would be marked read again. Until the route has caught
-    // up, it counts as already marked read for this opening.
+    // Leave the thread or it is marked read again; until the route catches up, count it as marked.
     if (unread && threadId !== null && on.some((t) => t.id === threadId)) {
       markedRead.current = threadId
       setCursor(threadId)
@@ -327,9 +312,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     if (!ids.delete(thread.id)) ids.add(thread.id)
     select(ids, thread.id)
   }
-  /** Ctrl/⌘-click checks or unchecks one thread; Shift-click checks every thread from the anchor
-   * (else the open or cursor thread) to this one. A selection started while a thread is open
-   * includes that thread. */
+  // A selection started while a thread is open includes that thread.
   const clickSelect = (id: number, range: boolean) => {
     const ids = new Set(selected)
     const starting = ids.size === 0
@@ -347,7 +330,6 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     }
   }
 
-  // A right-click on a row: that thread's actions, at the pointer.
   const [rowMenu, setRowMenu] = useState<{ thread: ThreadSummary; x: number; y: number } | null>(null)
   const rowMenuItems = (thread: ThreadSummary): MenuItem[] => {
     const quickItem = (q: Quick): MenuItem => {
@@ -377,7 +359,6 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     ]
   }
 
-  // Opening a thread marks it read (once per opening).
   const markedRead = useRef<number | null>(null)
   // A thread of drafts only is the composer itself: no assistant under it.
   const draftOnly = threadId !== null && !!detail.data?.messages.length && detail.data.messages.every((m) => m.draft)
@@ -393,7 +374,6 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   })
   useEffect(() => markRead(), [threadId, openThread?.unread])
 
-  /** Open the composer once its draft exists on the server (one at a time). */
   const startDraft = (create: () => Promise<number>, then: (draftId: number) => void) => {
     if (starting.current) return
     starting.current = true
@@ -402,7 +382,6 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
       .catch((error: Error) => say(`Couldn’t start the message: ${error.message}`))
       .finally(() => (starting.current = false))
   }
-  /** c: a new message, or back to the one being written (one at a time). */
   const compose = () => {
     if (composing) return setComposing({ ...composing, minimized: false })
     startDraft(
@@ -410,11 +389,10 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
       (draftId) => setComposing({ draftId, minimized: false }),
     )
   }
-  /** r, a, f: in the open thread. A thread that has a draft already opens that one. */
   const startReply = (mode: Exclude<ComposeMode, 'new'>) => {
     const thread = detail.data
     if (threadId === null || !thread || thread.id !== threadId) return
-    if (reply?.threadId === threadId) return // already writing here
+    if (reply?.threadId === threadId) return
     const existing = thread.messages.filter((m) => m.draft).at(-1)
     const source = thread.messages.filter((m) => !m.draft).at(-1)
     if (!existing && !source) return
@@ -468,11 +446,10 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     document.title = `${pageTitle} · kanso`
   }, [pageTitle])
 
-  /** On a phone: from the thread back to the list. */
   const back = () => {
     setReply(null)
     if (threadId !== null) setCursor(threadId)
-    // The list is usually the page before; a thread opened from a link goes to the list.
+    // A thread opened from a link has no list page before it.
     if (location.key !== 'default') navigate(-1)
     else go({ threadId: null }, true)
   }
@@ -493,7 +470,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
 
   const onKey = useEffectEvent((event: KeyboardEvent) => {
     if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return
-    if (route.settings) return // the mail shortcuts don't apply there
+    if (route.settings) return
     const target = event.target instanceof Element ? event.target : null
     if (target?.closest('input, textarea, select, [contenteditable]')) return
     if (help) {
@@ -510,7 +487,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
         const next = index < 0 ? 0 : Math.min(Math.max(index + (event.key === 'j' ? 1 : -1), 0), threads.length - 1)
         const id = threads[next]?.id
         if (id === undefined || id === cursorId) break
-        // While reading, the open thread follows the cursor (without piling up history).
+        // The open thread follows the cursor without piling up history.
         if (threadId !== null) open(id, true)
         else setCursor(id)
         break
@@ -589,10 +566,8 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     return () => window.removeEventListener('keydown', listener)
   }, [])
 
-  // A phone shows one screen at a time; the others stay mounted underneath.
   const screen = route.settings ? 'settings' : threadId !== null ? 'thread' : 'list'
   const showAssistant = ai && !draftOnly && (threadId !== null || (asking && !phone))
-  // On a wide screen the email pane shows only with something in it (a phone shows one screen).
   const paneOpen = phone || threadId !== null || showAssistant
   const assistantOnly = threadId === null
 
@@ -644,8 +619,6 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
             onDoneAll={doneAll}
             onToggleBundle={(name) => setBundle(openBundle === name ? null : { viewKey, name })}
             threadHref={(id) => href({ ...route, threadId: id })}
-            // A click on the open thread closes it again; a click while threads are checked opens
-            // that one thread and lets the selection go.
             onOpen={(id) => {
               if (selected.size) {
                 select(new Set())
@@ -767,8 +740,6 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   )
 }
 
-/** On a phone, notices (Undo, failures) and the update prompt float at the foot of the screen,
- * clear of the Compose button and the assistant's bar. */
 function Toast({ notice, update, place }: { notice: Notice | null; update: boolean; place: 'list' | 'sheet' | 'bottom' }) {
   return (
     <div className={`${styles.toast} ${styles[place] ?? ''}`} role="status">
@@ -794,7 +765,7 @@ function Toast({ notice, update, place }: { notice: Notice | null; update: boole
   )
 }
 
-/** The threads of a list's pages, each once (a thread can move between pages as mail arrives). */
+// A thread can move between pages as mail arrives, so keep each once.
 function unique(pages: ThreadPage[] | undefined): ThreadSummary[] {
   const seen = new Set<number>()
   return (pages ?? []).flatMap((page) => page.threads).filter((t) => !seen.has(t.id) && !!seen.add(t.id))

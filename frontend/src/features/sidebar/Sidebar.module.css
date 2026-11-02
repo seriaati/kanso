@@ -91,7 +91,6 @@
   color: var(--muted);
 }
 
-/* Only the labels scroll; the account switcher, Compose and mailboxes stay in place. */
 .labels {
   flex: 1;
   min-height: 0;
@@ -101,7 +100,6 @@
   gap: 2px;
 }
 
-/* On hover, the unread count gives way to the "more actions" button. */
 .labelRow {
   position: relative;
   display: flex;
@@ -140,7 +138,7 @@
   color: var(--ink);
 }
 
-/* With a mouse only; on a touch screen labels are edited in Settings. */
+/* On a touch screen labels are edited in Settings. */
 @media (hover: hover) {
   .labelRow:hover .edit {
     display: grid;
@@ -191,7 +189,6 @@
   font-size: var(--text-small);
 }
 
-/* Each notice rises in (a new one replaces the old). */
 @starting-style {
   .notice {
     opacity: 0;
@@ -227,8 +224,6 @@
   text-overflow: ellipsis;
 }
 
-/* A phone: the sidebar is a drawer over the list, opened from the list's menu button. Rows are
-   44px tap targets. */
 @media (max-width: 767px) {
   .drawer {
     position: fixed;

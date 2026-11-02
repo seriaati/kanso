@@ -1,4 +1,3 @@
-/* A small menu under the toolbar's Label button. It covers only the top of the email, while open. */
 .picker {
   position: absolute;
   z-index: 10;

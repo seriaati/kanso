@@ -1,8 +1,6 @@
 import type { ReactNode } from 'react'
 
-// The assistant's answers in a tiny, safe subset of Markdown: paragraphs, "- " and "1. " lists,
-// **bold**, and links to threads written as [subject](thread:123). Everything is rendered as
-// React text (escaped); any other link or markup shows as the plain text it is.
+// A tiny Markdown subset rendered as escaped React text; any other markup shows as plain text.
 
 type Props = { text: string; threadHref: (id: number) => string; onOpenThread: (id: number) => void }
 

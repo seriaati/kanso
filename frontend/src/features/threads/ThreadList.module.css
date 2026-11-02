@@ -8,7 +8,6 @@
   transition: flex-basis var(--slow) var(--ease);
 }
 
-/* Nothing open: the list takes the whole width, and narrows as the email pane comes in. */
 :global([data-pane='closed']) .list {
   flex-basis: 100%;
   border-right-color: transparent;
@@ -87,7 +86,6 @@
   transition: opacity var(--medium) ease;
 }
 
-/* With the email pane open, an empty search box folds to its icon, and unfolds while focused. */
 :global([data-pane='open']) .search:not(:focus-within):has(input:placeholder-shown) {
   flex-basis: 32px;
   gap: 0;
@@ -141,13 +139,10 @@
   overflow-y: auto;
 }
 
-/* Room under the last rows for the selection bar. */
 .underBar {
   padding-bottom: 64px;
 }
 
-/* While threads are checked: their actions (features/reader/Selection), floating at the foot of
-   the list, centered. */
 .selectionBar {
   position: absolute;
   z-index: 4;
@@ -170,7 +165,6 @@
   color: var(--muted);
 }
 
-/* Inbox zero: the ensō is drawn in one stroke, then the line fades in under it. */
 .enso {
   display: block;
   width: 64px;
@@ -209,7 +203,6 @@
   }
 }
 
-/* Thread rows: compact single lines. On hover the time swaps for quick actions. */
 .row {
   position: absolute;
   top: 0;
@@ -219,7 +212,7 @@
   display: flex;
   align-items: center;
   border-radius: var(--radius);
-  /* When threads leave (Done, Delete) or a bundle opens, the rows below glide into place. */
+  /* Rows glide into place when threads leave or a bundle opens. */
   transition:
     transform var(--medium) var(--ease),
     background-color var(--fast) ease;
@@ -233,19 +226,17 @@
   background: var(--selected);
 }
 
-/* Density: Comfortable (the account menu). On a phone, rows keep their own height (below). */
+/* Comfortable density; phones keep their own row height. */
 @media (min-width: 768px) {
   .comfortable .row {
     height: 40px;
   }
 }
 
-/* Its right-click menu is open. */
 .row.menuOpen {
   background: var(--hover);
 }
 
-/* Picked with x: actions apply to every checked row. */
 .row.checked {
   background: var(--hover);
 }
@@ -383,8 +374,7 @@
     translate var(--fast) ease;
 }
 
-/* Only with a mouse: on a touch screen rows are swiped instead (a tap would leave a row
-   "hovered"). */
+/* Mouse only: touch screens swipe rows, and a tap would leave a row "hovered". */
 @media (hover: hover) {
   .row:hover .time,
   .row:hover .star,
@@ -428,7 +418,6 @@
   color: var(--accent);
 }
 
-/* The grouped inbox: a header per label section, and bundles as collapsed rows at the foot. */
 .section,
 .bundle {
   position: absolute;
@@ -556,7 +545,7 @@
   text-overflow: ellipsis;
 }
 
-/* The menu button that opens the sidebar drawer: phones only. */
+/* Opens the sidebar drawer; phones only. */
 .menu {
   flex: none;
   width: 44px;
@@ -569,7 +558,6 @@
   place-items: center;
 }
 
-/* Swiping a row: what letting go does shows behind it. */
 .swipe {
   position: absolute;
   inset: 0;
@@ -595,7 +583,7 @@
   transition: transform 0.2s ease;
 }
 
-/* A row being swiped is opaque, over its backdrop. */
+/* Opaque, over the swipe backdrop. */
 .moving {
   background: var(--paper);
 }
@@ -608,16 +596,13 @@
   background: var(--selected);
 }
 
-/* A phone: the list is the whole screen. Rows are two lines (sender and time, then subject and
-   snippet) and 64px tall, and swipe for Done and Delete. Tap targets are at least 44px. */
 @media (max-width: 767px) {
   .list {
     flex: 1 1 auto;
     border-right: 0;
   }
 
-  /* While a thread is open its screen covers the list, which stays mounted (and keeps its
-     scroll position) underneath. */
+  /* Hidden, not unmounted, so it keeps its scroll position under the open thread. */
   :global([data-screen='thread']) .list {
     visibility: hidden;
   }

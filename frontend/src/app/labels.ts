@@ -2,9 +2,8 @@ import { useMutation } from '@tanstack/react-query'
 import { api, queryClient } from './api'
 import type { Label } from './mail'
 
-// Label management (backend: kanso/api/labels.py). A label in the sidebar may stand for one
-// label per account (merged by name), so rename, recolor and delete apply to all of its ids.
-// Description, AI-managed and bundle are kanso's own settings, not stored in Gmail.
+// A sidebar label may merge one label per account (by name), so changes apply to all its ids.
+// LabelSettings are kanso's own, not stored in Gmail.
 
 export type LabelSettings = { description?: string; ai_managed?: boolean; is_bundle?: boolean }
 
@@ -32,8 +31,7 @@ export function useUpdateLabel() {
 export function useDeleteLabel() {
   return useMutation({
     mutationFn: (ids: number[]) => Promise.all(ids.map((id) => api(`/labels/${id}`, { method: 'DELETE' }))),
-    // Lists refetch when next shown: the deleted label's own list would only get a 404 before
-    // the view moves away from it.
+    // Refetch lists only when next shown: the deleted label's list would just get a 404.
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['labels'] })
       void queryClient.invalidateQueries({ queryKey: ['threads'], refetchType: 'none' })

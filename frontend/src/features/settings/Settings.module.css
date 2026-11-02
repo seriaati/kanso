@@ -1,4 +1,3 @@
-/* Settings: one calm column in place of the list and the email pane. */
 .settings {
   flex: 1 1 auto;
   min-width: 0;
@@ -310,7 +309,6 @@
   margin-top: 4px;
 }
 
-/* A phone: full width, 44px tap targets, and the usage table scrolls sideways if it must. */
 @media (max-width: 767px) {
   .header {
     min-height: 0;

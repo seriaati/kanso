@@ -22,22 +22,16 @@ import { Icon } from '../../components/Icon'
 import { Markdown } from './markdown'
 import styles from './Assistant.module.css'
 
-// The assistant, docked at the foot of the email pane (never over the list or the email): the
-// open thread's summary, then the conversation, then the input. It answers about "this thread"
-// (the open one; the chip can be removed) or all mail, and proposes changes the user confirms.
-// The conversation is stored on the server; the browser remembers which one is open.
-
 const MINIMIZED_KEY = 'kanso.assistant.minimized'
 const CONVERSATION_KEY = 'kanso.assistant.conversation'
-// A long thread is summarized after it has been open this long, so stepping through threads
-// with j/k doesn't start a summary for each one passed.
+// Delay before auto-summarizing, so stepping through threads with j/k doesn't start one each.
 const AUTO_DELAY_MS = 400
 
 function read(key: string): string | null {
   try {
     return localStorage.getItem(key)
   } catch {
-    return null // storage blocked
+    return null
   }
 }
 
@@ -56,28 +50,23 @@ type Props = {
   threadId: number | null
   threadHref: (id: number) => string
   onOpenThread: (id: number) => void
-  /** A notice at the foot of the sidebar, with Undo for a confirmed change. */
   onNotice: (text: string, undo?: () => void) => void
-  /** The phone layout: a bottom sheet under the thread, closed until opened. */
   phone: boolean
-  /** Alone in the email pane (no thread open): it fills the pane, and closes instead of
-   * minimizing. */
+  /** Set when alone in the email pane: it closes instead of minimizing. */
   onClose?: () => void
   ref?: Ref<AssistantHandle>
 }
 
-/** A question or decision being answered: the conversation as it was (`base`), what streamed in
- * since, and how it ended. Shown until the stored conversation has caught up. */
+// Shown until the stored conversation has caught up.
 type Live = { base: ChatItem[]; items: ChatItem[]; error: string | null; endedAt: number | null }
 
 export function Assistant({ threadId, threadHref, onOpenThread, onNotice, phone, onClose, ref }: Props) {
-  // On a phone the sheet starts closed with every thread opened from the list (not remembered).
   const [minimizedDocked, setMinimized] = useState(() => phone || read(MINIMIZED_KEY) === '1')
   const alone = !!onClose
   const minimized = minimizedDocked && !alone
   const [conversationId, setConversationId] = useState(() => Number(read(CONVERSATION_KEY)) || null)
   const [history, setHistory] = useState(false)
-  // "this thread" is on for each newly opened thread; removing the chip asks about all mail.
+  // The "this thread" chip comes back for each newly opened thread.
   const [scope, setScope] = useState<{ threadId: number | null; all: boolean }>({ threadId, all: false })
   const allMail = threadId === null || (scope.threadId === threadId && scope.all)
   const [draft, setDraft] = useState('')
@@ -87,10 +76,10 @@ export function Assistant({ threadId, threadHref, onOpenThread, onNotice, phone,
   useEffect(() => () => abort.current?.abort(), [])
   const inputRef = useRef<HTMLInputElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
-  const atBottom = useRef(true) // the conversation is scrolled to its end
+  const atBottom = useRef(true)
 
   const conversation = useConversation(conversationId, true)
-  // A conversation that is gone (deleted elsewhere, or pruned) starts over.
+  // Deleted elsewhere or pruned: start over.
   const gone = conversation.error instanceof ApiError && conversation.error.status === 404
   const current = gone ? null : conversationId
   const stored = (!gone && conversation.data?.items) || []
@@ -109,7 +98,6 @@ export function Assistant({ threadId, threadHref, onOpenThread, onNotice, phone,
     if (!phone) write(MINIMIZED_KEY, '0')
     setMinimized(false)
   }
-  // Opened on its own (q): ready to type in.
   useEffect(() => {
     if (alone) inputRef.current?.focus()
   }, [alone])
@@ -129,7 +117,6 @@ export function Assistant({ threadId, threadHref, onOpenThread, onNotice, phone,
       })
       .catch((error: Error) => onNotice(`Couldn’t undo: ${error.message}`))
 
-  /** Stream an answer into `live`, then let the stored conversation take over. */
   const stream = (start: (onEvent: (event: ChatEvent) => void, signal: AbortSignal) => Promise<void>, first: ChatItem[]) => {
     abort.current?.abort()
     const controller = new AbortController()
@@ -202,10 +189,9 @@ export function Assistant({ threadId, threadHref, onOpenThread, onNotice, phone,
     stream((onEvent, signal) => decide(id, action.id, confirm, onEvent, signal), [])
   }
 
-  // Keep the newest part of the conversation in view as it grows.
   const last = items.at(-1)
   const size = `${items.length}:${last && last.kind !== 'action' ? last.text.length : ''}:${live?.error ?? ''}`
-  // It stays at the bottom unless the reader scrolled up, also when the summary above it appears.
+  // Stays at the bottom unless the reader scrolled up, also when the summary above appears.
   useLayoutEffect(() => {
     const body = bodyRef.current
     if (body && atBottom.current) body.scrollTop = body.scrollHeight
@@ -372,7 +358,6 @@ function Item({ item, busy, threadHref, onOpenThread, onDecide, onUndo }: ItemPr
 
 const count = (n: number) => (n === 1 ? '1 thread' : `${n} threads`)
 
-/** "Archive 2 threads?" while it waits; "Archived 2 threads." once confirmed. */
 function describe(action: AssistantAction, done: boolean): string {
   const n = count(action.threads.length)
   switch (action.tool) {
@@ -391,7 +376,7 @@ type ProposalProps = Omit<ItemProps, 'item'> & { action: AssistantAction }
 
 function Proposal({ action, busy, threadHref, onOpenThread, onDecide, onUndo }: ProposalProps) {
   let footer
-  // Made without asking (confirmation is off in Settings).
+  // Made without asking: confirmation is off in Settings.
   const auto = action.auto && action.status !== 'pending'
   switch (action.status) {
     case 'pending':
@@ -487,11 +472,9 @@ function when(iso: string): string {
   return today ? date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-/** A summary being written: its text so far, or why it failed. */
 type Run = { text: string; error: string | null }
 
-/** The open thread's summary (Phase 7). Mounted only while the panel is open, so a minimized
- * panel never starts one. */
+// Mounted only while the panel is open, so a minimized panel never starts a summary.
 function SummaryCard({ threadId }: { threadId: number }) {
   const state = useSummaryState(threadId)
   const [run, setRun] = useState<Run | null>(null)
@@ -516,8 +499,7 @@ function SummaryCard({ threadId }: { threadId: number }) {
   const startLater = useEffectEvent(start)
 
   const data = state.data
-  // A long thread without a summary of its latest message gets one, once per open (a failure
-  // waits for "Try again").
+  // Once per open; a failure waits for "Try again".
   const auto = !!data?.long && !data.summary && run === null
   useEffect(() => {
     if (!auto) return
@@ -525,7 +507,7 @@ function SummaryCard({ threadId }: { threadId: number }) {
     return () => clearTimeout(timer)
   }, [auto])
 
-  // Nothing to summarize (a thread of drafts only), or the thread is gone.
+  // A thread of drafts only, or one that is gone.
   if (state.isError || !data || data.messages === 0) return null
   const lang = data.lang ?? undefined
   if (run?.error)

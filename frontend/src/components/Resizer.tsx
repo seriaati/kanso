@@ -7,20 +7,16 @@ const STEP = 24 // arrow keys
 
 type Props = {
   label: string
-  /** The width of the panel before the handle. */
   width: number
-  /** `done` once a drag (or a key press) ends: the width to keep. */
+  /** `done` once a drag or key press ends. */
   onResize: (width: number, done: boolean) => void
-  /** Double-click: back to the default width. */
   onReset: () => void
 }
 
-/** A drag handle on the right edge of the element before it: drag, or focus it and use the arrow
- * keys, to resize that element. */
+// Resizes the element before it.
 export function Resizer({ label, width, onResize, onReset }: Props) {
   const drag = useRef<{ x: number; width: number; max: number; last: number } | null>(null)
 
-  /** The panel's size and the widest it may get, measured now. */
   const measure = (handle: HTMLElement) => {
     const box = (handle.previousElementSibling as HTMLElement).getBoundingClientRect()
     return { width: box.width, max: Math.max(MIN, window.innerWidth - box.left - MIN_AFTER) }

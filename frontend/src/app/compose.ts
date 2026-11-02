@@ -2,8 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api, CSRF, queryClient } from './api'
 import type { Address } from './mail'
 
-// Writing mail (backend: kanso/api/compose.py). A draft is created on the server first; every
-// autosave writes it to a real Gmail draft.
+// Every autosave writes the draft to a real Gmail draft.
 
 export type DraftAttachment = { id: string; filename: string; mime_type: string; size: number }
 
@@ -46,7 +45,7 @@ async function openByMessage(messageId: number) {
   return draft
 }
 
-/** The draft behind a draft message of a thread (also one written in Gmail). */
+// Also opens drafts written in Gmail.
 export function useOpenDraft(messageId: number | undefined) {
   return useQuery({
     queryKey: ['draft-of', messageId],
@@ -81,7 +80,6 @@ export function discardDraft(id: number) {
   return api(`/drafts/${id}`, { method: 'DELETE' })
 }
 
-/** Upload a file as the request body (no multipart encoding needed). */
 export async function attach(id: number, file: File): Promise<Draft> {
   const response = await fetch(`/api/drafts/${id}/attachments?filename=${encodeURIComponent(file.name)}`, {
     method: 'POST',
@@ -109,13 +107,10 @@ export function useContacts(query: string) {
   })
 }
 
-/** Mail changed (sent, saved, discarded): refetch what shows it. */
 export function refreshMail() {
   for (const key of ['threads', 'thread', 'labels']) void queryClient.invalidateQueries({ queryKey: [key] })
 }
 
-/** "Ana <ana@example.com>", "ana@example.com" or a list of them, as typed or pasted. Returns the
- * addresses and whatever couldn't be read as one. */
 export function parseAddresses(text: string): { addresses: Address[]; rest: string } {
   const addresses: Address[] = []
   const rest: string[] = []

@@ -3,9 +3,7 @@ import { api, queryClient } from './api'
 import type { IconName } from '../components/Icon'
 import type { Section, ThreadDetail, ThreadPage, ThreadSummary } from './mail'
 
-// Triage actions (backend: kanso/api/actions.py). The server changes its mirror at once and
-// writes back to Gmail in the background; here the change shows before the server answers, and
-// is rolled back only if the request fails.
+// Optimistic triage actions, rolled back if the request fails.
 
 export type ThreadAction =
   | 'done'
@@ -24,10 +22,9 @@ export type ThreadAction =
 export type ActionInput = {
   action: ThreadAction
   threads: ThreadSummary[]
-  /** For label/unlabel: the label's name, and its id in each account (account id -> label id). */
+  /** account id -> label id */
   label?: { name: string; ids: Map<number, number> }
-  /** "Done all" on a section or bundle of the grouped inbox: the server finds its threads (some
-   * may not be loaded here); `threads` are the loaded ones. */
+  /** "Done all": the server finds the section's threads; `threads` are only the loaded ones. */
   section?: SectionScope
 }
 
@@ -35,7 +32,6 @@ export type SectionScope = { name: string | null; bundle: boolean; account_id: n
 
 const sectionKey = (name: string | null | undefined, bundle: boolean) => `${bundle ? 'b' : 's'}:${name ?? ''}`
 
-/** A thread as it is after the action. */
 export function applied(thread: ThreadSummary, { action, label }: Omit<ActionInput, 'threads'>): ThreadSummary {
   switch (action) {
     case 'done':
@@ -63,8 +59,7 @@ export function applied(thread: ThreadSummary, { action, label }: Omit<ActionInp
   }
 }
 
-/** Whether a thread belongs in the list with these API parameters (see mail.ts viewParams).
- * Search results can't be judged here, so only Trash leaves them. */
+// Search results can't be judged here, so only Trash leaves them.
 export function inList(params: URLSearchParams, thread: ThreadSummary): boolean {
   const mailbox = params.get('mailbox')
   if (mailbox === 'trash') return thread.in_trash
@@ -78,10 +73,8 @@ export function inList(params: URLSearchParams, thread: ThreadSummary): boolean 
 }
 
 
-/** The four triage toggles: on hover rows, in the toolbar and on the keyboard. */
 export type Quick = 'done' | 'delete' | 'star' | 'important'
 
-/** A quick action's look for a thread (or several): icon, name with its shortcut, toggle state. */
 export function quickAction(quick: Quick, threads: ThreadSummary[]): { icon: IconName; title: string; pressed?: boolean } {
   const all = (test: (t: ThreadSummary) => boolean) => threads.length > 0 && threads.every(test)
   switch (quick) {
@@ -98,7 +91,6 @@ export function quickAction(quick: Quick, threads: ThreadSummary[]): { icon: Ico
   }
 }
 
-/** Which action a quick toggle means for these threads. */
 export function quickTarget(quick: Quick, threads: ThreadSummary[]): ThreadAction {
   const all = (test: (t: ThreadSummary) => boolean) => threads.every(test)
   switch (quick) {
@@ -139,7 +131,6 @@ function patchCaches(input: ActionInput): Snapshot {
       })),
     })
   }
-  // The grouped inbox's section counts follow (all of a section for "Done all").
   const fewer = new Map<string, number>()
   for (const key of left.values()) fewer.set(key, (fewer.get(key) ?? 0) + 1)
   const cleared = input.section && sectionKey(input.section.name, input.section.bundle)
@@ -186,8 +177,7 @@ export function useThreadAction(onError: (message: string) => void) {
       for (const [key, data] of snapshot ?? []) queryClient.setQueryData(key, data)
       onError(error.message)
     },
-    // Refetch once the last of a quick run of actions (e e e) is in, so an earlier refetch
-    // doesn't briefly bring back a thread a later action removed.
+    // Refetch only after the last of a quick run (e e e), so a stale refetch can't bring a thread back.
     onSettled: () => {
       if (queryClient.isMutating({ mutationKey }) === 1) refreshAll()
     },

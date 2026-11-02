@@ -1,8 +1,6 @@
 import { useSyncExternalStore } from 'react'
 
-// How tall the thread list's rows are on a wide screen: compact (the default) or comfortable.
-// This browser's own pick, kept in localStorage and set in the account menu. Phones keep their
-// two-line rows either way.
+// Per browser, wide screens only: phones keep their two-line rows either way.
 
 export type Density = 'compact' | 'comfortable'
 

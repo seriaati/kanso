@@ -1,6 +1,6 @@
 import { useRef, useState, type MouseEvent, type PointerEvent } from 'react'
 
-/** Which way a row was swiped: right is Done, left is Delete. */
+/** Right is Done, left is Delete. */
 export type SwipeDirection = 'right' | 'left'
 
 const START = 10 // px of sideways movement before a touch counts as a swipe
@@ -8,9 +8,7 @@ const FAR_ENOUGH = 0.35 // of the row's width, at most MAX_DISTANCE, to act on r
 const MAX_DISTANCE = 120
 const RESET_MS = 300
 
-/** Swipe a list row sideways with a finger (pointer events, touch only; mice keep the hover
- * actions). The row follows the finger; released far enough, it slides out and `onSwipe` runs.
- * Vertical movement is left to the browser's scrolling (the row has `touch-action: pan-y`). */
+// Touch only (mice keep the hover actions); vertical movement is left to scrolling (pan-y).
 export function useSwipe(onSwipe: (direction: SwipeDirection) => void) {
   const [offset, setOffset] = useState(0)
   const [dragging, setDragging] = useState(false)

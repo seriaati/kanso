@@ -2,20 +2,17 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from
 import { Icon, type IconName } from './Icon'
 import styles from './Menu.module.css'
 
-export type MenuItem = { icon: IconName; label: string; onSelect: () => void; /** e.g. "e" */ shortcut?: string }
+export type MenuItem = { icon: IconName; label: string; onSelect: () => void; shortcut?: string }
 
 type Props = {
-  /** The button the menu opens from (it shows below it), or a point (a right-click): either way
-   * kept inside the window. */
+  /** A button (the menu shows below it) or a right-click point. */
   anchor: HTMLElement | { x: number; y: number }
   label: string
   items: MenuItem[]
   onClose: () => void
 }
 
-/** A small menu of actions: "more actions" under a button, or a context menu. Fixed to the
- * window, so a scrolling container doesn't clip it; ↑/↓ move between items; it closes on Esc, a
- * click outside, scrolling or a pick. */
+// Fixed to the window, so a scrolling container doesn't clip it.
 export function Menu({ anchor, label, items, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const [place, setPlace] = useState<{ top: number; left: number } | null>(null)
@@ -26,11 +23,11 @@ export function Menu({ anchor, label, items, onClose }: Props) {
     const box = button ? button.getBoundingClientRect() : null
     const x = box ? box.left : (anchor as { x: number }).x
     let top = box ? box.bottom + 4 : (anchor as { y: number }).y
-    // Opened near the foot of the window: above the point (or the button) instead.
+    // Near the foot of the window, open upwards.
     if (top + menu.offsetHeight > window.innerHeight - 8) top = (box ? box.top - 4 : top) - menu.offsetHeight
     setPlace({ top: Math.max(8, top), left: Math.max(8, Math.min(x, window.innerWidth - menu.offsetWidth - 8)) })
   }, [anchor, button])
-  // The first item takes the focus once the menu is in place (hidden until then, it can't).
+  // Focus the first item once placed: while hidden it can't take focus.
   const placed = place !== null
   useEffect(() => {
     if (placed) ref.current?.querySelector('button')?.focus()
@@ -40,9 +37,8 @@ export function Menu({ anchor, label, items, onClose }: Props) {
       const target = event.target as Node
       if (ref.current?.contains(target) || button?.contains(target)) return
       onClose()
-      // A context menu (opened at a point): the click that dismisses it does nothing else, as
-      // with the system's menus (e.g. it doesn't open or close the row it was for). Dropped once
-      // the press is over, in case it never becomes a click.
+      // Like system context menus, the dismissing click does nothing else. The swallow is
+      // dropped after the press, in case it never becomes a click.
       if (button) return
       const swallow = (click: MouseEvent) => {
         click.preventDefault()

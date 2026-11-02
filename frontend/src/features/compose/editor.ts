@@ -1,6 +1,4 @@
-// The body editor is a plain contenteditable with the browser's own editing commands. Its HTML
-// is kept to plain rich text: bold, italic, links, lists, line breaks. The server sanitizes it
-// again (nh3) before it goes anywhere.
+// The server sanitizes the body again (nh3) before it goes anywhere.
 
 const KEEP = new Set(['B', 'STRONG', 'I', 'EM', 'A', 'UL', 'OL', 'LI', 'BR', 'P', 'DIV', 'BLOCKQUOTE'])
 const DROP = new Set(['SCRIPT', 'STYLE', 'TITLE', 'HEAD', 'META', 'LINK', 'TEMPLATE', 'IFRAME', 'OBJECT', 'SVG', 'MATH', 'IMG'])
@@ -40,8 +38,7 @@ function clean(source: Node, target: Node, doc: Document) {
   }
 }
 
-/** Plain rich text from any HTML (a paste, a stored draft). DOMParser documents are inert: no
- * scripts run and no images load while this reads them. */
+// DOMParser documents are inert: no scripts run and no images load while this reads them.
 export function cleanHtml(html: string): string {
   const parsed = new DOMParser().parseFromString(html, 'text/html')
   const out = document.implementation.createHTMLDocument('')
@@ -50,7 +47,6 @@ export function cleanHtml(html: string): string {
   return root.innerHTML
 }
 
-/** Whether the editor holds anything worth sending. */
 export function isBlank(html: string): boolean {
   return new DOMParser().parseFromString(html, 'text/html').body.textContent?.trim() === ''
 }

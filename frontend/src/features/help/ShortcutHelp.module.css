@@ -1,4 +1,3 @@
-/* The one overlay in the app: a small card, closed with Esc, ? or a click outside. */
 .backdrop {
   position: fixed;
   inset: 0;

@@ -1,6 +1,5 @@
 import { MutationCache, QueryClient } from '@tanstack/react-query'
 
-/** The API answered with an error; `status` is the HTTP status. */
 export class ApiError extends Error {
   readonly status: number
   constructor(message: string, status: number) {
@@ -9,13 +8,11 @@ export class ApiError extends Error {
   }
 }
 
-/** The API answered 401: there is no valid session, so the login screen shows. */
 export class Unauthorized extends ApiError {}
 
 type Options = { method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; body?: unknown; keepalive?: boolean }
 
-/** Sent with every request: the API refuses changes without it (CSRF protection), and a page on
- * another site can't add it. */
+// CSRF protection: the API refuses changes without it, and a cross-site page can't add it.
 export const CSRF = { 'X-Requested-With': 'kanso' }
 
 export async function api<T = void>(path: string, { method = 'GET', body, keepalive }: Options = {}): Promise<T> {
@@ -37,8 +34,7 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: { retry: (count, error) => !(error instanceof Unauthorized) && count < 2 },
   },
-  // A mutation that finds the session gone re-checks it, which brings up the login screen. Not
-  // while logged out already: refetching would unmount the login form and its error.
+  // Re-check the session (bringing up login), but not when already logged out: that would unmount the form.
   mutationCache: new MutationCache({
     onError: (error) => {
       if (error instanceof Unauthorized && queryClient.getQueryData(['accounts']))

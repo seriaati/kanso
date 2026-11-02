@@ -29,9 +29,7 @@ button {
   cursor: pointer;
 }
 
-/* Hovers fade in and out, and buttons give a little when pressed. Zero specificity (:where), so
-   a wide, row-like button turns the press off with `scale: none`: shrinking a whole row reads as
-   the row jumping, not as a press. */
+/* :where keeps zero specificity, so row-like buttons can opt out with `scale: none`. */
 button,
 a {
   transition:
@@ -53,7 +51,7 @@ a:hover {
   color: var(--accent);
 }
 
-/* A phone: mobile browsers zoom into any field with text under 16px when it is focused. */
+/* Mobile browsers zoom into any focused field with text under 16px. */
 @media (max-width: 767px) {
   input,
   textarea,

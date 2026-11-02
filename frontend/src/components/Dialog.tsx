@@ -3,8 +3,7 @@ import styles from './Dialog.module.css'
 
 type Props = { title: string; onClose: () => void; children: ReactNode }
 
-/** A small centered card over a dimmed page (a native modal <dialog>: focus stays inside). It
- * closes with Esc or a click outside. */
+// A native modal <dialog>, so focus stays inside.
 export function Dialog({ title, onClose, children }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
   useEffect(() => {

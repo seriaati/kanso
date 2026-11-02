@@ -4,19 +4,15 @@ import { labelColors, type NamedLabel } from '../../app/mail'
 import styles from './LabelEditor.module.css'
 
 type Props = {
-  /** The label to edit, or undefined to create one. */
   label?: NamedLabel
-  /** Accounts a new label is created in: the one selected, or all of them. */
   accountIds: number[]
-  /** AI is on: the description and AI-managed settings show. */
   ai: boolean
   onDone: (change?: { renamed?: string; deleted?: boolean }) => void
-  /** In a dialog (the sidebar's): no card of its own, and no Delete (the label's menu has it). */
+  /** In the sidebar's dialog: no card of its own, and no Delete (the label's menu has it). */
   plain?: boolean
 }
 
-/** In a dialog from the sidebar, or inline in Settings: name, color, kanso's own settings (description and AI-managed with AI
- * on, bundle always), and Delete for an existing label. Name and color changes go to Gmail. */
+// Name and color go to Gmail; the other settings are kanso's own.
 export function LabelEditor({ label, accountIds, ai, onDone, plain }: Props) {
   const [name, setName] = useState(label?.name ?? '')
   const [color, setColor] = useState(label?.color ?? labelColors[0].value)
@@ -139,7 +135,6 @@ export function LabelEditor({ label, accountIds, ai, onDone, plain }: Props) {
   )
 }
 
-/** Delete a label (from the sidebar's label menu): asks first. */
 export function DeleteLabel({ label, onDone }: { label: NamedLabel; onDone: (deleted: boolean) => void }) {
   const remove = useDeleteLabel()
   return (

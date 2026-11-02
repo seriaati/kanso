@@ -10,7 +10,6 @@ import styles from './AccountSwitcher.module.css'
 type Props = {
   accounts: Account[]
   selected: Account | null
-  /** AI is on: the menu says so if Anthropic rejected the API key. */
   ai: boolean
   onSelect: (id: number | null) => void
 }
@@ -34,8 +33,6 @@ const densities: { density: Density; icon: IconName; name: string }[] = [
   { density: 'comfortable', icon: 'comfortable', name: 'Comfortable' },
 ]
 
-/** Choose All accounts or one; the menu also leads to Settings (where accounts are connected,
- * renamed and disconnected) and logs out. */
 export function AccountSwitcher({ accounts, selected, ai, onSelect }: Props) {
   const [open, setOpen] = useState(false)
   const keyRejected = useAiUsage(open && ai).data?.key_rejected

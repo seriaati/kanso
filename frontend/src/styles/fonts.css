@@ -1,6 +1,5 @@
-/* Render-blocking fonts: only the small Latin subsets, so the UI paints right away in the brand
-   fonts. Rules copied from @fontsource's CSS (woff2 only). Everything else, the Japanese and
-   Chinese chunks included, loads after first paint from src/fonts-deferred.ts. */
+/* Render-blocking, so only the small Latin subsets (copied from @fontsource); the rest is in
+   fonts-full.css, linked after first paint. */
 @font-face {
   font-family: 'Zen Maru Gothic';
   font-style: normal;

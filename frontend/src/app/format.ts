@@ -7,7 +7,6 @@ const longDateYear = new Intl.DateTimeFormat(undefined, { weekday: 'short', mont
 
 const DAY = 86_400_000
 
-/** Thread list: "9:41" today, "Tue" this week, "Nov 1" this year, "Nov 1, 2024" before. */
 export function shortDate(iso: string, now = new Date()): string {
   const date = new Date(iso)
   if (date.toDateString() === now.toDateString()) return time.format(date)
@@ -16,7 +15,6 @@ export function shortDate(iso: string, now = new Date()): string {
   return fullDate.format(date)
 }
 
-/** Message header: "Sun, Nov 1, 9:41", with the year when it isn't this year. */
 export function longDateTime(iso: string, now = new Date()): string {
   const date = new Date(iso)
   const day = date.getFullYear() === now.getFullYear() ? longDate : longDateYear

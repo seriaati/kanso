@@ -1,5 +1,4 @@
-/* No width of its own: the list's hairline is the divider. The handle is a wider strip over it,
-   and the line warms to the accent while hovered or dragged. */
+/* No width of its own: the list's hairline is the divider, with a wider handle over it. */
 .resizer {
   position: relative;
   z-index: 3;

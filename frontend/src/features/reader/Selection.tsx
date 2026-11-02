@@ -5,18 +5,14 @@ import { Icon, type IconName } from '../../components/Icon'
 import styles from './Selection.module.css'
 
 type Props = {
-  /** The checked threads (Ctrl/⌘-click, Shift-click or x in the list). */
   threads: ThreadSummary[]
   onQuick: (quick: Quick) => void
   onRead: (unread: boolean) => void
   onLabel: () => void
-  /** The label picker, while open; it opens upward from the Label button. */
   picker: ReactNode
   onClear: () => void
 }
 
-/** A bar floating at the foot of the thread list while threads are checked: how many, and the
- * actions that apply to all of them at once. */
 export function Selection({ threads, onQuick, onRead, onLabel, picker, onClear }: Props) {
   const count = threads.length
   const quick = (q: Quick) => {

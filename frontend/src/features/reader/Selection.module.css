@@ -1,4 +1,4 @@
-/* Floats at the foot of the thread list (ThreadList.module.css places it), over the rows. */
+/* Positioned by ThreadList.module.css (.selectionBar). */
 .bar {
   max-width: 100%;
   display: flex;
@@ -14,7 +14,6 @@
     translate var(--slow) var(--ease);
 }
 
-/* It rises into place as the first thread is checked. */
 @starting-style {
   .bar {
     opacity: 0;

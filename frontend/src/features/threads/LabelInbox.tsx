@@ -5,12 +5,9 @@ import styles from './ThreadList.module.css'
 
 type Props = {
   accountId: number | null
-  /** The run finished: a line for the notice. */
   onFinished: (text: string) => void
 }
 
-/** "Label existing inbox", in the header of the unlabeled section: Claude sorts the inbox threads
- * that have no label yet. It says how many first, asks, then shows its progress. */
 export function LabelInbox({ accountId, onFinished }: Props) {
   const status = useLabelInbox(accountId, true)
   const start = useStartLabelInbox()

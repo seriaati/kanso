@@ -1,5 +1,4 @@
-/* Defaults inside an email's frame (EmailFrame.tsx). The email's own styles override them. The
-   tokens bring the font stacks and the :lang() overrides for Chinese. */
+/* Defaults the email's own styles override. The tokens bring the fonts and :lang() overrides. */
 @import '../../styles/tokens.css';
 
 html {
@@ -38,7 +37,7 @@ pre {
   white-space: pre-wrap;
 }
 
-/* The dark theme: the email on a light sheet in the dark pane. */
+/* A styled email in the dark theme: a light sheet in the dark pane. */
 html[data-sheet] {
   background: var(--surface);
 }

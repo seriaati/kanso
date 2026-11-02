@@ -9,11 +9,9 @@ import { Composer, type Focus } from '../compose/Composer'
 import { EmailFrame } from './EmailFrame'
 import styles from './Reader.module.css'
 
-// Whether the HTML refers to remote images (<img src>, srcset, background attributes, CSS url()),
-// to offer "Show images". The frame's CSP blocks them either way.
+// Remote images, to offer "Show images". The frame's CSP blocks them either way.
 const REMOTE = /(?:\b(?:src|srcset|background)\s*=\s*["']?\s*|url\(\s*["']?\s*)(?:https?:)?\/\//i
 
-/** A draft composer docked in a thread: one App just opened (r, a, f), or the thread's own draft. */
 export type ThreadDraft = { threadId: number; draftId: number; focus: Focus | null }
 
 type Props = {
@@ -21,19 +19,16 @@ type Props = {
   myEmails: Set<string>
   accounts: Account[]
   reply: ThreadDraft | null
-  /** A draft was sent or discarded. */
   onComposeFinished: (notice: string, threadId?: number | null) => void
   onCloseReply: () => void
   onReply: (mode: Exclude<ComposeMode, 'new'>) => void
   onCloseThread: () => void
-  /** What the toolbar acts on: the checked threads, else the open (or cursor) thread. */
+  /** The checked threads, else the open (or cursor) thread. */
   targets: ThreadSummary[]
   onQuick: (quick: Quick) => void
   onToggleRead: () => void
   onLabel: () => void
-  /** The label picker, while open; it drops down from the Label button. */
   picker: ReactNode
-  /** The phone layout: the reader is a screen of its own, with a back button. */
   phone: boolean
   onBack: () => void
 }
@@ -46,8 +41,7 @@ export function Reader(props: Props) {
   const draftOnly = !!detail && drafts.length === detail.messages.length
   const opened = useOpenDraft(drafts.at(-1)?.id)
 
-  // The thread's draft composer. Pinned once shown, since every autosave gives the draft a new
-  // message (and so a new lookup). One closed with Esc stays closed while the thread is open.
+  // Pinned once shown, since every autosave gives the draft a new message (and so a new lookup).
   const [shown, setShown] = useState<ThreadDraft | null>(null)
   const [closedIn, setClosedIn] = useState<{ threadId: number | null; ids: Set<number> }>({ threadId, ids: new Set() })
   const closed = closedIn.threadId === threadId ? closedIn.ids : new Set<number>()
@@ -56,8 +50,7 @@ export function Reader(props: Props) {
   if (!active && threadId !== null && opened.data && !closed.has(opened.data.id))
     setShown({ threadId, draftId: opened.data.id, focus: null })
 
-  /** Closing a docked draft keeps it closed in this thread (a "Draft" row reopens it); a draft
-   * that is the whole thread just goes back to the list. */
+  // A docked draft closed here stays closed in this thread until its "Draft" row reopens it.
   const closeDraft = (draftId: number, inline: boolean) => {
     if (inline) setClosed((set) => new Set(set).add(draftId))
     setShown(null)
@@ -99,7 +92,6 @@ export function Reader(props: Props) {
       thread.error.message === 'Thread not found' ? (
         <p className={styles.placeholder}>This thread is no longer in your mail.</p>
       ) : (
-        // E.g. kanso was unreachable for a moment (a restart): it can be fetched again.
         <p className={styles.placeholder}>
           Couldn’t load the thread: {thread.error.message}{' '}
           <button type="button" className={styles.retry} onClick={() => void thread.refetch()}>
@@ -277,7 +269,6 @@ function More({ disabled, unread, onToggleRead, onReplyAll, onForward }: MorePro
 type ThreadViewProps = {
   thread: ThreadDetail
   myEmails: Set<string>
-  /** The draft being written in this thread, docked under its messages. */
   composer: ReactNode
   onOpenDraft: (messageId: number) => void
 }
@@ -286,7 +277,7 @@ function ThreadView({ thread, myEmails, composer, onOpenDraft }: ThreadViewProps
   const messages = thread.messages.filter((m) => !m.draft)
   const drafts = composer ? [] : thread.messages.filter((m) => m.draft)
   const lastId = messages.at(-1)?.id
-  // The latest message and unread ones start expanded; a click flips one from its default.
+  // Unread messages and the latest start expanded; a click flips one from its default.
   const [flipped, setFlipped] = useState<Set<number>>(new Set())
   const flip = (id: number) =>
     setFlipped((set) => {
@@ -355,7 +346,7 @@ type MessageViewProps = {
   message: Message
   myEmails: Set<string>
   onCollapse?: () => void
-  /** Expanded by a click (not open from the start): its body grows open. */
+  /** Expanded by a click, not from the start: its body grows open. */
   expanding?: boolean
 }
 
@@ -416,8 +407,6 @@ function MessageView({ message, myEmails, onCollapse, expanding }: MessageViewPr
 
 const URL_PATTERN = /(https?:\/\/[^\s<>"]+)/
 
-/** A plain-text body: paragraphs at blank lines, other line breaks kept, http(s) URLs as links
- * opening in a new tab. */
 function TextBody({ text, lang }: { text: string; lang: string | null }) {
   return (
     <div className={styles.text} lang={lang ?? undefined}>

@@ -2,9 +2,8 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// @fontsource CSS lists a legacy .woff fallback after each woff2. Every browser kanso supports
-// reads woff2, so drop the fallbacks: unreferenced, the .woff files are never emitted. A PostCSS
-// plugin, because it also sees the rules styles/fonts-full.css pulls in with @import.
+// Drops @fontsource's legacy .woff fallbacks so they're never emitted. A PostCSS plugin, so it
+// also sees the rules styles/fonts-full.css pulls in with @import.
 const woff2Only = {
   postcssPlugin: 'kanso-woff2-only',
   Declaration: {
@@ -14,9 +13,7 @@ const woff2Only = {
   },
 }
 
-// The PWA: installable, and the service worker keeps the app shell only. No mail is stored
-// offline and nothing under /api is ever cached: there is no runtime route for it, and
-// navigations to /api (e.g. "Connect account") go to the network.
+// The service worker caches the app shell only: no mail, and nothing under /api.
 const pwa = VitePWA({
   registerType: 'prompt', // a new version waits until the user reloads (app/update.ts)
   injectRegister: false, // registered from main.tsx
@@ -37,19 +34,16 @@ const pwa = VitePWA({
     ],
   },
   workbox: {
-    // The shell: HTML, JS, CSS, icons, and the Latin fonts the first paint uses. Not the
-    // deferred font CSS (~1 MB) or the CJK/other font subsets: they are cached as used, below.
+    // Only the first paint's Latin fonts; the rest (~1 MB of CSS and subsets) is cached on use.
     globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}', 'assets/{zen-maru-gothic,shippori-mincho-b1}-latin-*.woff2'],
     globIgnores: ['**/fonts-full-*.css'],
     navigateFallback: '/index.html',
     navigateFallbackDenylist: [/^\/api(\/|$)/],
     cleanupOutdatedCaches: true,
-    // Notifications of new inbox mail: the push and notificationclick handlers.
     importScripts: ['/push-sw.js'],
     runtimeCaching: [
       {
-        // Fonts and the deferred font CSS as they are used: hashed, so they never change.
-        // Bounded, so a mailbox in many scripts can't grow the cache without end.
+        // Hashed, so they never change. Bounded, so mail in many scripts can't grow it endlessly.
         urlPattern: ({ url, sameOrigin }) =>
           sameOrigin && url.pathname.startsWith('/assets/') && /(\.woff2|\/fonts-full-[\w-]+\.css)$/.test(url.pathname),
         handler: 'CacheFirst',
@@ -63,7 +57,6 @@ const pwa = VitePWA({
   },
 })
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), pwa],
   css: { postcss: { plugins: [woff2Only] } },

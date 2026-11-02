@@ -1,6 +1,3 @@
-/* Design tokens from CLAUDE.md ("Design system"). The light theme is the default; the dark one
-   (below) follows the system, unless a theme is picked in the account menu (data-theme on <html>,
-   set by public/theme.js before the first paint). */
 :root {
   color-scheme: light;
   --paper: #f1efe7;
@@ -23,11 +20,9 @@
   --label-health: #a35a3a;
   --label-bundle: #b8b3a2;
 
-  /* The reader's placeholder avatars and the backdrop behind dialogs. */
   --avatar: #e5dcc8;
   --avatar-ink: #5a4520;
   --scrim: rgb(36 37 32 / 0.18);
-  /* The one shadow: under the new-message window, which floats over the mail. */
   --float-shadow: 0 10px 32px rgb(36 37 32 / 0.14), 0 1px 3px rgb(36 37 32 / 0.08);
 
   --font-ui: 'Zen Maru Gothic', 'Noto Sans SC', 'Noto Sans TC', sans-serif;
@@ -38,19 +33,15 @@
   --text-pane-title: 18px;
   --text-subject: 21px;
 
-  --radius: 8px; /* rows, buttons */
-  --radius-card: 10px; /* inputs, cards */
+  --radius: 8px;
+  --radius-card: 10px;
 
-  /* Motion: short and soft. Everything that moves turns off with prefers-reduced-motion
-     (base.css). */
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --fast: 120ms; /* hovers, presses */
-  --medium: 200ms; /* menus, rows moving, panes */
+  --fast: 120ms;
+  --medium: 200ms;
   --slow: 360ms;
 }
 
-/* Dark: sumi ink on warm charcoal. Same structure as the light theme: the list and app on paper,
-   the sidebar a step darker, the email pane a step lighter. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
@@ -91,9 +82,8 @@
   --float-shadow: 0 10px 32px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.3);
 }
 
-/* Text tagged as Chinese puts the Chinese fonts first; otherwise the Japanese fonts would draw the
-   shared Han characters with Japanese glyph shapes. Plain zh means Simplified; Traditional is last
-   so it wins over the zh prefix match. */
+/* Chinese fonts first, or the Japanese ones draw shared Han characters with Japanese glyphs.
+   Traditional comes last so it wins over the zh prefix match. */
 :lang(zh),
 :lang(zh-Hans),
 :lang(zh-CN),

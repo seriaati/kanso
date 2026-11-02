@@ -1,8 +1,6 @@
 import { useSyncExternalStore } from 'react'
 
-// Light, dark, or the system's setting (the default). The pick is this browser's own, kept in
-// localStorage; public/theme.js applies it before the first paint, and the tokens in
-// styles/tokens.css follow data-theme on <html> (or, without one, prefers-color-scheme).
+// public/theme.js applies the stored pick before the first paint.
 
 export type Theme = 'system' | 'light' | 'dark'
 
@@ -43,7 +41,6 @@ function subscribe(listener: () => void) {
   }
 }
 
-/** The theme picked, and whether the page is dark right now. */
 export function useTheme(): { theme: Theme; dark: boolean } {
   const picked = useSyncExternalStore(subscribe, () => theme)
   const systemDark = useSyncExternalStore(subscribe, () => system.matches)

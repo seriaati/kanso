@@ -1,9 +1,5 @@
-/* The full font subsets (Japanese, Chinese, Greek, Cyrillic…). Not bundled into the main CSS:
-   main.tsx links it after the first paint so its ~1 MB of @font-face rules never block
-   rendering, and every email frame links the same file (a cache hit) so emails use the brand
-   fonts too. The browser fetches only the unicode-range chunks a page uses. The Latin rules
-   repeat styles/fonts.css; they point at the same files, so nothing is downloaded twice. The
-   stacks are in styles/tokens.css. */
+/* Not bundled: ~1 MB of rules that mustn't block rendering. Email frames link it too (a cache hit).
+   The Latin rules repeat fonts.css but point at the same files. */
 @import '@fontsource/zen-maru-gothic/400.css';
 @import '@fontsource/zen-maru-gothic/700.css';
 @import '@fontsource/shippori-mincho-b1/700.css';

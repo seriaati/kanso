@@ -1,12 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from './api'
 
-// Notifications of new inbox mail on this device: the browser subscribes with its vendor's push
-// service and hands the subscription to kanso (backend: kanso/api/notifications.py). The service
-// worker shows them (public/push-sw.js). Each browser or installed app is turned on by itself.
+// Web Push, turned on per browser or installed app; public/push-sw.js shows the notifications.
 
-/** `unsupported`: no Web Push here (plain http, no service worker, or iOS outside a Home Screen
- * app). `denied`: blocked in the browser's site settings. */
+/** `unsupported`: plain http, no service worker, or iOS outside a Home Screen app. */
 export type PushState = 'unsupported' | 'denied' | 'off' | 'on'
 
 async function registration(): Promise<ServiceWorkerRegistration | undefined> {
@@ -45,7 +42,6 @@ async function disable() {
   await subscription.unsubscribe()
 }
 
-/** This device's notification state (undefined until known), and a switch for it. */
 export function usePush() {
   const [state, setState] = useState<PushState>()
   const [pending, setPending] = useState(false)

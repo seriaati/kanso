@@ -1,5 +1,4 @@
-// Notifications of new inbox mail (backend: kanso/sync/notify.py). Loaded into the service
-// worker that vite-plugin-pwa generates (vite.config.ts, workbox.importScripts).
+// Loaded into the generated service worker by workbox.importScripts (vite.config.ts).
 
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {}
@@ -15,8 +14,7 @@ self.addEventListener('push', (event) => {
   )
 })
 
-// A tap opens the thread: in a kanso window already open (the app navigates, no reload), or a
-// new one.
+// Opens the thread in a kanso window already open (the app navigates, no reload), or a new one.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const url = event.notification.data?.url || '/inbox'

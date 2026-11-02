@@ -7,7 +7,7 @@ import styles from './Login.module.css'
 export function Login() {
   const demo = useDemoPassword()
   const [typed, setPassword] = useState<string | null>(null)
-  const password = typed ?? demo ?? '' // a demo's password is filled in
+  const password = typed ?? demo ?? ''
   const login = useMutation({
     mutationFn: () => api('/auth/login', { method: 'POST', body: { password } }),
     onSuccess: () => queryClient.resetQueries(),

@@ -1,6 +1,4 @@
-// Cloudflare Pages only: passes /api/* to the backend in the project's KANSO_API variable (e.g.
-// https://kanso-api.seria.moe), so the browser still sees one origin. A Docker install serves the
-// frontend from the backend itself and never uses this file.
+// Cloudflare Pages only: proxies /api/* to the backend at KANSO_API, so the browser sees one origin.
 export function onRequest({ request, env }) {
   const url = new URL(request.url)
   const headers = new Headers(request.headers)

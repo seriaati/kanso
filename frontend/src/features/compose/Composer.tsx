@@ -20,7 +20,7 @@ import { cleanHtml, escapeHtml, safeUrl } from './editor'
 import styles from './Composer.module.css'
 import { RecipientField } from './RecipientField'
 
-const SAVE_AFTER_MS = 1500 // autosave once typing pauses
+const SAVE_AFTER_MS = 1500
 const RETRY_SAVE_MS = 5000
 const mod = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl'
 
@@ -29,22 +29,16 @@ export type Focus = 'to' | 'body'
 type Props = {
   draftId: number
   accounts: Account[]
-  /** Docked under the thread it replies to; otherwise it fills the email pane, or with
-   * `onToggleMinimize`, a window of its own (a new message). */
+  /** Docked in its thread; otherwise it fills the email pane, or with `onToggleMinimize` is a window. */
   inline?: boolean
   title?: string
-  /** The window is minimized to its title bar. */
   minimized?: boolean
   onToggleMinimize?: () => void
   focus?: Focus | null
-  /** Closed with Esc or ×: the draft stays (or is dropped if nothing was ever written). */
   onClose: () => void
-  /** Sent or discarded: what to tell the user, and the thread the sent mail is in. */
   onFinished: (notice: string, threadId?: number | null) => void
 }
 
-/** The composer: From, To/Cc/Bcc with autocomplete, Subject, a plain rich-text body,
- * attachments. It autosaves to the Gmail draft; Cmd/Ctrl+Enter sends; Esc closes. */
 export function Composer(props: Props) {
   const draft = useDraft(props.draftId)
   if (draft.isError) return <p className={styles.loadError}>Couldn’t open the draft: {draft.error.message}</p>
@@ -55,7 +49,7 @@ export function Composer(props: Props) {
 type Status = { kind: 'idle' | 'saving' | 'saved' | 'error'; text?: string }
 
 function Form({ initial: latest, accounts, inline, title, minimized, onToggleMinimize, focus, onClose, onFinished }: Props & { initial: Draft }) {
-  // The draft as it was when opened; autosaves update the cached copy, not what is on screen.
+  // Autosaves update the cached draft, not what is on screen.
   const [initial] = useState(latest)
   const id = initial.id
   const [accountId, setAccountId] = useState(initial.account_id)
@@ -70,7 +64,7 @@ function Form({ initial: latest, accounts, inline, title, minimized, onToggleMin
   const [status, setStatus] = useState<Status>({ kind: initial.saved ? 'saved' : 'idle' })
   const [sending, setSending] = useState(false)
   const [link, setLink] = useState<string | null>(null) // the link field, while open
-  const [version, setVersion] = useState(0) // bumped by every edit
+  const [version, setVersion] = useState(0)
 
   const rootRef = useRef<HTMLElement>(null)
   const editorRef = useRef<HTMLDivElement>(null)
@@ -84,7 +78,6 @@ function Form({ initial: latest, accounts, inline, title, minimized, onToggleMin
   const changed = () => setVersion((v) => v + 1)
   const fields = (): DraftFields => ({ account_id: accountId, to, cc, bcc, subject, body_html: editorRef.current?.innerHTML ?? '' })
 
-  /** Save this version (after any save in flight). A failed save is retried shortly. */
   const save = (keepalive = false) => {
     const target = version
     const values = fields()
@@ -97,7 +90,7 @@ function Form({ initial: latest, accounts, inline, title, minimized, onToggleMin
         setStatus({ kind: 'saved' })
       } catch (error) {
         setStatus({ kind: 'error', text: `Not saved: ${(error as Error).message}` })
-        // Try again unless kanso refused it (that needs a change first, e.g. a missing file).
+        // A 4xx needs a change first (e.g. a missing file), so only other failures are retried.
         const status = error instanceof ApiError ? error.status : 0
         if (status < 400 || status >= 500) setTimeout(() => setVersion((v) => v + 1), RETRY_SAVE_MS)
       }
@@ -113,7 +106,6 @@ function Form({ initial: latest, accounts, inline, title, minimized, onToggleMin
     // eslint-disable-next-line react-hooks/exhaustive-deps -- save reads this render's fields
   }, [version])
 
-  // Unsaved edits go out when the composer unmounts or the page is closed or reloaded.
   useEffect(() => {
     flushLatest.current = () => {
       if (savedVersion.current < version) void save(true)
@@ -128,7 +120,6 @@ function Form({ initial: latest, accounts, inline, title, minimized, onToggleMin
     }
   }, [])
 
-  // The stored body, then the focus the composer was opened for.
   useEffect(() => {
     const editor = editorRef.current
     if (!editor) return
@@ -142,7 +133,7 @@ function Form({ initial: latest, accounts, inline, title, minimized, onToggleMin
   }, [initial.body_html, focus])
 
   const close = () => {
-    if (version === 0 && !initial.saved) void discardDraft(id) // nothing was ever written
+    if (version === 0 && !initial.saved) void discardDraft(id)
     else void save()
     onClose()
   }
@@ -300,7 +291,6 @@ function Form({ initial: latest, accounts, inline, title, minimized, onToggleMin
       {title && (
         <header className={styles.header}>
           {onToggleMinimize ? (
-            // The window's title bar: a click on it minimizes or restores.
             <button type="button" className={styles.titleButton} onClick={onToggleMinimize}>
               <h2 className={styles.title}>{subject.trim() || title}</h2>
             </button>

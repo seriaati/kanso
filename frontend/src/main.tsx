@@ -22,8 +22,8 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 )
 
-// Link the full font subsets once the first frame is painted (rAF runs before the paint, the
-// timeout after it). A script-inserted stylesheet never blocks rendering.
+// Link the full font subsets after the first paint (rAF runs before it, the timeout after).
+// A script-inserted stylesheet never blocks rendering.
 requestAnimationFrame(() =>
   setTimeout(() => document.head.append(Object.assign(document.createElement('link'), { rel: 'stylesheet', href: fullFonts }))),
 )

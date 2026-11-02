@@ -32,7 +32,6 @@
   color: var(--accent);
 }
 
-/* Turning Star or Important on: the icon pops as it fills. */
 .tool[aria-pressed='true'] svg {
   animation: pop var(--slow) var(--ease);
 }
@@ -137,7 +136,7 @@
   animation: enter var(--medium) var(--ease);
 }
 
-/* Each thread (or new message) fades in as it opens: the body is keyed by what it shows. */
+/* Reruns per thread: the body is keyed by what it shows. */
 @keyframes enter {
   from {
     opacity: 0;
@@ -167,7 +166,6 @@
   overflow-wrap: anywhere;
 }
 
-/* A message: the sender line, then the body. Older messages collapse to one line. */
 .message,
 .collapsed {
   border-top: 1px solid var(--line-soft);
@@ -182,7 +180,6 @@
   padding-bottom: 14px;
 }
 
-/* Expanding or collapsing a message fades the new one in where the old one was. */
 .message,
 .collapsed {
   transition:
@@ -197,9 +194,7 @@
   }
 }
 
-/* A message expanded by a click: its body grows open under the sender line (a grid row from 0fr
-   to 1fr, which animates to the content's height), and an HTML email's frame eases to its height
-   as it loads. */
+/* A grid row from 0fr to 1fr animates to the content's height. */
 .expanding {
   display: grid;
   grid-template-rows: 1fr;
@@ -257,7 +252,7 @@
   margin-top: 4px;
 }
 
-/* Placeholder avatar tint, taken from the mockup (tokens.css). */
+/* Avatar tint from the mockup (tokens.css). */
 .avatar {
   flex-shrink: 0;
   width: 30px;
@@ -383,8 +378,6 @@
   color: var(--accent);
 }
 
-/* A phone: the thread is a screen of its own (it covers the list), with Back in the toolbar and
-   44px tap targets. */
 @media (max-width: 767px) {
   .toolbar {
     gap: 0;

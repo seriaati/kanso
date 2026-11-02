@@ -2,20 +2,16 @@ import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { Icon } from '../../components/Icon'
 import styles from './LabelPicker.module.css'
 
-/** A label as the picker offers it, with whether all, some or none of the threads have it. */
 export type LabelOption = { name: string; color: string; state: 'all' | 'some' | 'none' }
 
 type Props = {
   options: LabelOption[]
-  /** Add the label (or remove it, when every thread has it already). */
   onToggle: (name: string, add: boolean) => void
   onCreate: (name: string) => void
   onClose: () => void
-  /** Open upward (from the selection bar at the foot of the list). */
   up?: boolean
 }
 
-/** The `l` popover: type to filter, ↑/↓ and Enter to toggle a label, or create a new one. */
 export function LabelPicker({ options, onToggle, onCreate, onClose, up }: Props) {
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
@@ -27,8 +23,7 @@ export function LabelPicker({ options, onToggle, onCreate, onClose, up }: Props)
   const count = shown.length + (canCreate ? 1 : 0)
   const index = Math.min(active, Math.max(count - 1, 0))
 
-  // The picker shares its parent with the Label button that opened it: a press on that button is
-  // not "outside" (its click closes the picker instead of reopening it).
+  // A press on the Label button (same parent) isn't "outside": its click closes the picker instead.
   const onOutside = useEffectEvent((event: PointerEvent) => {
     if (!ref.current?.parentElement?.contains(event.target as Node)) onClose()
   })

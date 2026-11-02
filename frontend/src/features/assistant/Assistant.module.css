@@ -1,6 +1,3 @@
-/* Docked under the email at the design's 45% of the pane (the email keeps 55% and scrolls on its
-   own). Minimized, it is one header line. Alone in the pane (asked with no thread open), it fills
-   it. */
 .assistant {
   flex: 1 1 45%;
   min-height: 0;
@@ -102,7 +99,6 @@
   color: var(--ink);
 }
 
-/* The open thread's summary stays in view above the conversation, which scrolls. */
 .summary {
   flex: none;
   max-height: 40%;
@@ -169,7 +165,6 @@
     translate var(--medium) var(--ease);
 }
 
-/* Questions, answers and proposals rise in as they arrive. */
 @starting-style {
   .question,
   .answer,
@@ -231,7 +226,6 @@
   text-decoration-color: currentColor;
 }
 
-/* A proposed change: what will happen, to which threads, and the user's decision. */
 .proposal {
   padding: 10px 12px;
   border: 1px solid var(--line-soft);
@@ -388,8 +382,7 @@
   opacity: 0.45;
 }
 
-/* A phone: a bottom sheet under the thread. Closed, it is one bar; open, it takes most of the
-   screen and the email above it shrinks (it never covers the email). */
+/* Phone: a bottom sheet; the email above shrinks rather than being covered. */
 .handle {
   display: none;
 }

@@ -11,10 +11,8 @@ import { AccountSwitcher } from './AccountSwitcher'
 import { DeleteLabel, LabelEditor } from './LabelEditor'
 import styles from './Sidebar.module.css'
 
-/** A quiet message at the foot of the sidebar: "Done", with Undo (z), or why an action failed. */
 export type Notice = { id: number; text: string; undo?: () => void }
 
-// Spam and Trash are quiet (muted), at the foot.
 const mailboxes: { mailbox: Mailbox; name: string; icon: IconName; quiet?: boolean }[] = [
   { mailbox: 'inbox', name: 'Inbox', icon: 'inbox' },
   { mailbox: 'starred', name: 'Starred', icon: 'star' },
@@ -33,11 +31,8 @@ type Props = {
   userLabels: NamedLabel[]
   sync: SyncStatus[]
   notice: Notice | null
-  /** AI is on: the label editor shows its AI settings. */
   ai: boolean
-  /** A new version of kanso is ready: a quiet "Reload" at the foot. */
   update: boolean
-  /** On a phone the sidebar is a drawer over the list: open or not. */
   drawer?: { open: boolean }
   onSelectAccount: (id: number | null) => void
   onCompose: () => void
@@ -46,7 +41,7 @@ type Props = {
 
 export function Sidebar(props: Props) {
   const { accounts, route, labels, userLabels, sync, notice, ai, update, drawer, onSelectAccount, onCompose, onLabelChanged } = props
-  // The label whose menu is open, and the one being edited ('' for a new one) or deleted.
+  // `editing` is '' for a new label.
   const [menu, setMenu] = useState<{ name: string; anchor: HTMLElement } | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -189,7 +184,6 @@ export function Sidebar(props: Props) {
   )
 }
 
-/** A quiet line while a backfill runs or a sync fails; nothing when all is well. */
 function SyncNote({ sync }: { sync: SyncStatus[] }) {
   const notes = sync.flatMap((s) => {
     if (s.state === 'backfill') {

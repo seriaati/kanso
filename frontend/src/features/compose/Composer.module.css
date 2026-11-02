@@ -1,4 +1,3 @@
-/* The composer: a card in the email pane (or docked under a thread). Hairlines, no shadows. */
 .composer {
   display: flex;
   flex-direction: column;
@@ -144,7 +143,6 @@
   color: var(--ink);
 }
 
-/* Autocomplete: drops down inside the email pane, over the composer only. */
 .suggestions {
   position: absolute;
   z-index: 10;
@@ -361,9 +359,7 @@
   color: var(--muted);
 }
 
-/* A new message: a window of its own at the foot of the screen (App.tsx, ComposeWindow), so mail
-   can still be read beside it. The editor scrolls; the title bar and the footer stay. Minimized,
-   it is the title bar only. */
+/* Placed by App.tsx (ComposeWindow). */
 .window {
   height: 100%;
   overflow: hidden;
@@ -429,8 +425,7 @@
   border-bottom: 0;
 }
 
-/* Clipped while the window shrinks, then hidden (out of the tab order too); shown at once when
-   it is restored. */
+/* Hidden (and out of the tab order) only after the shrink; shown at once on restore. */
 .window > :not(.header) {
   transition: visibility 0s;
 }
@@ -440,7 +435,6 @@
   transition-delay: var(--slow);
 }
 
-/* A phone: a new message is the whole screen (no card), and tap targets are 44px. */
 @media (max-width: 767px) {
   .composer:not(.inline) {
     min-height: calc(100% + 38px);
@@ -453,7 +447,7 @@
     flex: 1;
   }
 
-  /* The new-message window fills the screen (App.module.css); it can't be minimized. */
+  /* Fills the screen (App.module.css); it can't be minimized. */
   .composer.window {
     min-height: 0;
     margin: 0;

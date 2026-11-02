@@ -13,18 +13,17 @@ const quicks: Quick[] = ['done', 'delete', 'star', 'important']
 
 export type LabelChip = { name: string; color: string }
 
-/** One line of the list: a thread, or in the grouped inbox a section header or a bundle row. */
 export type ListRow =
   | { kind: 'thread'; thread: ThreadSummary }
   | { kind: 'section'; section: Section; color: string | null }
   | { kind: 'bundle'; section: Section; color: string | null; open: boolean; first: boolean }
 
 const ROW = 31
-const COMFORTABLE_ROW = 40 // the account menu's Density: Comfortable
+const COMFORTABLE_ROW = 40
 const SECTION = 34
 const BUNDLE = 32
 const BUNDLES_GAP = 17 // above the first bundle: a margin, a hairline and padding
-// On a phone: two-line rows and 44px+ tap targets (ThreadList.module.css, max-width: 767px).
+// Phone sizes match ThreadList.module.css (max-width: 767px): two-line rows, 44px+ tap targets.
 const PHONE_ROW = 64
 const PHONE_SECTION = 44
 const PHONE_BUNDLE = 48
@@ -42,17 +41,15 @@ type Props = {
   status: 'pending' | 'error' | 'success'
   error: Error | null
   empty: ReactNode
-  /** The last row index rendered: the caller loads more threads when it nears the end. */
   onRangeEnd: (lastIndex: number) => void
   cursorId: number | null
   openId: number | null
   selected: Set<number>
-  /** User labels by id, shown as chips; `hideLabel` (the label being viewed) is left out. */
+  /** `hideLabel` (the label being viewed) is left out. */
   labelsById: Map<number, LabelChip>
   hideLabel?: string
-  /** No chips at all: the grouped inbox, where the section header names the label. */
   hideChips?: boolean
-  /** Shown in the header of the unlabeled section ("Label existing inbox" with AI on). */
+  /** Shown in the unlabeled section's header. */
   labelInbox?: ReactNode
   onDoneAll: (section: Section) => void
   onToggleBundle: (name: string) => void
@@ -61,20 +58,13 @@ type Props = {
   onQuick: (quick: Quick, thread: ThreadSummary) => void
   onSearch: (query: string) => void
   searchRef: RefObject<HTMLInputElement | null>
-  /** The phone layout: taller rows and swipe actions. */
   phone: boolean
-  /** On a phone: opens the sidebar drawer. */
   onMenu?: () => void
-  /** With AI on and nothing open: opens the assistant (q). */
   onAsk?: () => void
-  /** A right-click on a thread row: its actions menu, at the pointer (not on a phone). */
   onRowMenu?: (thread: ThreadSummary, point: { x: number; y: number }) => void
-  /** The thread whose actions menu is open: its row stays highlighted. */
   menuId?: number | null
-  /** Ctrl/⌘-click (one thread) or Shift-click (a range) on a row: select instead of open. A click
-   * on a checked row's checkmark unchecks it. */
+  /** Ctrl/⌘-click (one thread) or Shift-click (a range): select instead of open. */
   onSelectClick?: (id: number, range: boolean) => void
-  /** While threads are checked: their actions, floating at the foot of the list. */
   selectionBar?: ReactNode
 }
 
@@ -100,14 +90,12 @@ export function ThreadList(props: Props) {
   const items = virtualizer.getVirtualItems()
   const lastIndex = items.at(-1)?.index ?? -1
 
-  // Infinite scroll: the caller fetches the next page once the rows near the end are rendered.
   const rangeEnd = useEffectEvent(props.onRangeEnd)
   useEffect(() => rangeEnd(lastIndex), [lastIndex, rows.length])
 
   // Row heights change with the layout and the density.
   useEffect(() => virtualizer.measure(), [phone, comfortable, virtualizer])
 
-  // Keep the keyboard cursor in view.
   const cursorIndex = rows.findIndex((row) => row.kind === 'thread' && row.thread.id === cursorId)
   useEffect(() => {
     if (cursorIndex >= 0) virtualizer.scrollToIndex(cursorIndex)
@@ -136,7 +124,7 @@ export function ThreadList(props: Props) {
             searchRef.current?.blur()
           }}
         >
-          {/* With the email pane open the box folds to this icon; a click (or /) opens it again. */}
+          {/* The box folds to this icon while the email pane is open. */}
           <button
             type="button"
             className={styles.searchIcon}
@@ -232,7 +220,6 @@ function doneAllButton(section: Section, onDoneAll: (section: Section) => void, 
 
 type SectionProps = { row: Extract<ListRow, { kind: 'section' }>; top: number; onDoneAll: (section: Section) => void; children: ReactNode }
 
-/** A label section of the grouped inbox: its color, name, thread count and "Done all". */
 function SectionHeader({ row, top, onDoneAll, children }: SectionProps) {
   const name = row.section.name ?? 'Other'
   return (
@@ -259,7 +246,6 @@ type BundleProps = {
   onToggle: (name: string) => void
 }
 
-/** A bundle: one collapsed row at the foot of the inbox; a click opens its threads below it. */
 function BundleRow({ row, top, onDoneAll, onToggle }: BundleProps) {
   const name = row.section.name ?? ''
   return (
@@ -275,7 +261,6 @@ function BundleRow({ row, top, onDoneAll, onToggle }: BundleProps) {
   )
 }
 
-/** The empty inbox: an ensō that draws itself once, and a quiet line. */
 export function InboxZero() {
   return (
     <>
@@ -287,7 +272,7 @@ export function InboxZero() {
   )
 }
 
-/** Who a row names, as Gmail does: "Daniel Reyes, me", or in Sent and Drafts "To: Daniel Reyes". */
+/** As Gmail does: "Daniel Reyes, me", or in Sent and Drafts "To: Daniel Reyes". */
 function people(thread: ThreadSummary) {
   if (thread.recipients) return thread.recipients.length ? `To: ${thread.recipients.join(', ')}` : '(no recipients)'
   return [...new Set(thread.senders.map((name) => (thread.me.includes(name) ? 'me' : name)))].join(', ')
@@ -332,7 +317,6 @@ function ThreadRow(props: RowProps) {
       {...swipe.handlers}
     >
       {swipe.offset !== 0 && (
-        // What letting go does: Done to the right, Delete to the left.
         <span className={`${styles.swipe} ${swipe.offset > 0 ? styles.swipeDone : styles.swipeDelete}`} aria-hidden="true">
           <Icon name={swipe.offset > 0 ? done.icon : remove.icon} size={17} />
           {(swipe.offset > 0 ? done : remove).title.replace(/ \(.*\)$/, '')}

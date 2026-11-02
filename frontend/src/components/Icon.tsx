@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 
-// Line icons on a 24px grid, drawn in currentColor.
 const paths = {
   done: <path d="M4.5 12.5l5 5L19.5 7" />,
   inbox: <path d="M3 13h5l2 3h4l2-3h5M5.5 5h13L21 13v6H3v-6z" />,

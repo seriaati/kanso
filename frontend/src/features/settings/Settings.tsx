@@ -15,14 +15,11 @@ type Props = {
   labels: Label[]
   sync: SyncStatus[]
   ai: boolean
-  /** On a phone: opens the sidebar drawer. */
   onMenu?: () => void
 }
 
-/** Settings, in place of the list and the email pane: accounts and their sync, labels, the
- * assistant, AI usage and the password. Everything else is in .env. */
 export function Settings({ accounts, labels, sync, ai, onMenu }: Props) {
-  const demo = useDemoPassword() !== null // until known, too: no flash of Connect on a demo
+  const demo = useDemoPassword() !== null // true until known: no flash of Connect on a demo
   return (
     <section className={styles.settings} aria-label="Settings">
       <header className={styles.header}>
@@ -109,7 +106,7 @@ function Accounts({ accounts, sync, demo }: { accounts: Account[]; sync: SyncSta
       {demo ? (
         <p className={styles.note}>This is a demo: its mail is made up, no Gmail account can be connected, and every change resets each day.</p>
       ) : (
-        /* A full-page navigation: the backend redirects on to Google's consent screen. */
+        /* A full-page navigation: the backend redirects to Google's consent screen. */
         <a href="/api/accounts/connect" className={styles.add}>
           + Connect a Gmail account
         </a>
@@ -181,7 +178,7 @@ function AccountEditor({ account, onDone }: { account: Account; onDone: () => vo
 }
 
 function Labels({ labels, accountIds, ai }: { labels: Label[]; accountIds: number[]; ai: boolean }) {
-  // The label being edited (by name), or '' for a new one.
+  // '' for a new label.
   const [editing, setEditing] = useState<string | null>(null)
   const named = userLabels(labels)
   const flags = (label: NamedLabel) => [ai && label.aiManaged && 'AI labels new mail', label.isBundle && 'Bundled'].filter(Boolean).join(' · ')

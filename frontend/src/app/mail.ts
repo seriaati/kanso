@@ -3,8 +3,6 @@ import { useEffect, useEffectEvent } from 'react'
 import { api, queryClient } from './api'
 import type { View } from './nav'
 
-// Server state for reading mail. Shapes follow the backend's read API (kanso/api/*.py).
-
 export type ThreadSummary = {
   id: number
   account_id: number
@@ -21,15 +19,14 @@ export type ThreadSummary = {
   in_trash: boolean
   has_attachments: boolean
   lang: string | null
-  /** In the grouped inbox: the label section the thread is placed in (null: unlabeled). */
+  /** Grouped inbox only; null: unlabeled. */
   section?: string | null
-  /** The names in `senders` that are the user's own addresses: shown as "me". */
+  /** Which of `senders` are the user's own, shown as "me". */
   me: string[]
-  /** Sent and Drafts: who the user wrote to, shown instead of the senders. */
+  /** Sent and Drafts only: shown instead of the senders. */
   recipients: string[] | null
 }
 
-/** A section of the grouped inbox, or a bundle (its threads load when it is opened). */
 export type Section = { name: string | null; bundle: boolean; count: number; newest_at: string; senders: string[] }
 
 export type Address = { name: string; email: string }
@@ -55,7 +52,7 @@ export type Message = {
   reply_to: Address[]
   label_ids: number[]
   unread: boolean
-  draft: boolean // being written: the reader opens it in the composer
+  draft: boolean
   lang: string | null
   body_html: string | null // sanitized server-side; cid: URLs point at attachments
   body_text: string | null // only when there is no HTML
@@ -104,21 +101,18 @@ export function useSync() {
   return useQuery({ queryKey: ['sync'], queryFn: () => api<SyncStatus[]>('/sync') })
 }
 
-/** The thread list API's parameters for a view; also the list's query key. */
+// Also the list's query key.
 export function viewParams(view: View, accountId: number | null, labelIds: number[] | undefined) {
   const params = new URLSearchParams({ limit: '50' })
   if (accountId !== null) params.set('account_id', String(accountId))
   if (view.kind === 'mailbox') {
     params.set('mailbox', view.mailbox)
-    // The inbox is grouped: by label section with AI on, and bundles apart either way.
     if (view.mailbox === 'inbox') params.set('grouped', 'true')
   } else if (view.kind === 'search') params.set('q', view.q)
   else for (const id of labelIds ?? []) params.append('label_id', String(id))
   return params
 }
 
-/** The threads of a view, newest first, a page at a time. A label view needs the ids of the
- * labels with that name (one per account); with none it stays disabled. */
 export function useThreads(view: View, accountId: number | null, labelIds: number[] | undefined) {
   const params = viewParams(view, accountId, labelIds)
   const enabled = view.kind !== 'label' || !!labelIds?.length
@@ -131,7 +125,6 @@ export function useThreads(view: View, accountId: number | null, labelIds: numbe
   })
 }
 
-/** The threads of one bundle of the inbox, loaded when it is opened. */
 export function useBundleThreads(bundle: string | null, accountId: number | null) {
   const params = new URLSearchParams({ mailbox: 'inbox', bundle: bundle ?? '', limit: '50' })
   if (accountId !== null) params.set('account_id', String(accountId))
@@ -158,12 +151,8 @@ type Event =
   | { type: 'outbox_failed'; account_id: number; action: string }
   | { type: 'send_failed'; message: string }
 
-/** Live updates from the server-sent event stream: changed threads refetch whatever shows them.
- * A backfill sends many events, so they are batched, and held back while an action is in flight
- * (a refetch then could briefly undo its optimistic change). After a dropped connection
- * everything is refetched, since events may have been missed meanwhile. `onWriteFailed` hears
- * about a change Gmail never accepted (the worker gave up on it); `onSendFailed` about a send
- * the worker finished after a crash, which Gmail then refused. */
+// Events are batched, and held back while an action is in flight (a refetch could briefly undo its
+// optimistic change). After a reconnect everything refetches, since events may have been missed.
 export function useLiveUpdates(onWriteFailed: (action: string) => void, onSendFailed: (message: string) => void) {
   const onFailed = useEffectEvent(onWriteFailed)
   const onNotSent = useEffectEvent(onSendFailed)
@@ -204,8 +193,7 @@ export function useLiveUpdates(onWriteFailed: (action: string) => void, onSendFa
         else if (event.type === 'outbox_failed') onFailed(event.action)
         else if (event.type === 'send_failed') onNotSent(event.message)
       }
-      // The browser reconnects by itself after a network drop. It gives up on an HTTP error
-      // (e.g. 401 when the session expired): check the session, then try again a bit later.
+      // The browser reconnects by itself after a network drop, but gives up on an HTTP error (e.g. 401).
       source.onerror = () => {
         if (source.readyState !== EventSource.CLOSED) return
         refresh('accounts')
@@ -222,15 +210,14 @@ export function useLiveUpdates(onWriteFailed: (action: string) => void, onSendFa
   }, [])
 }
 
-/** A user label as the sidebar shows it: the unified view merges same-named labels across
- * accounts. System labels (INBOX, UNREAD…) are the mailboxes, or not shown at all. */
+// The unified view merges same-named labels across accounts.
 export type NamedLabel = {
   name: string
   color: string
   ids: number[]
   accountIds: number[]
   unread: number
-  // kanso's own settings, the same for every account (the editor changes them together)
+  // kanso's own, the same for every account
   description: string
   aiManaged: boolean
   isBundle: boolean
@@ -261,9 +248,8 @@ export function userLabels(labels: Label[]): NamedLabel[] {
   return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name))
 }
 
-// The design's label colors, which a label can be given (the backend writes the nearest Gmail
-// palette color, which maps back here). A Gmail label color outside them is drawn in the nearest
-// one, so Gmail's bright palette doesn't break the calm one; an uncolored label is neutral.
+// A Gmail label color outside this palette is drawn in the nearest one, so Gmail's bright
+// palette doesn't break the calm one.
 export const labelColors = [
   { name: 'Ochre', value: '#A07338' },
   { name: 'Slate', value: '#4F6E8C' },

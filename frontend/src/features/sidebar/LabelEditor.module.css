@@ -147,7 +147,7 @@
   cursor: default;
 }
 
-/* A phone (the editor also shows in Settings): 44px tap targets. */
+/* Also inline in Settings on a phone. */
 @media (max-width: 767px) {
   .input {
     height: 44px;

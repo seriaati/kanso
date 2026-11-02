@@ -3,7 +3,7 @@ import { api, queryClient } from './api'
 
 export type Account = { id: number; email: string; display_name: string; color: string }
 
-// Colors an account can take: the accent and the label palette. Matches the backend's COLORS.
+// Matches the backend's COLORS.
 export const accountColors = [
   { name: 'Indigo', value: '#2F4B6E' },
   { name: 'Ochre', value: '#A07338' },
@@ -16,11 +16,10 @@ export const accountColors = [
 
 const key = ['accounts']
 
-// Refetch on focus or reconnect only while logged in. On the login screen a refetch would reset
-// the query to pending and unmount the form mid-typing (e.g. back from a password manager).
+// On the login screen a refetch would reset the query to pending and unmount the form mid-typing.
 const whileLoggedIn = (query: { state: { data: unknown } }) => query.state.data !== undefined
 
-/** Also the session probe: it fails with Unauthorized when logged out. */
+// Also the session probe: it fails with Unauthorized when logged out.
 export function useAccounts() {
   return useQuery({
     queryKey: key,

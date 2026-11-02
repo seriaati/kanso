@@ -56,7 +56,6 @@
   color: var(--muted);
 }
 
-/* A menu over the sidebar's edge; it closes on Esc or a click outside. */
 .popover {
   position: absolute;
   z-index: 10;
@@ -152,7 +151,6 @@
   color: var(--ink);
 }
 
-/* Theme (System, Light, Dark) and Density (Compact, Comfortable): icon buttons on one line. */
 .theme {
   display: flex;
   align-items: center;

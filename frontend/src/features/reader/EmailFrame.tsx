@@ -5,14 +5,9 @@ import fullFonts from '../../styles/fonts-full.css?url'
 import styles from './Reader.module.css'
 import emailCss from './email.css?url'
 
-// An email's HTML (already sanitized by the server with nh3) in a sandboxed iframe:
-// - No scripts: the sandbox has no allow-scripts, and the CSP below allows none either.
-// - Same origin (allow-same-origin) so kanso can measure the content and size the frame to fit,
-//   and the frame shares the app's cached fonts. Without allow-scripts the email can't use that.
-// - Links open in a new tab (allow-popups, <base target>; the sanitizer adds rel=noopener).
-// - Remote content is blocked by the CSP, not only by the sanitizer: images and CSS url()s may
-//   come from the attachment proxy (cid: images) or data: URLs only, until "Show images" adds
-//   http(s) for this one email. Fonts and stylesheets only from kanso itself.
+// Email HTML (already sanitized server-side with nh3) in a sandboxed iframe with no scripts.
+// allow-same-origin lets kanso size the frame; without allow-scripts the email can't use it.
+// The CSP blocks remote content too, not only the sanitizer, until "Show images".
 
 const SANDBOX = 'allow-same-origin allow-popups allow-popups-to-escape-sandbox'
 
@@ -24,8 +19,8 @@ function decode(value: string) {
   }
 }
 
-// An email that sets its own colors or backgrounds (style rules, bgcolor, <font color>) is
-// written for a light page; one that doesn't is plain text in HTML and can follow the theme.
+// An email that sets its own colors is written for a light page: in the dark theme it gets a
+// light sheet (email.css) rather than being recolored. One that doesn't follows the theme.
 const STYLED = /\b(?:bgcolor|background|color)\s*[:=]/i
 
 type Theme = 'light' | 'dark' | 'sheet'
@@ -43,8 +38,6 @@ function buildDocument(html: string, lang: string | null, attachments: Attachmen
     `font-src ${origin} data:`,
   ].join('; ')
   const langAttr = lang && /^[A-Za-z0-9-]+$/.test(lang) ? ` lang="${lang}"` : ''
-  // In the dark theme a styled email keeps the light tokens and sits on a light sheet of its own
-  // (email.css) rather than being recolored; an unstyled one takes the dark tokens.
   const themeAttr = theme === 'dark' ? ' data-theme="dark"' : theme === 'sheet' ? ' data-theme="light" data-sheet' : ' data-theme="light"'
   return (
     `<!doctype html><html${themeAttr}${langAttr}><head><meta charset="utf-8">` +

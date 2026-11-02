@@ -1,18 +1,12 @@
 import { useLocation } from 'react-router'
 
-// Where the app is lives in the URL, so reload and back work:
-//   /inbox, /starred, /done, /sent, /drafts, /all, /spam, /trash   a mailbox
-//   /label/<name>                                       a label (by name: the unified view merges accounts)
-//   /search?q=<query>                                   search results
-//   /settings                                           the settings page
-// An open thread adds /<thread id>; ?account=<id> narrows any of them to one account.
+// Labels go by name in the URL: the unified view merges accounts' labels by name.
 
 export const mailboxes = ['inbox', 'starred', 'done', 'sent', 'drafts', 'all', 'trash', 'spam'] as const
 export type Mailbox = (typeof mailboxes)[number]
 
 export type View = { kind: 'mailbox'; mailbox: Mailbox } | { kind: 'label'; name: string } | { kind: 'search'; q: string }
 
-/** `settings`: the settings page is open (in place of the list and the email pane). */
 export type Route = { view: View; threadId: number | null; accountId: number | null; settings?: boolean }
 
 const isMailbox = (value: string | undefined): value is Mailbox => mailboxes.includes(value as Mailbox)
@@ -34,7 +28,6 @@ function parse(pathname: string, params: URLSearchParams): Route | null {
   return null
 }
 
-/** The current route, or null when the URL isn't one of kanso's. */
 export function useRoute(): Route | null {
   const { pathname, search } = useLocation()
   return parse(pathname, new URLSearchParams(search))

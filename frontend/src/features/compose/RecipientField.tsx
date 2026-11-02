@@ -8,13 +8,9 @@ type Props = {
   value: Address[]
   onChange: (value: Address[]) => void
   inputRef?: RefObject<HTMLInputElement | null>
-  /** Extra controls at the end of the row (the To row's Cc / Bcc toggles). */
   children?: ReactNode
 }
 
-/** Recipients as chips, with autocomplete from the people you write to. Enter, Tab, comma or
- * semicolon take the highlighted suggestion or the typed address; Backspace on an empty field
- * removes the last one. */
 export function RecipientField({ label, value, onChange, inputRef, children }: Props) {
   const [text, setText] = useState('')
   const [query, setQuery] = useState('')
@@ -34,7 +30,7 @@ export function RecipientField({ label, value, onChange, inputRef, children }: P
     const fresh = addresses.filter((a) => !seen.has(a.email.toLowerCase()) && seen.add(a.email.toLowerCase()))
     if (fresh.length) onChange([...value, ...fresh])
   }
-  /** Take what is typed. Returns whether anything was left that isn't an address. */
+  /** Returns whether anything was left that isn't an address. */
   const commit = (typed = text) => {
     const { addresses, rest } = parseAddresses(typed)
     add(addresses)
@@ -78,7 +74,6 @@ export function RecipientField({ label, value, onChange, inputRef, children }: P
           onChange={(event) => {
             const typed = event.target.value
             setOpen(true)
-            // A comma or semicolon ends an address; pasting a list takes all of them.
             if (/[,;\n]/.test(typed)) commit(typed)
             else setText(typed)
           }}
