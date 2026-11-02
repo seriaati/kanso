@@ -1,5 +1,5 @@
 .sidebar {
-  flex: 0 0 200px;
+  flex: 0 0 var(--sidebar-width, 200px); /* dragged in App.tsx */
   min-width: 0; /* long names ellipsize instead of widening it */
   min-height: 0;
   padding: 14px 10px;

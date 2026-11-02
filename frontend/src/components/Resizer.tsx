@@ -1,27 +1,29 @@
 import { useRef, type KeyboardEvent, type PointerEvent } from 'react'
 import styles from './Resizer.module.css'
 
-const MIN = 320 // the panel before the handle
+const MIN = 320 // the panel before the handle, unless `min` says otherwise
 const MIN_AFTER = 380 // what stays for the one after it
 const STEP = 24 // arrow keys
 
 type Props = {
   label: string
   width?: number
+  min?: number
+  max?: number
   /** `done` once a drag or key press ends. */
   onResize: (width: number, done: boolean) => void
   onReset: () => void
 }
 
 // Resizes the element before it.
-export function Resizer({ label, width, onResize, onReset }: Props) {
+export function Resizer({ label, width, min = MIN, max = Infinity, onResize, onReset }: Props) {
   const drag = useRef<{ x: number; width: number; max: number; last: number } | null>(null)
 
   const measure = (handle: HTMLElement) => {
     const box = (handle.previousElementSibling as HTMLElement).getBoundingClientRect()
-    return { width: box.width, max: Math.max(MIN, window.innerWidth - box.left - MIN_AFTER) }
+    return { width: box.width, max: Math.min(max, Math.max(min, window.innerWidth - box.left - MIN_AFTER)) }
   }
-  const clamp = (value: number, max: number) => Math.round(Math.min(Math.max(value, MIN), max))
+  const clamp = (value: number, most: number) => Math.round(Math.min(Math.max(value, min), most))
 
   const end = (event: PointerEvent<HTMLElement>) => {
     const done = drag.current
@@ -38,7 +40,8 @@ export function Resizer({ label, width, onResize, onReset }: Props) {
       aria-orientation="vertical"
       aria-label={label}
       aria-valuenow={width}
-      aria-valuemin={MIN}
+      aria-valuemin={min}
+      aria-valuemax={max === Infinity ? undefined : max}
       tabIndex={0}
       title="Drag to resize (double-click to reset)"
       className={styles.resizer}

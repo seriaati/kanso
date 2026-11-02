@@ -83,21 +83,23 @@ const mailboxTitles: Record<Mailbox, string> = {
   spam: 'Spam',
 }
 
+// Dragged widths, per browser. null: the default (the list: an even split with the pane,
+// ThreadList.module.css; the sidebar: Sidebar.module.css).
 const LIST_WIDTH_KEY = 'kanso.listWidth'
+const SIDEBAR_WIDTH_KEY = 'kanso.sidebarWidth'
 
-// null: the default, an even split with the pane (ThreadList.module.css)
-function storedListWidth(): number | null {
+function storedWidth(key: string): number | null {
   try {
-    return Number(localStorage.getItem(LIST_WIDTH_KEY)) || null
+    return Number(localStorage.getItem(key)) || null
   } catch {
     return null // storage blocked
   }
 }
 
-function storeListWidth(width: number | null) {
+function storeWidth(key: string, width: number | null) {
   try {
-    if (width === null) localStorage.removeItem(LIST_WIDTH_KEY)
-    else localStorage.setItem(LIST_WIDTH_KEY, String(width))
+    if (width === null) localStorage.removeItem(key)
+    else localStorage.setItem(key, String(width))
   } catch {
     // storage blocked: kept until the page reloads
   }
@@ -219,7 +221,8 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   // The assistant alone in the email pane, with no thread open (q).
   const [asking, setAsking] = useState(false)
   const [picking, setPicking] = useState(false)
-  const [listWidth, setListWidth] = useState(storedListWidth)
+  const [listWidth, setListWidth] = useState(() => storedWidth(LIST_WIDTH_KEY))
+  const [sidebarWidth, setSidebarWidth] = useState(() => storedWidth(SIDEBAR_WIDTH_KEY))
   const searchRef = useRef<HTMLInputElement>(null)
   const assistantRef = useRef<AssistantHandle>(null)
   const myEmails = useMemo(() => new Set(accounts.map((a) => a.email.toLowerCase())), [accounts])
@@ -570,7 +573,14 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
       className={styles.shell}
       data-screen={phone ? screen : undefined}
       data-pane={phone ? undefined : paneOpen ? 'open' : 'closed'}
-      style={listWidth ? ({ '--list-width': `${listWidth}px` } as CSSProperties) : undefined}
+      style={
+        phone
+          ? undefined
+          : ({
+              '--list-width': listWidth ? `${listWidth}px` : undefined,
+              '--sidebar-width': sidebarWidth ? `${sidebarWidth}px` : undefined,
+            } as CSSProperties)
+      }
     >
       <Sidebar
         accounts={accounts}
@@ -590,6 +600,22 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
           else if (renamed) go({ view: { kind: 'label', name: renamed } }, true)
         }}
       />
+      {!phone && (
+        <Resizer
+          label="Resize the sidebar"
+          width={sidebarWidth ?? undefined}
+          min={160}
+          max={360}
+          onResize={(width, done) => {
+            setSidebarWidth(width)
+            if (done) storeWidth(SIDEBAR_WIDTH_KEY, width)
+          }}
+          onReset={() => {
+            setSidebarWidth(null)
+            storeWidth(SIDEBAR_WIDTH_KEY, null)
+          }}
+        />
+      )}
       {drawerOpen && <div className={styles.scrim} onClick={() => setDrawer({ open: false, at: location.key })} aria-hidden="true" />}
       {route.settings ? (
         <Settings accounts={accounts} accountId={accountId} labels={labels.data ?? []} sync={sync.data ?? []} ai={ai} onMenu={openDrawer} />
@@ -648,11 +674,11 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
               width={listWidth ?? undefined}
               onResize={(width, done) => {
                 setListWidth(width)
-                if (done) storeListWidth(width)
+                if (done) storeWidth(LIST_WIDTH_KEY, width)
               }}
               onReset={() => {
                 setListWidth(null)
-                storeListWidth(null)
+                storeWidth(LIST_WIDTH_KEY, null)
               }}
             />
           )}
