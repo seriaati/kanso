@@ -14,12 +14,15 @@ import styles from './Sidebar.module.css'
 /** A quiet message at the foot of the sidebar: "Done", with Undo (z), or why an action failed. */
 export type Notice = { id: number; text: string; undo?: () => void }
 
-// Trash is quiet (muted), below the design's four. Spam is reachable by URL only (/spam).
+// Spam and Trash are quiet (muted), at the foot.
 const mailboxes: { mailbox: Mailbox; name: string; icon: IconName; quiet?: boolean }[] = [
   { mailbox: 'inbox', name: 'Inbox', icon: 'inbox' },
+  { mailbox: 'starred', name: 'Starred', icon: 'star' },
   { mailbox: 'done', name: 'Done', icon: 'done' },
   { mailbox: 'sent', name: 'Sent', icon: 'sent' },
   { mailbox: 'drafts', name: 'Drafts', icon: 'draft' },
+  { mailbox: 'all', name: 'All mail', icon: 'mail' },
+  { mailbox: 'spam', name: 'Spam', icon: 'spam', quiet: true },
   { mailbox: 'trash', name: 'Trash', icon: 'delete', quiet: true },
 ]
 

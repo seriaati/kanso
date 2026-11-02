@@ -22,7 +22,7 @@ from kanso.gmail import mime
 
 router = APIRouter()
 DB = Annotated[AsyncSession, Depends(get_session)]
-Mailbox = Literal["inbox", "done", "sent", "drafts", "trash", "spam"]
+Mailbox = Literal["inbox", "starred", "done", "sent", "drafts", "all", "trash", "spam"]
 
 
 class ThreadOut(BaseModel):
@@ -160,10 +160,13 @@ def _has_system_label(gmail_id: str) -> ColumnElement[bool]:
 
 MAILBOXES: dict[str, Any] = {
     "inbox": lambda: Thread.in_inbox.is_(True),
+    "starred": lambda: Thread.starred.is_(True),
     # Archived mail. A thread of drafts only is in Drafts, not Done.
     "done": lambda: ~Thread.in_inbox & ~Thread.in_trash & ~Thread.in_spam & ~Thread.drafts_only,
     "sent": lambda: _has_system_label("SENT"),
     "drafts": lambda: _has_system_label("DRAFT"),
+    # Gmail's All Mail: everything but Trash and Spam (list_threads leaves those out).
+    "all": lambda: true(),
     "trash": lambda: Thread.in_trash.is_(True),
     "spam": lambda: Thread.in_spam.is_(True),
 }

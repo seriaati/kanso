@@ -89,9 +89,10 @@ The reference mockup is the "3 · Chosen — Koke + indigo, split view" artboard
 
 **Layout: split view**
 - **Sidebar** (~200px): the account switcher at the top ("All accounts" or one account), then
-  Compose (the primary button), mailboxes with line icons (Inbox, Done, Sent, Drafts), labels with
-  color dots, and "+ New label". A label's "⋯" opens a small "more actions" menu (Edit, Delete);
-  editing, creating and deleting labels happen in a small centered dialog, never inline.
+  Compose (the primary button), mailboxes with line icons (Inbox, Starred, Done, Sent, Drafts,
+  All mail, then Spam and Trash in muted text), labels with color dots, and "+ New label". A
+  label's "⋯" opens a small "more actions" menu (Edit, Delete); editing, creating and deleting
+  labels happen in a small centered dialog, never inline.
 - **Thread list** (~500px, left; **the full width while nothing is open**): search at the top. Threads are grouped into sections by AI label
   (Home, Personal, Work…), each with a count and "Done all". Bundles (Newsletters, Receipts,
   Notifications) are collapsed rows at the bottom. Rows are compact single lines (~31px; 40px

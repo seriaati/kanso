@@ -70,6 +70,7 @@ export function inList(params: URLSearchParams, thread: ThreadSummary): boolean 
   if (mailbox === 'trash') return thread.in_trash
   if (thread.in_trash) return false
   if (mailbox === 'inbox') return thread.in_inbox
+  if (mailbox === 'starred') return thread.starred
   if (mailbox === 'done') return !thread.in_inbox
   const labelIds = params.getAll('label_id').map(Number)
   if (labelIds.length) return thread.label_ids.some((id) => labelIds.includes(id))

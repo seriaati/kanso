@@ -1,13 +1,13 @@
 import { useLocation } from 'react-router'
 
 // Where the app is lives in the URL, so reload and back work:
-//   /inbox, /done, /sent, /drafts (and /trash, /spam)   a mailbox
+//   /inbox, /starred, /done, /sent, /drafts, /all, /spam, /trash   a mailbox
 //   /label/<name>                                       a label (by name: the unified view merges accounts)
 //   /search?q=<query>                                   search results
 //   /settings                                           the settings page
 // An open thread adds /<thread id>; ?account=<id> narrows any of them to one account.
 
-export const mailboxes = ['inbox', 'done', 'sent', 'drafts', 'trash', 'spam'] as const
+export const mailboxes = ['inbox', 'starred', 'done', 'sent', 'drafts', 'all', 'trash', 'spam'] as const
 export type Mailbox = (typeof mailboxes)[number]
 
 export type View = { kind: 'mailbox'; mailbox: Mailbox } | { kind: 'label'; name: string } | { kind: 'search'; q: string }

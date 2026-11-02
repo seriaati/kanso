@@ -67,6 +67,10 @@ def test_mailboxes_and_labels(demo: TestClient) -> None:
     assert subjects(demo, mailbox="drafts") == ["Notes on the contract"]
     assert "Trail map" in subjects(demo, mailbox="sent")
     assert subjects(demo, mailbox="trash") == ["Congratulations!!!"]
+    assert subjects(demo, mailbox="starred") == ["Flight itinerary: Lisbon, Dec 12"]
+    everything = subjects(demo, mailbox="all")
+    assert set(everything) >= set(inbox) | {"Lisbon apartment booking", "Trail map"}
+    assert "Congratulations!!!" not in everything
     assert subjects(demo, label_id=label_id(demo, "Health")) == [
         "Appointment reminder: Nov 9, 10:30"
     ]

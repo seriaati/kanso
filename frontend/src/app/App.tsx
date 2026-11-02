@@ -71,9 +71,11 @@ export function App() {
 
 const mailboxTitles: Record<Mailbox, string> = {
   inbox: 'Inbox',
+  starred: 'Starred',
   done: 'Done',
   sent: 'Sent',
   drafts: 'Drafts',
+  all: 'All mail',
   trash: 'Trash',
   spam: 'Spam',
 }
