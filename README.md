@@ -72,9 +72,9 @@ like real mail would be, and anyone you let into the demo uses AI on your key. S
 - **What goes to Claude.** Only with an Anthropic API key set, and only what each feature needs:
   for labeling, a new message's sender, subject and trimmed text; for a summary, each message's
   sender, date and trimmed text; for the assistant, your question and what it looks up. Never
-  recipients or attachments, and never your whole mailbox in bulk. `.env.example` lists the
-  details. The assistant changes mail (archive, label, star, mark read) only after you confirm,
-  unless you turn that off in Settings. It can't send or delete mail.
+  recipients or attachments, and never your whole mailbox in bulk. The assistant changes mail
+  (archive, label, star, mark read) only after you confirm, unless you turn that off in Settings.
+  It can't send or delete mail.
 - **Your data.** Mail, labels and settings live in the bundled Postgres database. Back it up with
   one command ([SETUP.md, Backups](docs/SETUP.md#backups)).
 - **Upgrading.** `git pull`, then `docker compose up -d --build`
