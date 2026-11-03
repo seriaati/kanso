@@ -4,7 +4,8 @@ import type { Address } from './mail'
 
 // Every autosave writes the draft to a real Gmail draft.
 
-export type DraftAttachment = { id: string; filename: string; mime_type: string; size: number }
+/** With a content_id it is an image shown in the body (cid:). */
+export type DraftAttachment = { id: string; filename: string; mime_type: string; size: number; content_id: string | null }
 
 export type Draft = {
   id: number
@@ -80,8 +81,14 @@ export function discardDraft(id: number) {
   return api(`/drafts/${id}`, { method: 'DELETE' })
 }
 
-export async function attach(id: number, file: File): Promise<Draft> {
-  const response = await fetch(`/api/drafts/${id}/attachments?filename=${encodeURIComponent(file.name)}`, {
+// The server's IMAGE_TYPES: what can go in the body.
+export const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
+
+export const attachmentUrl = (draftId: number, attachmentId: string) => `/api/drafts/${draftId}/attachments/${attachmentId}`
+
+export async function attach(id: number, file: File, inline = false): Promise<Draft> {
+  const query = `filename=${encodeURIComponent(file.name)}${inline ? '&inline=true' : ''}`
+  const response = await fetch(`/api/drafts/${id}/attachments?${query}`, {
     method: 'POST',
     headers: { ...CSRF, 'Content-Type': file.type || 'application/octet-stream' },
     body: file,

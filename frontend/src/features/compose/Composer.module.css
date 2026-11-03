@@ -6,22 +6,105 @@
   background: var(--surface);
 }
 
-.inline {
-  margin-top: 14px;
+/* At the bottom of the reader (Reader.tsx), under the thread: the thread scrolls, this doesn't. */
+.docked {
+  flex: none;
+  max-height: 60%;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  transition:
+    opacity var(--medium) ease,
+    translate var(--medium) var(--ease);
 }
 
-.header {
+@starting-style {
+  .docked {
+    opacity: 0;
+    translate: 0 12px;
+  }
+}
+
+.dockHeader {
+  flex: none;
+  min-height: 44px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 10px 4px 16px;
+  gap: 8px;
+  padding: 6px 10px 0 18px;
+  color: var(--muted);
+}
+
+.dockTitle,
+.dockRecipients {
+  min-width: 0;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dockRecipients {
+  height: 30px;
+  padding: 0 8px;
+  margin-left: -8px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  text-align: left;
+  scale: none;
+}
+
+.dockRecipients:hover {
+  background: var(--hover);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.fields {
+  flex: none;
+}
+
+/* The editor, the quote and the attachments: what scrolls when the message gets long. */
+.writing {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.tools {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+}
+
+.toolSeparator {
+  width: 1px;
+  height: 18px;
+  margin: 0 6px;
+  background: var(--line);
+}
+
+/* Close and minimize at the left, Discard at the right: the subject is the title. */
+.header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 10px 0 10px;
 }
 
 .title {
-  margin: 0;
-  font-family: var(--font-heading);
-  font-size: var(--text-pane-title);
   font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .fields {
@@ -38,7 +121,7 @@
 }
 
 .rowLabel {
-  flex: 0 0 52px;
+  flex: none;
   font-size: var(--text-small);
   color: var(--muted);
 }
@@ -55,8 +138,13 @@
 .subject {
   flex: 1;
   min-width: 0;
-  height: 36px;
+  height: 40px;
   padding: 0;
+  font-size: 15px;
+}
+
+.subject::placeholder {
+  color: var(--muted);
 }
 
 .subject:focus,
@@ -137,8 +225,8 @@
   position: absolute;
   z-index: 10;
   top: calc(100% + 2px);
-  left: 52px;
-  width: min(360px, calc(100% - 52px));
+  left: 24px;
+  width: min(360px, calc(100% - 24px));
   margin: 0;
   padding: 4px;
   list-style: none;
@@ -171,13 +259,6 @@
 .suggestionEmail {
   font-size: var(--text-small);
   color: var(--muted);
-}
-
-.formatBar {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 6px 12px 0;
 }
 
 .formatTool,
@@ -223,12 +304,13 @@
   outline: none;
 }
 
-.inline .editor {
-  min-height: 120px;
+.docked .editor {
+  min-height: 96px;
+  padding: 8px 18px 10px;
 }
 
 .editor:empty::before {
-  content: 'Write your message';
+  content: 'Use **markdown** to add bold';
   color: var(--muted);
   pointer-events: none;
 }
@@ -243,6 +325,59 @@
 .editor ol {
   margin: 4px 0;
   padding-left: 24px;
+}
+
+.editor blockquote {
+  margin: 4px 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--line);
+  color: var(--muted);
+}
+
+.editor code,
+.editor pre {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--hover);
+  border-radius: 4px;
+}
+
+.editor code {
+  padding: 1px 4px;
+}
+
+.editor pre {
+  margin: 4px 0;
+  padding: 8px 10px;
+  white-space: pre-wrap;
+}
+
+.editor h1,
+.editor h2,
+.editor h3 {
+  margin: 8px 0 4px;
+  font-family: var(--font-heading);
+  line-height: 1.35;
+}
+
+.editor h1 {
+  font-size: 1.5em;
+}
+
+.editor h2 {
+  font-size: 1.25em;
+}
+
+.editor h3 {
+  font-size: 1.1em;
+}
+
+.editor img {
+  display: block;
+  max-width: 100%;
+  max-height: 360px;
+  margin: 6px 0;
+  border-radius: var(--radius);
 }
 
 .quote {
@@ -303,11 +438,11 @@
 }
 
 .footer {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 10px 10px 16px;
-  border-top: 1px solid var(--line-soft);
+  padding: 4px 10px 10px 12px;
 }
 
 .send {
@@ -329,8 +464,8 @@
 }
 
 .status {
-  flex: 1;
-  min-width: 0;
+  flex: none;
+  max-width: 40%;
   font-size: var(--text-small);
   color: var(--muted);
   white-space: nowrap;
@@ -356,24 +491,25 @@
 }
 
 .window .header {
-  flex: none;
-  gap: 2px;
-  padding: 6px 6px 6px 8px;
-  border-bottom: 1px solid var(--line-soft);
+  padding: 6px 8px 0 8px;
 }
 
-.window .fields {
-  flex: none;
+.window .header[data-drag-handle] {
+  cursor: grab;
+}
+
+:global([data-dragging]) .window .header {
+  cursor: grabbing;
+}
+
+/* A click anywhere under the text still lands in it. */
+.window .writing {
+  display: flex;
+  flex-direction: column;
 }
 
 .window .editor {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.window .footer {
-  flex: none;
+  flex: 1 0 auto;
 }
 
 .titleButton {
@@ -387,13 +523,6 @@
   text-align: left;
 }
 
-.titleButton .title {
-  font-size: 15px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .titleButton,
 .suggestions button {
   scale: none;
@@ -403,16 +532,8 @@
   background: var(--hover);
 }
 
-.minimize svg {
-  transition: rotate var(--medium) var(--ease);
-}
-
-.minimize[aria-expanded='false'] svg {
-  rotate: 180deg;
-}
-
 .minimized .header {
-  border-bottom: 0;
+  padding-bottom: 6px;
 }
 
 /* Hidden (and out of the tab order) only after the shrink; shown at once on restore. */
@@ -426,14 +547,14 @@
 }
 
 @media (max-width: 767px) {
-  .composer:not(.inline) {
+  .composer:not(.docked) {
     min-height: calc(100% + 38px);
     margin: -14px -16px -24px;
     border: 0;
     border-radius: 0;
   }
 
-  .composer:not(.inline) .editor {
+  .composer:not(.docked) .editor {
     flex: 1;
   }
 

@@ -1,5 +1,5 @@
 .reader {
-  flex: 1 1 55%; /* the assistant, when docked below, takes 45% */
+  flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -13,8 +13,7 @@
   border-bottom: 1px solid var(--line-soft);
 }
 
-.tool,
-.textTool {
+.tool {
   height: 34px;
   border: 0;
   border-radius: var(--radius);
@@ -23,6 +22,7 @@
 }
 
 .tool {
+  flex: none;
   width: 34px;
   display: grid;
   place-items: center;
@@ -42,20 +42,11 @@
   }
 }
 
-.textTool {
-  padding: 0 10px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.tool:not([aria-disabled='true']):hover,
-.textTool:not([aria-disabled='true']):hover {
+.tool:not([aria-disabled='true']):hover {
   background: var(--selected);
 }
 
-.tool[aria-disabled='true'],
-.textTool[aria-disabled='true'] {
+.tool[aria-disabled='true'] {
   cursor: default;
 }
 
@@ -365,6 +356,40 @@
   background: var(--hover);
 }
 
+/* Where a reply starts: it opens into the composer (Composer.module.css, .docked). */
+.replyBar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px 8px 18px;
+  border-top: 1px solid var(--line);
+}
+
+.replyBar .replyAvatar {
+  width: 28px;
+  height: 28px;
+  margin-right: 8px;
+  font-size: var(--text-small);
+}
+
+.replyPrompt {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  color: var(--muted);
+  cursor: text;
+  scale: none;
+}
+
+.replyPrompt:hover {
+  color: var(--ink);
+}
+
 .draftTag {
   flex-shrink: 0;
   font-weight: 700;
@@ -411,16 +436,9 @@
     display: none;
   }
 
-  .tool,
-  .textTool {
+  .tool {
     width: 44px;
     height: 44px;
-    flex: none;
-  }
-
-  .textTool {
-    padding: 0;
-    justify-content: center;
   }
 
   .separator {

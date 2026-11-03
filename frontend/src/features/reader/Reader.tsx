@@ -8,6 +8,7 @@ import { Avatar } from '../../components/Avatar'
 import { Icon, type IconName } from '../../components/Icon'
 import { Composer, type Focus } from '../compose/Composer'
 import bar from '../phone/BottomBar.module.css'
+import { Avatar as AccountAvatar } from '../sidebar/AccountSwitcher'
 import { EmailFrame } from './EmailFrame'
 import styles from './Reader.module.css'
 
@@ -69,25 +70,31 @@ export function Reader(props: Props) {
       setClosed((set) => new Set([...set].filter((id) => id !== draft.id)))
       setShown({ threadId, draftId: draft.id, focus: 'body' })
     })
-  const composer = (draft: ThreadDraft, inline: boolean) => (
+  const composer = (draft: ThreadDraft, docked: boolean) => (
     <Composer
       key={draft.draftId}
       draftId={draft.draftId}
-      inline={inline}
-      title={inline ? undefined : 'Draft'}
+      docked={docked}
+      title={docked ? undefined : 'Draft'}
       focus={draft.focus}
-      onClose={() => {
-        closeDraft(draft.draftId, inline)
-        if (!inline) onCloseThread()
-      }}
+      onClose={
+        docked
+          ? undefined
+          : () => {
+              closeDraft(draft.draftId, false)
+              onCloseThread()
+            }
+      }
       onFinished={(notice, sentThread) => {
         closeDraft(draft.draftId, true)
         onComposeFinished(notice, sentThread)
-        if (!inline) onCloseThread()
+        if (!docked) onCloseThread()
       }}
     />
   )
 
+  const account = accounts.find((a) => a.id === detail?.account_id)
+  const me = account?.email ?? ''
   let content
   if (threadId === null) content = <p className={styles.placeholder}>Select a thread to read it. Press ? for keyboard shortcuts.</p>
   // A thread of drafts only is the composer itself; it also stays if the thread goes away.
@@ -106,27 +113,56 @@ export function Reader(props: Props) {
         </p>
       )
   else if (detail && !draftOnly)
-    content = (
-      <ThreadView
-        key={detail.id}
-        thread={detail}
-        me={accounts.find((a) => a.id === detail.account_id)?.email ?? ''}
-        composer={active ? composer(active, true) : null}
-        onOpenDraft={openThreadDraft}
-      />
-    )
+    content = <ThreadView key={detail.id} thread={detail} me={me} hideDrafts={!!active} onOpenDraft={openThreadDraft} />
 
   const canReply = !!detail && !draftOnly
+  const docked = canReply && active ? active : null
+  // Starting a reply shows the end of the thread above it.
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const started = docked?.focus ? docked.draftId : null
+  useEffect(() => {
+    const body = bodyRef.current
+    if (started === null || !body) return
+    const smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches
+    body.scrollTo({ top: body.scrollHeight, behavior: smooth ? 'smooth' : 'auto' })
+  }, [started])
+
+  const last = detail?.messages.filter((m) => !m.draft).at(-1)
+  const all = !!last && replyAllAdds(last, me)
   return (
     <article className={styles.reader} aria-label="Thread">
       {props.phone ? <PhoneHeader {...props} canReply={canReply} /> : <Toolbar {...props} canReply={canReply} />}
-      <div className={styles.body} key={threadId ?? 'none'}>
+      <div className={styles.body} key={threadId ?? 'none'} ref={bodyRef}>
         {content}
       </div>
+      {docked && composer(docked, true)}
+      {canReply && !docked && !props.phone && (
+        <div className={styles.replyBar}>
+          <AccountAvatar account={account ?? null} className={styles.replyAvatar} />
+          <button
+            type="button"
+            className={styles.replyPrompt}
+            title={all ? 'Reply all (a)' : 'Reply (r)'}
+            onClick={() => props.onReply(all ? 'reply_all' : 'reply')}
+          >
+            {all ? 'Reply all' : 'Reply'}
+          </button>
+          <ToolButton icon="reply" label="Reply" title="Reply (r)" onClick={() => props.onReply('reply')} />
+          <ToolButton icon="forward" label="Forward" title="Forward (f)" onClick={() => props.onReply('forward')} />
+        </div>
+      )}
       {/* While writing, the keyboard needs the room. */}
       {props.phone && !active && <PhoneActions {...props} canReply={canReply} />}
     </article>
   )
+}
+
+/** Whether Reply all writes to more people than Reply (as the server picks them). */
+function replyAllAdds(message: Message, me: string) {
+  const mine = me.toLowerCase()
+  const sender = message.sender.email.toLowerCase()
+  if (sender === mine) return message.cc.length > 0
+  return [...message.to, ...message.cc].some((a) => ![mine, sender].includes(a.email.toLowerCase()))
 }
 
 type ToolButtonProps = { icon: IconName; label: string; title: string; pressed?: boolean; disabled?: boolean; onClick?: () => void }
@@ -171,26 +207,6 @@ function Toolbar({ targets, onQuick, onToggleRead, onUnsubscribe, onLabel, picke
       {quick('important')}
       {quick('star')}
       <span className={styles.spacer} />
-      <button
-        type="button"
-        className={styles.textTool}
-        aria-disabled={!canReply || undefined}
-        title="Reply (r)"
-        onClick={canReply ? () => onReply('reply') : undefined}
-      >
-        <Icon name="reply" size={16} />
-        Reply
-      </button>
-      <button
-        type="button"
-        className={styles.textTool}
-        aria-disabled={!canReply || undefined}
-        title="Forward (f)"
-        onClick={canReply ? () => onReply('forward') : undefined}
-      >
-        <Icon name="forward" size={16} />
-        Forward
-      </button>
       <More
         disabled={none}
         unread={!none && targets.every((t) => t.unread)}
@@ -404,13 +420,14 @@ type ThreadViewProps = {
   thread: ThreadDetail
   /** The thread's account: mail from your other accounts is someone else's here. */
   me: string
-  composer: ReactNode
+  /** One is open below the thread. */
+  hideDrafts: boolean
   onOpenDraft: (messageId: number) => void
 }
 
-function ThreadView({ thread, me, composer, onOpenDraft }: ThreadViewProps) {
+function ThreadView({ thread, me, hideDrafts, onOpenDraft }: ThreadViewProps) {
   const messages = thread.messages.filter((m) => !m.draft)
-  const drafts = composer ? [] : thread.messages.filter((m) => m.draft)
+  const drafts = hideDrafts ? [] : thread.messages.filter((m) => m.draft)
   const lastId = messages.at(-1)?.id
   // Unread messages and the latest start expanded; a click flips one from its default.
   const [flipped, setFlipped] = useState<Set<number>>(new Set())
@@ -457,7 +474,6 @@ function ThreadView({ thread, me, composer, onOpenDraft }: ThreadViewProps) {
           <span className={styles.meta}>{longDateTime(draft.date)}</span>
         </button>
       ))}
-      {composer}
     </>
   )
 }

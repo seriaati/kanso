@@ -164,3 +164,9 @@
     display: none;
   }
 }
+
+/* While the compose window is dragged (App.tsx, ComposeWindow). */
+:global([data-dragging]),
+:global([data-dragging]) * {
+  user-select: none;
+}

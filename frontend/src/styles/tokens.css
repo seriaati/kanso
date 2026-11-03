@@ -25,6 +25,7 @@
 
   --font-ui: 'Zen Maru Gothic', 'Noto Sans SC', 'Noto Sans TC', sans-serif;
   --font-heading: 'Shippori Mincho B1', 'Noto Serif SC', 'Noto Serif TC', serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
   --text-ui: 13px;
   --text-small: 12px;
   --text-body: 14px;

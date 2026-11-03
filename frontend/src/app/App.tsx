@@ -1,4 +1,14 @@
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router'
 import { Menu, type MenuItem } from '../components/Menu'
 import { Resizer } from '../components/Resizer'
@@ -794,7 +804,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
         />
       )}
       {composing && (
-        <div className={`${styles.composeWindow} ${composing.minimized ? styles.minimized : ''}`}>
+        <ComposeWindow key={composing.draftId} minimized={composing.minimized} movable={!phone}>
           <Composer
             key={composing.draftId}
             draftId={composing.draftId}
@@ -808,12 +818,60 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
               say(text)
             }}
           />
-        </div>
+        </ComposeWindow>
       )}
       {phone && (notice || update) && (
         <Toast notice={notice} update={update} place={screen === 'list' || (screen === 'thread' && !reply) ? 'bar' : screen === 'assistant' ? 'sheet' : 'bottom'} />
       )}
       {help && <ShortcutHelp ai={ai} onClose={() => setHelp(false)} />}
+    </div>
+  )
+}
+
+// The window's sizes in App.module.css (.composeWindow), to keep it on screen.
+const windowSize = (minimized: boolean) =>
+  minimized ? { width: 320, height: 46 } : { width: Math.min(540, innerWidth - 48), height: Math.min(620, innerHeight - 32) }
+
+/** Bottom right until its top row is dragged; it stays within the app. */
+function ComposeWindow({ minimized, movable, children }: { minimized: boolean; movable: boolean; children: ReactNode }) {
+  const [at, setAt] = useState<{ x: number; y: number } | null>(null)
+  const drag = useRef<{ dx: number; dy: number } | null>(null)
+  const inside = (x: number, y: number) => {
+    const { width, height } = windowSize(minimized)
+    return { x: Math.min(Math.max(x, 0), innerWidth - width), y: Math.min(Math.max(y, 0), innerHeight - height) }
+  }
+  // Restored near the bottom, it grows back up into view.
+  const [shownAs, setShownAs] = useState(minimized)
+  if (shownAs !== minimized) {
+    setShownAs(minimized)
+    if (at) setAt(inside(at.x, at.y))
+  }
+  const end = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!drag.current) return
+    drag.current = null
+    event.currentTarget.releasePointerCapture(event.pointerId)
+    delete document.documentElement.dataset.dragging
+  }
+  return (
+    <div
+      className={`${styles.composeWindow} ${minimized ? styles.minimized : ''}`}
+      style={movable && at ? { left: at.x, top: at.y, right: 'auto', bottom: 'auto' } : undefined}
+      onPointerDown={(event) => {
+        const target = event.target as Element
+        if (!movable || event.button !== 0 || !target.closest('[data-drag-handle]') || target.closest('button, input')) return
+        event.preventDefault()
+        const box = event.currentTarget.getBoundingClientRect()
+        drag.current = { dx: event.clientX - box.left, dy: event.clientY - box.top }
+        event.currentTarget.setPointerCapture(event.pointerId)
+        document.documentElement.dataset.dragging = '' // no text selection meanwhile
+      }}
+      onPointerMove={(event) => {
+        if (drag.current) setAt(inside(event.clientX - drag.current.dx, event.clientY - drag.current.dy))
+      }}
+      onPointerUp={end}
+      onPointerCancel={end}
+    >
+      {children}
     </div>
   )
 }

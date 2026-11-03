@@ -73,6 +73,7 @@ const paths = {
     </>
   ),
   compose: <path d="M4 20h4L19 9l-4-4L4 16z" />,
+  minimize: <path d="M6 18h12" />,
   chevronDown: <path d="M6 9l6 6 6-6" />,
   chevronUp: <path d="M6 15l6-6 6 6" />,
   chevronRight: <path d="M9 6l6 6-6 6" />,
@@ -82,6 +83,9 @@ const paths = {
   close: <path d="M6 6l12 12M18 6L6 18" />,
   plus: <path d="M12 5v14M5 12h14" />,
   history: <path d="M3.5 12a8.5 8.5 0 1 0 2.5-6M3.5 4v4h4M12 7.5V12l3 2" />,
+  image: <path d="M4 5h16v14H4zM4 16l4.5-4.5 4 4 2.5-2.5L20 18M14.5 9.5h.01" />,
+  code: <path d="M8.5 7.5L4 12l4.5 4.5M15.5 7.5L20 12l-4.5 4.5" />,
+  quote: <path d="M6 17.5c2.5-.8 3.5-2.6 3.5-5.5V7.5H5v4.5h4.5M15 17.5c2.5-.8 3.5-2.6 3.5-5.5V7.5H14v4.5h4.5" />,
   attach: <path d="M20 11.5l-8.2 8.2a5 5 0 0 1-7.1-7.1l8.6-8.6a3.4 3.4 0 0 1 4.8 4.8l-8.6 8.6a1.7 1.7 0 0 1-2.4-2.4l7.9-7.9" />,
   link: (
     <>
