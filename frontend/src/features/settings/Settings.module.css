@@ -126,9 +126,8 @@
   border-radius: 50%;
 }
 
-.edit,
+.disconnect,
 .add,
-.quiet,
 .cancel {
   border: 0;
   border-radius: var(--radius);
@@ -136,7 +135,7 @@
   color: var(--muted);
 }
 
-.edit {
+.disconnect {
   flex: none;
   height: 32px;
   padding: 0 10px;
@@ -150,7 +149,7 @@
   padding: 0 10px 0 0;
 }
 
-.edit:hover,
+.disconnect:hover,
 .add:hover,
 .cancel:hover {
   background: var(--hover);
@@ -161,7 +160,7 @@
   background: transparent;
 }
 
-.editor {
+.confirm {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -181,40 +180,14 @@
   border-color: var(--accent);
 }
 
-.swatches {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.swatch {
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-}
-
-.swatch[aria-checked='true'] {
-  outline: 2px solid var(--ink);
-  outline-offset: 2px;
-}
-
 .actions {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.quiet {
-  margin-right: auto;
-  height: 32px;
-  padding: 0 4px;
-}
-
-.quiet:hover {
-  color: var(--ink);
-  text-decoration: underline;
+.confirm .actions {
+  justify-content: flex-end;
 }
 
 .cancel,
@@ -315,21 +288,18 @@
     padding: 4px 16px 48px;
   }
 
-  .edit,
   .add,
-  .quiet,
   .cancel,
   .primary {
     min-height: 44px;
   }
 
-  .input {
+  .disconnect {
     height: 44px;
   }
 
-  .swatch {
-    width: 28px;
-    height: 28px;
+  .input {
+    height: 44px;
   }
 
   .password {

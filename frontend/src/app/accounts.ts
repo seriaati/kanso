@@ -29,15 +29,6 @@ export function useAccounts() {
   })
 }
 
-export function useUpdateAccount() {
-  return useMutation({
-    mutationFn: ({ id, ...patch }: Pick<Account, 'id' | 'display_name' | 'color'>) =>
-      api<Account>(`/accounts/${id}`, { method: 'PATCH', body: patch }),
-    onSuccess: (account) =>
-      queryClient.setQueryData<Account[]>(key, (list) => list?.map((a) => (a.id === account.id ? account : a))),
-  })
-}
-
 /** Optimistic: the list takes the new order at once. */
 export function useReorderAccounts() {
   return useMutation({

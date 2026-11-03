@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { accountColors, useDisconnectAccount, useUpdateAccount, type Account } from '../../app/accounts'
+import { useDisconnectAccount, type Account } from '../../app/accounts'
 import { useAiUsage } from '../../app/ai'
 import type { SyncStatus } from '../../app/mail'
 import { usePhone } from '../../app/media'
@@ -80,8 +80,8 @@ function syncLine(status: SyncStatus | undefined): string {
 }
 
 function Accounts({ accounts, sync, demo }: { accounts: Account[]; sync: SyncStatus[]; demo: boolean }) {
-  const [editing, setEditing] = useState<number | null>(null)
-  const edited = accounts.find((a) => a.id === editing)
+  const [disconnecting, setDisconnecting] = useState<number | null>(null)
+  const target = accounts.find((a) => a.id === disconnecting)
   return (
     <Section title="Accounts">
       <ul className={styles.list}>
@@ -95,16 +95,21 @@ function Accounts({ accounts, sync, demo }: { accounts: Account[]; sync: SyncSta
                 <span className={styles.muted}>{account.email}</span>
                 <span className={`${styles.muted} ${status?.state === 'error' ? styles.problem : ''}`}>{syncLine(status)}</span>
               </div>
-              <button type="button" className={styles.edit} onClick={() => setEditing(account.id)}>
-                Edit
+              <button
+                type="button"
+                className={styles.disconnect}
+                aria-label={`Disconnect ${account.email}`}
+                onClick={() => setDisconnecting(account.id)}
+              >
+                Disconnect
               </button>
             </li>
           )
         })}
       </ul>
-      {edited && (
-        <Dialog title="Edit account" onClose={() => setEditing(null)}>
-          <AccountEditor account={edited} onDone={() => setEditing(null)} />
+      {target && (
+        <Dialog title="Disconnect account" onClose={() => setDisconnecting(null)}>
+          <DisconnectAccount account={target} onDone={() => setDisconnecting(null)} />
         </Dialog>
       )}
       {accounts.length === 0 && <p className={styles.note}>No Gmail account connected yet.</p>}
@@ -120,65 +125,25 @@ function Accounts({ accounts, sync, demo }: { accounts: Account[]; sync: SyncSta
   )
 }
 
-function AccountEditor({ account, onDone }: { account: Account; onDone: () => void }) {
-  const [name, setName] = useState(account.display_name)
-  const [color, setColor] = useState(account.color)
-  const [confirming, setConfirming] = useState(false)
-  const update = useUpdateAccount()
+function DisconnectAccount({ account, onDone }: { account: Account; onDone: () => void }) {
   const disconnect = useDisconnectAccount()
-  const error = update.error ?? disconnect.error
-
   return (
-    <form
-      className={styles.editor}
-      aria-label={`Edit ${account.email}`}
-      onSubmit={(event) => {
-        event.preventDefault()
-        update.mutate({ id: account.id, display_name: name.trim(), color }, { onSuccess: onDone })
-      }}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') onDone()
-      }}
-    >
-      <input className={styles.input} aria-label="Account name" maxLength={100} autoFocus value={name} onChange={(event) => setName(event.target.value)} />
-      <div className={styles.swatches} role="radiogroup" aria-label="Color">
-        {accountColors.map((c) => (
-          <button
-            key={c.value}
-            type="button"
-            role="radio"
-            aria-checked={c.value === color}
-            aria-label={c.name}
-            title={c.name}
-            className={styles.swatch}
-            style={{ background: c.value }}
-            onClick={() => setColor(c.value)}
-          />
-        ))}
-      </div>
-      {confirming && <p className={styles.note}>Removes {account.email} and its synced mail from kanso, and revokes kanso’s access. Gmail itself is not changed.</p>}
-      {error && (
+    <div className={styles.confirm}>
+      <p className={styles.note}>Removes {account.email} and its synced mail from kanso, and revokes kanso’s access. Gmail itself is not changed.</p>
+      {disconnect.error && (
         <p role="alert" className={styles.note}>
-          {error.message}
+          {disconnect.error.message}
         </p>
       )}
       <div className={styles.actions}>
-        <button
-          type="button"
-          className={styles.quiet}
-          disabled={disconnect.isPending}
-          onClick={() => (confirming ? disconnect.mutate(account.id) : setConfirming(true))}
-        >
-          {confirming ? 'Confirm disconnect' : 'Disconnect'}
-        </button>
         <button type="button" className={styles.cancel} onClick={onDone}>
           Cancel
         </button>
-        <button type="submit" className={styles.primary} disabled={!name.trim() || update.isPending}>
-          Save
+        <button type="button" className={styles.primary} disabled={disconnect.isPending} autoFocus onClick={() => disconnect.mutate(account.id)}>
+          Disconnect
         </button>
       </div>
-    </form>
+    </div>
   )
 }
 
