@@ -73,7 +73,6 @@ export function Reader(props: Props) {
     <Composer
       key={draft.draftId}
       draftId={draft.draftId}
-      accounts={accounts}
       inline={inline}
       title={inline ? undefined : 'Draft'}
       focus={draft.focus}

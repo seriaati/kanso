@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react'
-import type { Account } from '../../app/accounts'
 import { ApiError } from '../../app/api'
 import {
   ATTACHMENTS_LIMIT,
@@ -15,7 +14,6 @@ import {
 } from '../../app/compose'
 import { fileSize } from '../../app/format'
 import { Icon, type IconName } from '../../components/Icon'
-import { Select } from '../../components/Select'
 import { EmailFrame } from '../reader/EmailFrame'
 import { cleanHtml, escapeHtml, safeUrl } from './editor'
 import styles from './Composer.module.css'
@@ -29,7 +27,6 @@ export type Focus = 'to' | 'body'
 
 type Props = {
   draftId: number
-  accounts: Account[]
   /** Docked in its thread; otherwise it fills the email pane, or with `onToggleMinimize` is a window. */
   inline?: boolean
   title?: string
@@ -49,11 +46,10 @@ export function Composer(props: Props) {
 
 type Status = { kind: 'idle' | 'saving' | 'saved' | 'error'; text?: string }
 
-function Form({ initial: latest, accounts, inline, title, minimized, onToggleMinimize, focus, onClose, onFinished }: Props & { initial: Draft }) {
+function Form({ initial: latest, inline, title, minimized, onToggleMinimize, focus, onClose, onFinished }: Props & { initial: Draft }) {
   // Autosaves update the cached draft, not what is on screen.
   const [initial] = useState(latest)
   const id = initial.id
-  const [accountId, setAccountId] = useState(initial.account_id)
   const [to, setTo] = useState(initial.to)
   const [cc, setCc] = useState(initial.cc)
   const [bcc, setBcc] = useState(initial.bcc)
@@ -77,7 +73,7 @@ function Form({ initial: latest, accounts, inline, title, minimized, onToggleMin
   const flushLatest = useRef(() => {})
 
   const changed = () => setVersion((v) => v + 1)
-  const fields = (): DraftFields => ({ account_id: accountId, to, cc, bcc, subject, body_html: editorRef.current?.innerHTML ?? '' })
+  const fields = (): DraftFields => ({ account_id: initial.account_id, to, cc, bcc, subject, body_html: editorRef.current?.innerHTML ?? '' })
 
   const save = (keepalive = false) => {
     const target = version
@@ -317,24 +313,6 @@ function Form({ initial: latest, accounts, inline, title, minimized, onToggleMin
       )}
 
       <div className={styles.fields}>
-        {accounts.length > 1 && (
-          <div className={styles.row}>
-            <label className={styles.rowLabel} htmlFor={`from-${id}`}>
-              From
-            </label>
-            <Select
-              id={`from-${id}`}
-              className={styles.select}
-              label="From"
-              value={String(accountId)}
-              options={accounts.map((account) => ({ value: String(account.id), label: account.email }))}
-              onChange={(value) => {
-                setAccountId(Number(value))
-                changed()
-              }}
-            />
-          </div>
-        )}
         <RecipientField
           label="To"
           value={to}

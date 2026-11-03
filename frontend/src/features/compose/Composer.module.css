@@ -52,15 +52,6 @@
   color: inherit;
 }
 
-/* A bare Select: the row is the field. */
-.row .select {
-  flex: 1;
-  height: 30px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
 .subject {
   flex: 1;
   min-width: 0;

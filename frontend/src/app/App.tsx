@@ -798,7 +798,6 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
           <Composer
             key={composing.draftId}
             draftId={composing.draftId}
-            accounts={accounts}
             title="New message"
             focus="to"
             minimized={composing.minimized}
