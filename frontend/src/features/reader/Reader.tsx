@@ -433,8 +433,9 @@ function ThreadView({ thread, me, composer, onOpenDraft }: ThreadViewProps) {
 
 const senderName = (address: Address) => address.name || address.email
 
+/** Everyone else it went to; mail to you alone says nothing. */
 function recipients(message: Message, me: string) {
-  const names = [...message.to, ...message.cc].map((a) => (a.email.toLowerCase() === me.toLowerCase() ? 'me' : senderName(a)))
+  const names = [...message.to, ...message.cc].filter((a) => a.email.toLowerCase() !== me.toLowerCase()).map(senderName)
   return names.length ? `to ${names.join(', ')}` : ''
 }
 
