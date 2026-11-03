@@ -128,7 +128,6 @@ CASES: list[tuple[str, str, str | None, Any, tuple[list[str], list[str], list[st
     ("done", "t1", None, lambda t: not t.in_inbox, (["m1"], [], ["INBOX"]), "batchModify"),
     ("inbox", "t3", None, lambda t: t.in_inbox, (["m4"], ["INBOX"], []), "batchModify"),
     ("delete", "t2", None, lambda t: t.in_trash, (["m3"], ["TRASH"], []), "m3/trash"),
-    ("untrash", "t4", None, lambda t: not t.in_trash, (["m5"], [], ["TRASH"]), "m5/untrash"),
     # Stars and "unread" go on the latest message only, as in Gmail.
     ("star", "t1", None, lambda t: t.starred, (["m2"], ["STARRED"], []), "batchModify"),
     ("unstar", "t2", None, lambda t: not t.starred, (["m3"], [], ["STARRED"]), "batchModify"),
@@ -182,6 +181,18 @@ def test_action_applies_locally_queues_and_sends(
     # The sync that follows (Gmail's history of the change) agrees with the mirror.
     sync(gmail)
     assert check(threads()[thread])
+
+
+def test_restore_moves_to_the_inbox(synced: TestClient, gmail: FakeGmail) -> None:
+    act(synced, "untrash", "t4")
+    thread = threads()["t4"]
+    assert not thread.in_trash and thread.in_inbox
+    assert [(e.action, e.message_ids, e.add_labels, e.remove_labels) for e in entries()] == [
+        ("untrash", ["m5"], [], ["TRASH"]),
+        ("inbox", ["m5"], ["INBOX"], []),
+    ]
+    assert drain(gmail) == 2
+    assert gmail_labels(gmail, "m5") == {"INBOX"}
 
 
 def test_actions_publish_and_wake_the_worker(synced: TestClient, fake_redis: Any) -> None:

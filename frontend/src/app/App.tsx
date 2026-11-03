@@ -17,7 +17,7 @@ import { Sidebar, type Notice } from '../features/sidebar/Sidebar'
 import { LabelInbox } from '../features/threads/LabelInbox'
 import { InboxZero, ThreadList, type LabelChip, type ListRow } from '../features/threads/ThreadList'
 import { pickAccount, rememberAccount, useAccounts, type Account } from './accounts'
-import { applied, inList, quickAction, quickTarget, unsubscribe, useThreadAction, useUndo, type Quick, type SectionScope, type ThreadAction } from './actions'
+import { applied, inList, quickAction, quickTarget, redundant, unsubscribe, useThreadAction, useUndo, type Quick, type SectionScope, type ThreadAction } from './actions'
 import { useConfig } from './ai'
 import { ApiError, Unauthorized } from './api'
 import { createDraft, openDraft, type ComposeMode } from './compose'
@@ -367,7 +367,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
       return { icon, label, shortcut, onSelect: () => quick(q, [thread]) }
     }
     return [
-      quickItem('done'),
+      ...(redundant('done', [thread]) ? [] : [quickItem('done')]),
       quickItem('delete'),
       quickItem('star'),
       quickItem('important'),

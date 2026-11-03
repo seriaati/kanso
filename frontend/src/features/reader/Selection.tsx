@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { quickAction, type Quick } from '../../app/actions'
+import { quickAction, redundant, type Quick } from '../../app/actions'
 import type { ThreadSummary } from '../../app/mail'
 import { Icon, type IconName } from '../../components/Icon'
 import styles from './Selection.module.css'
@@ -25,7 +25,7 @@ export function Selection({ threads, onQuick, onRead, onLabel, picker, onClear }
         {count} selected
       </span>
       <span className={styles.separator} aria-hidden="true" />
-      {quick('done')}
+      {!redundant('done', threads) && quick('done')}
       {quick('delete')}
       <Action icon="mailOpen" title="Mark as read" onClick={() => onRead(false)} />
       <Action icon="mail" title="Mark as unread (u)" onClick={() => onRead(true)} />

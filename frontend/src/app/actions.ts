@@ -39,8 +39,9 @@ export function applied(thread: ThreadSummary, { action, label }: Omit<ActionInp
     case 'inbox':
       return { ...thread, in_inbox: action === 'inbox' }
     case 'delete':
+      return { ...thread, in_trash: true }
     case 'untrash':
-      return { ...thread, in_trash: action === 'delete' }
+      return { ...thread, in_trash: false, in_inbox: true }
     case 'star':
     case 'unstar':
       return { ...thread, starred: action === 'star' }
@@ -81,13 +82,19 @@ export function inList(params: URLSearchParams, thread: ThreadSummary): boolean 
 
 export type Quick = 'done' | 'delete' | 'star' | 'important' | 'spam'
 
+const inTrash = (threads: ThreadSummary[]) => threads.length > 0 && threads.every((t) => t.in_trash)
+
+/** In Trash, Done would only repeat Restore (which moves threads to the inbox), so it isn't shown. */
+export const redundant = (quick: Quick, threads: ThreadSummary[]) => quick === 'done' && inTrash(threads)
+
 export function quickAction(quick: Quick, threads: ThreadSummary[]): { icon: IconName; title: string; pressed?: boolean } {
   const all = (test: (t: ThreadSummary) => boolean) => threads.length > 0 && threads.every(test)
+  if ((quick === 'done' || quick === 'delete') && inTrash(threads)) return { icon: 'restore', title: 'Restore to inbox (#)' }
   switch (quick) {
     case 'done':
       return all((t) => !t.in_inbox) ? { icon: 'inbox', title: 'Move to inbox (e)' } : { icon: 'done', title: 'Done (e)' }
     case 'delete':
-      return all((t) => t.in_trash) ? { icon: 'inbox', title: 'Restore from Trash (#)' } : { icon: 'delete', title: 'Delete (#)' }
+      return { icon: 'delete', title: 'Delete (#)' }
     case 'star':
       return { icon: 'star', title: all((t) => t.starred) ? 'Unstar (s)' : 'Star (s)', pressed: all((t) => t.starred) }
     case 'important': {
@@ -101,11 +108,12 @@ export function quickAction(quick: Quick, threads: ThreadSummary[]): { icon: Ico
 
 export function quickTarget(quick: Quick, threads: ThreadSummary[]): ThreadAction {
   const all = (test: (t: ThreadSummary) => boolean) => threads.every(test)
+  if ((quick === 'done' || quick === 'delete') && inTrash(threads)) return 'untrash'
   switch (quick) {
     case 'done':
       return all((t) => !t.in_inbox) ? 'inbox' : 'done'
     case 'delete':
-      return all((t) => t.in_trash) ? 'untrash' : 'delete'
+      return 'delete'
     case 'star':
       return all((t) => t.starred) ? 'unstar' : 'star'
     case 'important':

@@ -36,6 +36,7 @@ const paths = {
   comfortable: <path d="M4 6h16M4 12h16M4 18h16" />,
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
   delete: <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />,
+  restore: <path d="M4 7h16M6 7l1 13h10l1-13M9 7V4h6v3M3.5 3.5l17 17" />,
   star: <path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z" />,
   important: <path d="M5 21V4h13l-3 4.5L18 13H5" />,
   install: <path d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5M4.5 20h15" />,

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Account } from '../../app/accounts'
 import { openDraft, useOpenDraft, type ComposeMode } from '../../app/compose'
 import { fileSize, longDateTime } from '../../app/format'
-import { quickAction, type Quick } from '../../app/actions'
+import { quickAction, redundant, type Quick } from '../../app/actions'
 import { useThread, type Address, type Message, type ThreadDetail, type ThreadSummary } from '../../app/mail'
 import { Avatar } from '../../components/Avatar'
 import { Icon, type IconName } from '../../components/Icon'
@@ -162,7 +162,7 @@ function Toolbar({ targets, onQuick, onToggleRead, onUnsubscribe, onLabel, picke
   }
   return (
     <div className={styles.toolbar} role="toolbar" aria-label="Email actions">
-      {quick('done')}
+      {!redundant('done', targets) && quick('done')}
       {quick('delete')}
       <span className={styles.separator} aria-hidden="true" />
       <span className={styles.anchor}>
@@ -239,7 +239,7 @@ function PhoneActions({ targets, onQuick, onLabel, picker, onReply, canReply }: 
   const item = (q: Quick, short: (on: boolean) => string) => {
     const { icon, title, pressed } = quickAction(q, targets)
     // Done and Delete turn into Move to inbox and Restore: their icon says which.
-    const on = q === 'star' ? !!pressed : icon === 'inbox'
+    const on = q === 'star' ? !!pressed : icon === 'inbox' || icon === 'restore'
     return (
       <button
         type="button"
@@ -256,7 +256,7 @@ function PhoneActions({ targets, onQuick, onLabel, picker, onReply, canReply }: 
   }
   return (
     <nav className={`${bar.bar} ${styles.actions}`} aria-label="Email actions">
-      {item('done', (back) => (back ? 'Inbox' : 'Done'))}
+      {!redundant('done', targets) && item('done', (back) => (back ? 'Inbox' : 'Done'))}
       {item('delete', (back) => (back ? 'Restore' : 'Delete'))}
       <span className={styles.slot}>
         <button type="button" className={bar.item} aria-disabled={none || undefined} onClick={none ? undefined : onLabel}>

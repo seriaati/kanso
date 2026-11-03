@@ -2,7 +2,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useEffect, useEffectEvent, useRef, type ReactNode, type RefObject } from 'react'
 import { Link } from 'react-router'
 import { shortDate } from '../../app/format'
-import { quickAction, type Quick } from '../../app/actions'
+import { quickAction, redundant, type Quick } from '../../app/actions'
 import { useDensity } from '../../app/density'
 import type { Section, ThreadSummary } from '../../app/mail'
 import { Avatar } from '../../components/Avatar'
@@ -399,7 +399,7 @@ function ThreadRow(props: RowProps) {
         <span className={styles.time}>{shortDate(thread.last_message_at)}</span>
       </Link>
       <span className={styles.actions}>
-        {quicks.map((quick) => {
+        {quicks.filter((quick) => !redundant(quick, [thread])).map((quick) => {
           const { icon, title, pressed } = quickAction(quick, [thread])
           return (
             <button

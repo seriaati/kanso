@@ -57,7 +57,7 @@ ACTIONS: dict[str, tuple[Literal["add", "remove"], str | None, Literal["all", "l
     "unspam": ("remove", "SPAM", "all"),
 }
 # Done along with the action, as an entry of its own so undo restores exactly what changed.
-FOLLOW_UPS = {"spam": "done", "unspam": "inbox"}
+FOLLOW_UPS = {"spam": "done", "unspam": "inbox", "untrash": "inbox"}
 
 
 class Section(BaseModel):
