@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kanso import demo_seed
 from kanso.ai import trim, usage
 from kanso.core.settings import settings
+from kanso.db import prefs
 from kanso.db import redis as events
 from kanso.db.models import Account, Label, Message, MessageLabel, Summary, Thread
 from kanso.db.session import Session
@@ -140,9 +141,9 @@ def prompt(context: Context) -> str:
     return f"<thread>\n{header}\n" + "\n\n".join(parts) + "\n</thread>"
 
 
-def request(context: Context) -> dict[str, Any]:
+def request(context: Context, model: str) -> dict[str, Any]:
     return {
-        "model": settings.summary_model,
+        "model": model,
         "max_tokens": MAX_TOKENS,
         "system": INSTRUCTIONS,
         "messages": [{"role": "user", "content": prompt(context)}],
@@ -199,8 +200,9 @@ async def _generate(context: Context, lock: str, queue: asyncio.Queue[dict[str, 
                 await asyncio.sleep(DEMO_DELAY)
             row = await _save(context, text, "demo", None)
         else:
-            model = settings.summary_model
-            async with client().messages.stream(**request(context)) as stream:
+            async with Session() as db:
+                model = await prefs.model(db, FEATURE)
+            async with client().messages.stream(**request(context, model)) as stream:
                 async for delta in stream.text_stream:
                     first = first or time.monotonic()
                     await queue.put({"type": "delta", "text": delta})

@@ -7,6 +7,7 @@ import { usePush } from '../../app/notifications'
 import { useChangePassword, useDemoPassword, useLogoutEverywhere, useSettings, useUpdateSettings } from '../../app/settings'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
+import { Select } from '../../components/Select'
 import { Avatar, DisplayOptions } from '../sidebar/AccountSwitcher'
 import styles from './Settings.module.css'
 
@@ -41,6 +42,7 @@ export function Settings({ accounts, sync, ai, onMenu }: Props) {
           )}
           {!demo && <Notifications />}
           {ai && <Assistant />}
+          {ai && <Models />}
           {ai && <Usage />}
           {!demo && <Password />}
           <Sessions />
@@ -195,6 +197,44 @@ function Assistant() {
           </span>
         </span>
       </label>
+      {update.error && <p className={styles.note}>Couldn’t save: {update.error.message}</p>}
+    </Section>
+  )
+}
+
+const modelFeatures = [
+  { key: 'assistant_model', name: 'Assistant chat' },
+  { key: 'summary_model', name: 'Thread summaries' },
+  { key: 'labeling_model', name: 'Auto-labeling' },
+] as const
+
+// claude-sonnet-5-5 → Sonnet 5.5
+function modelName(id: string): string {
+  const match = id.match(/^claude-([a-z]+)-(\d+)-(\d+)$/)
+  return match ? `${match[1][0].toUpperCase()}${match[1].slice(1)} ${match[2]}.${match[3]}` : id
+}
+
+function Models() {
+  const settings = useSettings()
+  const update = useUpdateSettings()
+  const data = settings.data
+  return (
+    <Section title="AI models">
+      <div className={styles.models}>
+        {modelFeatures.map((feature) => (
+          <div key={feature.key} className={styles.model}>
+            <span>{feature.name}</span>
+            <Select
+              className={styles.picker}
+              label={feature.name}
+              value={data?.[feature.key] ?? ''}
+              options={(data?.models ?? []).map((model) => ({ value: model, label: modelName(model) }))}
+              disabled={!data}
+              onChange={(value) => update.mutate({ [feature.key]: value })}
+            />
+          </div>
+        ))}
+      </div>
       {update.error && <p className={styles.note}>Couldn’t save: {update.error.message}</p>}
     </Section>
   )

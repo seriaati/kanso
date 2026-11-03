@@ -36,9 +36,6 @@ class Settings(BaseSettings):
     google_pubsub_credentials: str = ""
     # Without a key every AI feature is off.
     anthropic_api_key: str = ""
-    ai_label_model: str = "claude-haiku-5-5"
-    ai_model: str = "claude-sonnet-5-5"
-    ai_summary_model: str = ""
     # A made-up mailbox, reset every day; no Gmail accounts can be connected.
     demo_mode: bool = False
 
@@ -79,10 +76,6 @@ class Settings(BaseSettings):
     @property
     def ai_enabled(self) -> bool:
         return bool(self.anthropic_api_key)
-
-    @property
-    def summary_model(self) -> str:
-        return self.ai_summary_model or self.ai_model
 
     @property
     def secure_cookies(self) -> bool:

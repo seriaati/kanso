@@ -113,10 +113,26 @@ def test_reset_password_cli_output(
 
 
 def test_assistant_confirmation_setting(logged_in: TestClient) -> None:
-    assert logged_in.get("/api/settings").json() == {"assistant_confirm": True}  # default: ask
+    assert logged_in.get("/api/settings").json()["assistant_confirm"] is True  # default: ask
     response = logged_in.patch("/api/settings", json={"assistant_confirm": False})
-    assert response.json() == {"assistant_confirm": False}
-    assert logged_in.get("/api/settings").json() == {"assistant_confirm": False}
-    assert logged_in.patch("/api/settings", json={}).json() == {"assistant_confirm": False}
+    assert response.json()["assistant_confirm"] is False
+    assert logged_in.get("/api/settings").json()["assistant_confirm"] is False
+    assert logged_in.patch("/api/settings", json={}).json()["assistant_confirm"] is False
     logged_in.patch("/api/settings", json={"assistant_confirm": True})
-    assert logged_in.get("/api/settings").json() == {"assistant_confirm": True}
+    assert logged_in.get("/api/settings").json()["assistant_confirm"] is True
+
+
+def test_model_settings(logged_in: TestClient) -> None:
+    models = ["claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"]
+    assert logged_in.get("/api/settings").json() == {
+        "assistant_confirm": True,
+        "labeling_model": "claude-haiku-5-5",
+        "summary_model": "claude-sonnet-5-5",
+        "assistant_model": "claude-sonnet-5-5",
+        "models": models,
+    }
+    response = logged_in.patch("/api/settings", json={"assistant_model": "claude-opus-5-5"})
+    assert response.json()["assistant_model"] == "claude-opus-5-5"
+    assert response.json()["summary_model"] == "claude-sonnet-5-5"  # the others stay
+    assert logged_in.patch("/api/settings", json={"labeling_model": "gpt-4"}).status_code == 422
+    assert logged_in.get("/api/settings").json()["labeling_model"] == "claude-haiku-5-5"

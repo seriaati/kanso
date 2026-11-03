@@ -67,11 +67,11 @@ def client() -> anthropic.AsyncAnthropic:
     return anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key, timeout=60.0, max_retries=2)
 
 
-def request(messages: list[dict[str, Any]]) -> dict[str, Any]:
+def request(messages: list[dict[str, Any]], model: str) -> dict[str, Any]:
     """Tools and the system prompt never change, so the system breakpoint caches both; the
     top-level one caches the conversation so far."""
     return {
-        "model": settings.ai_model,
+        "model": model,
         "max_tokens": MAX_TOKENS,
         "system": [{"type": "text", "text": INSTRUCTIONS, "cache_control": {"type": "ephemeral"}}],
         "tools": tools.TOOLS,
@@ -336,9 +336,9 @@ async def _step(conversation_id: int, queue: asyncio.Queue[dict[str, Any]], last
         place = zone(found.timezone)
         account_id = found.account_id
         rows = await _rows(db, conversation_id)
+        model = await prefs.model(db, FEATURE)
     messages = [{"role": r.role, "content": r.content} for r in rows]
-    model = settings.ai_model
-    async with client().messages.stream(**request(messages)) as stream:
+    async with client().messages.stream(**request(messages, model)) as stream:
         async for event in stream:
             if event.type == "text":
                 await queue.put({"type": "text", "text": event.text})

@@ -44,7 +44,7 @@ async def run() -> None:
     contact_photos = asyncio.create_task(photos.run(http))
     if settings.ai_enabled:
         classify = asyncio.create_task(labeling.run())
-        log.info("AI labeling on (%s)", settings.ai_label_model)
+        log.info("AI labeling on")
     else:
         classify = None
         log.info("AI labeling off (no ANTHROPIC_API_KEY)")

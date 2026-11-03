@@ -230,6 +230,25 @@
   gap: 2px;
 }
 
+.models {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 360px;
+  padding-bottom: 8px;
+}
+
+.model {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.picker {
+  width: 160px;
+}
+
 .table {
   width: 100%;
   margin-bottom: 8px;
@@ -302,7 +321,8 @@
     height: 44px;
   }
 
-  .password {
+  .password,
+  .models {
     max-width: none;
   }
 

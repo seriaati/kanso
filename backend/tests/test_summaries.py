@@ -263,7 +263,7 @@ def test_prompt_sends_sender_date_and_trimmed_bodies_only(
     add("d1", _raw(f"Me <{ME}>", "draft text in progress"), 0.5, ("DRAFT",))  # a draft: left out
     summarize(logged_in, thread)
     [request] = claude.requests
-    assert request["model"] == "claude-sonnet-5-5"  # AI_MODEL
+    assert request["model"] == "claude-sonnet-5-5"  # the default
     assert request["output_config"] == {"effort": "low"}
     assert request["stream"] is True
     assert request["system"] == summaries.INSTRUCTIONS
@@ -281,14 +281,10 @@ def test_prompt_sends_sender_date_and_trimmed_bodies_only(
     assert [p for p in private if p in sent] == []
 
 
-def test_summary_model_can_be_set_apart(
-    ai_on: None,
-    thread: int,
-    logged_in: TestClient,
-    claude: FakeClaude,
-    monkeypatch: pytest.MonkeyPatch,
+def test_summary_model_is_set_in_settings(
+    ai_on: None, thread: int, logged_in: TestClient, claude: FakeClaude
 ) -> None:
-    monkeypatch.setattr(settings, "ai_summary_model", "claude-haiku-5-5")
+    logged_in.patch("/api/settings", json={"summary_model": "claude-haiku-5-5"})
     summarize(logged_in, thread)
     assert claude.requests[0]["model"] == "claude-haiku-5-5"
     [row] = rows(Summary)

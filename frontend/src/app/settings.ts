@@ -1,7 +1,13 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, queryClient } from './api'
 
-export type Settings = { assistant_confirm: boolean }
+export type Settings = {
+  assistant_confirm: boolean
+  labeling_model: string
+  summary_model: string
+  assistant_model: string
+  models: string[] // the choices
+}
 
 const key = ['settings']
 

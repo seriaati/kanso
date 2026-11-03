@@ -273,10 +273,19 @@ def test_prompt_sends_only_sender_subject_and_trimmed_body(
 def test_long_label_list_is_cached_only_with_a_backlog() -> None:
     labels: list[tuple[str, str]] = [(f"Label {i}", "a long description " * 8) for i in range(20)]
     email = labeling.Email("A", "a@example.com", "Hi", "Body")
-    assert "cache_control" in labeling.request(labels, email, cache=True)["system"][0]
-    assert "cache_control" not in labeling.request(labels, email, cache=False)["system"][0]
+    assert (
+        "cache_control"
+        in labeling.request(labels, email, "claude-haiku-5-5", cache=True)["system"][0]
+    )
+    assert (
+        "cache_control"
+        not in labeling.request(labels, email, "claude-haiku-5-5", cache=False)["system"][0]
+    )
     short = [("Finance", "bills")]
-    assert "cache_control" not in labeling.request(short, email, cache=True)["system"][0]
+    assert (
+        "cache_control"
+        not in labeling.request(short, email, "claude-haiku-5-5", cache=True)["system"][0]
+    )
 
 
 def _response(content: list[dict[str, Any]], stop: str = "end_turn") -> Any:

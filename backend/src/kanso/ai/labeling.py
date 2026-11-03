@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kanso.ai import trim, usage
 from kanso.api.actions import apply_action
 from kanso.core.settings import settings
+from kanso.db import prefs
 from kanso.db import redis as events
 from kanso.db.models import Account, AiQueue, Label, Message, MessageLabel, Thread
 from kanso.db.session import Session
@@ -74,7 +75,7 @@ def user_prompt(email: Email) -> str:
     return f"<email>\nFrom: {sender}\nSubject: {email.subject}\n\n{email.body}\n</email>"
 
 
-def request(labels: list[tuple[str, str]], email: Email, cache: bool) -> dict[str, Any]:
+def request(labels: list[tuple[str, str]], email: Email, model: str, cache: bool) -> dict[str, Any]:
     system = system_prompt(labels)
     block: dict[str, Any] = {"type": "text", "text": system}
     if cache and len(system) >= CACHE_MIN_CHARS:
@@ -90,7 +91,7 @@ def request(labels: list[tuple[str, str]], email: Email, cache: bool) -> dict[st
         "additionalProperties": False,
     }
     return {
-        "model": settings.ai_label_model,
+        "model": model,
         "max_tokens": MAX_TOKENS,
         "system": [block],
         "messages": [{"role": "user", "content": user_prompt(email)}],
@@ -277,8 +278,9 @@ async def classify(
         .select_from(AiQueue)
         .where(AiQueue.account_id == row.account_id, AiQueue.status == "pending")
     )
-    response = await ai.messages.create(**request(labels, email, cache=(backlog or 0) > 1))
-    await usage.record(db, FEATURE, settings.ai_label_model, response.usage)
+    model = await prefs.model(db, FEATURE)
+    response = await ai.messages.create(**request(labels, email, model, cache=(backlog or 0) > 1))
+    await usage.record(db, FEATURE, model, response.usage)
     label, confidence = parse(response, [name for name, _ in labels])
     row.label, row.confidence = label, confidence
     if label is None or confidence < CONFIDENCE:

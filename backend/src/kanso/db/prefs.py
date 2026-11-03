@@ -15,6 +15,12 @@ PASSWORD_HASH = "password_hash"
 ASSISTANT_CONFIRM = "assistant_confirm"
 SESSION_EPOCH = "session_epoch"
 AI_KEY_REJECTED = "ai_key_rejected"
+# The Claude model per AI feature, keyed by the usage table's feature names.
+MODEL_DEFAULTS = {
+    "labeling": "claude-haiku-5-5",
+    "summary": "claude-sonnet-5-5",
+    "assistant": "claude-sonnet-5-5",
+}
 
 
 async def get(db: AsyncSession, key: str, default: Any = None) -> Any:
@@ -34,3 +40,7 @@ async def remove(db: AsyncSession, key: str) -> None:
 
 async def assistant_confirm(db: AsyncSession) -> bool:
     return bool(await get(db, ASSISTANT_CONFIRM, True))
+
+
+async def model(db: AsyncSession, feature: str) -> str:
+    return str(await get(db, f"model_{feature}", MODEL_DEFAULTS[feature]))

@@ -150,7 +150,7 @@ Open `.env` and fill it in:
 | `GOOGLE_PUBSUB_TOPIC` | `projects/<project-id>/topics/kanso-gmail` |
 | `GOOGLE_PUBSUB_SUBSCRIPTION` | `projects/<project-id>/subscriptions/kanso-gmail` |
 | `GOOGLE_PUBSUB_CREDENTIALS` | The service account key from step 5 on one line: `base64 -w0 key.json` (macOS: `base64 -i key.json`). |
-| `ANTHROPIC_API_KEY` | Optional. A Claude API key from [console.anthropic.com](https://console.anthropic.com), which turns on AI labeling and thread summaries. Without it kanso is a plain email client and shows no AI controls. If summaries feel slow, set `AI_SUMMARY_MODEL=claude-haiku-5-5`. |
+| `ANTHROPIC_API_KEY` | Optional. A Claude API key from [console.anthropic.com](https://console.anthropic.com), which turns on AI labeling and thread summaries. Without it kanso is a plain email client and shows no AI controls. The model for each AI feature is chosen in Settings → AI models. |
 
 Then set your login password. This downloads the kanso image the first time:
 
