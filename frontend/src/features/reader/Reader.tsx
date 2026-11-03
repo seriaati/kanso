@@ -18,7 +18,6 @@ export type ThreadDraft = { threadId: number; draftId: number; focus: Focus | nu
 
 type Props = {
   threadId: number | null
-  myEmails: Set<string>
   accounts: Account[]
   reply: ThreadDraft | null
   onComposeFinished: (notice: string, threadId?: number | null) => void
@@ -40,7 +39,7 @@ type Props = {
 }
 
 export function Reader(props: Props) {
-  const { threadId, myEmails, accounts, reply, onComposeFinished, onCloseReply, onCloseThread } = props
+  const { threadId, accounts, reply, onComposeFinished, onCloseReply, onCloseThread } = props
   const thread = useThread(threadId)
   const detail = thread.data && thread.data.id === threadId ? thread.data : undefined
   const drafts = detail?.messages.filter((m) => m.draft) ?? []
@@ -110,7 +109,7 @@ export function Reader(props: Props) {
       <ThreadView
         key={detail.id}
         thread={detail}
-        myEmails={myEmails}
+        me={accounts.find((a) => a.id === detail.account_id)?.email ?? ''}
         composer={active ? composer(active, true) : null}
         onOpenDraft={openThreadDraft}
       />
@@ -372,12 +371,13 @@ function More({ disabled, unread, onToggleRead, onReplyAll, onForward, important
 
 type ThreadViewProps = {
   thread: ThreadDetail
-  myEmails: Set<string>
+  /** The thread's account: mail from your other accounts is someone else's here. */
+  me: string
   composer: ReactNode
   onOpenDraft: (messageId: number) => void
 }
 
-function ThreadView({ thread, myEmails, composer, onOpenDraft }: ThreadViewProps) {
+function ThreadView({ thread, me, composer, onOpenDraft }: ThreadViewProps) {
   const messages = thread.messages.filter((m) => !m.draft)
   const drafts = composer ? [] : thread.messages.filter((m) => m.draft)
   const lastId = messages.at(-1)?.id
@@ -402,7 +402,7 @@ function ThreadView({ thread, myEmails, composer, onOpenDraft }: ThreadViewProps
           <MessageView
             key={message.id}
             message={message}
-            myEmails={myEmails}
+            me={me}
             onCollapse={many ? () => flip(message.id) : undefined}
             expanding={flipped.has(message.id)}
           />
@@ -433,20 +433,20 @@ function ThreadView({ thread, myEmails, composer, onOpenDraft }: ThreadViewProps
 
 const senderName = (address: Address) => address.name || address.email
 
-function recipients(message: Message, myEmails: Set<string>) {
-  const names = [...message.to, ...message.cc].map((a) => (myEmails.has(a.email.toLowerCase()) ? 'me' : senderName(a)))
+function recipients(message: Message, me: string) {
+  const names = [...message.to, ...message.cc].map((a) => (a.email.toLowerCase() === me.toLowerCase() ? 'me' : senderName(a)))
   return names.length ? `to ${names.join(', ')}` : ''
 }
 
 type MessageViewProps = {
   message: Message
-  myEmails: Set<string>
+  me: string
   onCollapse?: () => void
   /** Expanded by a click, not from the start: its body grows open. */
   expanding?: boolean
 }
 
-function MessageView({ message, myEmails, onCollapse, expanding }: MessageViewProps) {
+function MessageView({ message, me, onCollapse, expanding }: MessageViewProps) {
   const [showImages, setShowImages] = useState(false)
   const html = message.body_html
   // Inline images the HTML shows aren't listed again as attachments.
@@ -461,7 +461,7 @@ function MessageView({ message, myEmails, onCollapse, expanding }: MessageViewPr
           <span className={styles.senderName} lang={message.lang ?? undefined} title={message.sender.email}>
             {name}
           </span>
-          <span className={styles.meta}>{[recipients(message, myEmails), longDateTime(message.date)].filter(Boolean).join(' · ')}</span>
+          <span className={styles.meta}>{[recipients(message, me), longDateTime(message.date)].filter(Boolean).join(' · ')}</span>
         </span>
       </button>
 

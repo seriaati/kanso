@@ -113,8 +113,9 @@ async def create(
         )
         draft.attachments = [_entry(a, account.id, original.gmail_id) for a in rows]
     else:
-        mine = {a.email.lower() for a in accounts}
-        to, cc = compose.reply_recipients(original, mine, reply_all=mode == "reply_all")
+        to, cc = compose.reply_recipients(
+            original, {account.email.lower()}, reply_all=mode == "reply_all"
+        )
         draft.to_addrs, draft.cc_addrs = to, cc
         draft.subject = compose.reply_subject(original.subject)
         draft.quote_html, draft.quote_text = compose.reply_quote(original, tz)

@@ -227,7 +227,6 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const [sidebarWidth, setSidebarWidth] = useState(() => storedWidth(SIDEBAR_WIDTH_KEY))
   const searchRef = useRef<HTMLInputElement>(null)
   const assistantRef = useRef<AssistantHandle>(null)
-  const myEmails = useMemo(() => new Set(accounts.map((a) => a.email.toLowerCase())), [accounts])
 
   const go = (patch: Partial<Route>, replace = false) => navigate(href({ ...route, ...patch }), { replace })
   const open = (id: number, replace = false) => {
@@ -718,7 +717,6 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
               {!(showAssistant && assistantOnly) && (
                 <Reader
                   threadId={threadId}
-                  myEmails={myEmails}
                   accounts={accounts}
                   reply={reply}
                   onComposeFinished={(text) => {

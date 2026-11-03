@@ -119,11 +119,9 @@ class ThreadDetail(ThreadOut):
     messages: list[MessageOut]
 
 
-async def _senders(
-    db: AsyncSession, ids: list[int], mine: set[str]
-) -> dict[int, tuple[str, str | None]]:
-    """Each thread's newest sender who isn't the user: (name, image URL). The image is their
-    contact photo, else their domain's logo, unless the domain is known to have none."""
+async def _senders(db: AsyncSession, ids: list[int]) -> dict[int, tuple[str, str | None]]:
+    """Each thread's newest sender who isn't the thread's account: (name, image URL). The image
+    is their contact photo, else their domain's logo, unless the domain is known to have none."""
     name = func.coalesce(func.nullif(Message.from_name, ""), Message.from_email)  # as `senders`
     newest = (
         select(
@@ -132,7 +130,11 @@ async def _senders(
             name.label("name"),
             func.lower(Message.from_email).label("email"),
         )
-        .where(Message.thread_id.in_(ids), func.lower(Message.from_email).not_in(mine))
+        .join(Account, Account.id == Message.account_id)
+        .where(
+            Message.thread_id.in_(ids),
+            func.lower(Message.from_email) != func.lower(Account.email),
+        )
         .ext(distinct_on(Message.thread_id))
         .order_by(Message.thread_id, Message.internal_date.desc(), Message.id.desc())
         .subquery()
@@ -189,27 +191,31 @@ async def _images(
 async def _people(db: AsyncSession, threads: list[ThreadOut], recipients: bool) -> list[ThreadOut]:
     """Mark the user's own names among each thread's senders and, with `recipients` (Sent and
     Drafts), list who the user wrote to, as Gmail shows them: "Daniel Reyes, me", "To: Daniel".
-    Also each thread's sender and their image."""
+    Also each thread's sender and their image. "The user" is the thread's account: mail between
+    two connected accounts has a real sender and recipient in each."""
     if not threads:
         return threads
-    mine = {email.lower() for email in await db.scalars(select(Account.email))}
     ids = [t.id for t in threads]
-    senders = await _senders(db, ids, mine)
+    senders = await _senders(db, ids)
     name = func.coalesce(func.nullif(Message.from_name, ""), Message.from_email)  # as `senders`
     rows = await db.execute(
-        select(Message.thread_id, name, Message.to_addrs, Message.cc_addrs)
-        .where(Message.thread_id.in_(ids), func.lower(Message.from_email).in_(mine))
+        select(Message.thread_id, name, Account.email, Message.to_addrs, Message.cc_addrs)
+        .join(Account, Account.id == Message.account_id)
+        .where(
+            Message.thread_id.in_(ids),
+            func.lower(Message.from_email) == func.lower(Account.email),
+        )
         .order_by(Message.internal_date, Message.id)
     )
     me: dict[int, list[str]] = {}
     to: dict[int, dict[str, str]] = {}  # address -> name, in order
-    for thread_id, sender, to_addrs, cc_addrs in rows:
+    for thread_id, sender, own, to_addrs, cc_addrs in rows:
         if sender not in me.setdefault(thread_id, []):
             me[thread_id].append(sender)
         people = to.setdefault(thread_id, {})
         for address in to_addrs + cc_addrs:
             email = address["email"].lower()
-            if email not in mine:
+            if email != own.lower():
                 people.setdefault(email, address["name"] or address["email"])
     return [
         t.model_copy(

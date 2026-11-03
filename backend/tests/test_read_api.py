@@ -129,6 +129,25 @@ def test_me_and_recipients(demo: TestClient) -> None:
     dinner = next(t for t in grouped["threads"] if t["subject"] == "Re: Dinner on Saturday?")
     assert dinner["me"] == ["Demo"]
 
+    # "Me" is the thread's account: another connected account is someone else here.
+    async def connect_priya() -> None:
+        async with Session() as db:
+            db.add(
+                Account(
+                    email="priya.shah@example.com",
+                    display_name="Priya",
+                    color="#2F4B6E",
+                    refresh_token=b"x",
+                )
+            )
+            await db.commit()
+
+    run(connect_priya())
+    assert people(mailbox="sent")["Trail map"] == (["Demo"], ["Priya Shah"])
+    threads = demo.get("/api/threads", params={"account_id": 1, "limit": 200}).json()["threads"]
+    hike = next(t for t in threads if t["subject"] == "Photos from the hike")
+    assert hike["sender_name"] == "Priya Shah"
+
 
 LEASE = "Lease renewal for apartment 4B"
 STATEMENTS = ["Your October statement is ready", "Your September statement is ready"]

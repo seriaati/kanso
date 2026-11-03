@@ -56,7 +56,7 @@ def _unique(addresses: Iterable[Addr], skip: set[str]) -> list[Addr]:
 
 
 def reply_recipients(original: Original, mine: set[str], reply_all: bool) -> tuple[list, list]:
-    """`mine` (every connected account, lowercase) is never copied in. Replying to your own
+    """`mine` (the replying account, lowercase) is never copied in. Replying to your own
     message writes to its recipients again."""
     from_me = original.from_email.lower() in mine
     if from_me:
