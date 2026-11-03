@@ -19,7 +19,7 @@ TOKEN_URL = "https://oauth2.googleapis.com/token"
 REVOKE_URL = "https://oauth2.googleapis.com/revoke"
 # gmail.modify only lacks permanent deletion that bypasses Trash, which kanso never does.
 GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.modify"
-# profile: the account's photo. Contacts: sender photos (sync/photos.py).
+# profile: the account's name and photo. Contacts: sender photos (sync/photos.py).
 CONTACTS_SCOPES = (
     "https://www.googleapis.com/auth/contacts.readonly "
     "https://www.googleapis.com/auth/contacts.other.readonly"
@@ -39,6 +39,7 @@ class ReconnectRequired(OAuthError):
 class Grant:
     email: str
     refresh_token: str
+    name: str | None
     picture: str | None
 
 
@@ -85,7 +86,10 @@ async def exchange_code(code: str) -> Grant:
     payload = body["id_token"].split(".")[1]
     claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
     return Grant(
-        email=claims["email"], refresh_token=body["refresh_token"], picture=claims.get("picture")
+        email=claims["email"],
+        refresh_token=body["refresh_token"],
+        name=claims.get("name"),
+        picture=claims.get("picture"),
     )
 
 

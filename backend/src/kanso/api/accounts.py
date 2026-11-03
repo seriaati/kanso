@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import PlainTextResponse, RedirectResponse
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,14 +31,6 @@ class AccountOut(BaseModel):
     avatar_url: str | None
 
 
-class AccountUpdate(BaseModel):
-    display_name: (
-        Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
-        | None
-    ) = None
-    color: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
-
-
 class AccountOrder(BaseModel):
     ids: list[int] = Field(max_length=100)  # top to bottom
 
@@ -64,17 +56,6 @@ async def reorder_accounts(body: AccountOrder, db: DB) -> list[AccountOut]:
             accounts[account_id].position = position
     await db.commit()
     return await list_accounts(db)
-
-
-@router.patch("/{account_id}")
-async def update_account(account_id: int, body: AccountUpdate, db: DB) -> AccountOut:
-    account = await _get(db, account_id)
-    if body.display_name is not None:
-        account.display_name = body.display_name
-    if body.color is not None:
-        account.color = body.color.upper()
-    await db.commit()
-    return AccountOut.model_validate(account)
 
 
 @router.delete("/{account_id}", status_code=204)
@@ -117,9 +98,12 @@ async def callback(db: DB, state: str = "", code: str = "", error: str = "") -> 
     except oauth.OAuthError as e:
         return PlainTextResponse(f"Could not connect the account: {e}", status_code=400)
 
+    # Google's profile name, else the address before the @.
+    name = (grant.name or "").strip()[:100] or grant.email.split("@")[0]
     account = await db.scalar(select(Account).where(Account.email == grant.email))
-    if account:  # reconnecting an existing account keeps its name, color and mail
+    if account:  # reconnecting an existing account keeps its color and mail
         account.refresh_token = encrypt(grant.refresh_token)
+        account.display_name = name
         account.avatar_url = grant.picture
         account.photos_synced_at = None  # Contacts access may be new: sync photos again now
     else:
@@ -128,7 +112,7 @@ async def callback(db: DB, state: str = "", code: str = "", error: str = "") -> 
         db.add(
             Account(
                 email=grant.email,
-                display_name=grant.email.split("@")[0],
+                display_name=name,
                 color=COLORS[count % len(COLORS)],
                 avatar_url=grant.picture,
                 position=0 if last is None else last + 1,

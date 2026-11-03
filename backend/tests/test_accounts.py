@@ -21,8 +21,8 @@ pytestmark = pytest.mark.usefixtures("db")
 PHOTO = "https://lh3.googleusercontent.com/a/photo=s96-c"
 
 
-def id_token(email: str) -> str:
-    claims = {"email": email, "picture": PHOTO}
+def id_token(email: str, name: str | None) -> str:
+    claims = {"email": email, "name": name, "picture": PHOTO}
     payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=")
     return f"header.{payload.decode()}.signature"
 
@@ -30,6 +30,7 @@ def id_token(email: str) -> str:
 class FakeGoogle:
     def __init__(self, email: str = "me@gmail.com", scope: str = oauth.SCOPES) -> None:
         self.email = email
+        self.name: str | None = "Me Myself"
         self.scope = scope
         self.requests: list[httpx.Request] = []
 
@@ -48,7 +49,7 @@ class FakeGoogle:
                 "expires_in": 3599,
                 "refresh_token": f"refresh-for-{self.email}",
                 "scope": self.scope,
-                "id_token": id_token(self.email),
+                "id_token": id_token(self.email, self.name),
             },
         )
 
@@ -97,7 +98,7 @@ def test_connect_creates_account(logged_in: TestClient, google: FakeGoogle) -> N
         {
             "id": 1,
             "email": "me@gmail.com",
-            "display_name": "me",
+            "display_name": "Me Myself",
             "color": "#2F4B6E",
             "avatar_url": PHOTO,
         }
@@ -126,14 +127,19 @@ def test_reorder_accounts(logged_in: TestClient, google: FakeGoogle) -> None:
     assert [a["id"] for a in logged_in.get("/api/accounts").json()] == [3, 1, 2, 4]
 
 
-def test_reconnect_updates_token_and_keeps_settings(
-    logged_in: TestClient, google: FakeGoogle
-) -> None:
+def test_connect_without_profile_name(logged_in: TestClient, google: FakeGoogle) -> None:
+    google.name = None
     connect(logged_in)
-    logged_in.patch("/api/accounts/1", json={"display_name": "Personal"})
-    google.email = "me@gmail.com"
+    assert logged_in.get("/api/accounts").json()[0]["display_name"] == "me"
+
+
+def test_reconnect_refreshes_name(logged_in: TestClient, google: FakeGoogle) -> None:
     connect(logged_in)
-    assert [a["display_name"] for a in logged_in.get("/api/accounts").json()] == ["Personal"]
+    google.name = "Renamed In Google"
+    connect(logged_in)
+    assert [a["display_name"] for a in logged_in.get("/api/accounts").json()] == [
+        "Renamed In Google"
+    ]
 
 
 def test_callback_rejects_unknown_state(logged_in: TestClient, google: FakeGoogle) -> None:
@@ -169,18 +175,6 @@ def test_user_cancels_consent(logged_in: TestClient, google: FakeGoogle) -> None
     )
     assert response.headers["location"] == "/"
     assert logged_in.get("/api/accounts").json() == []
-
-
-def test_rename_and_recolor(logged_in: TestClient, google: FakeGoogle) -> None:
-    connect(logged_in)
-    response = logged_in.patch(
-        "/api/accounts/1", json={"display_name": "  Personal ", "color": "#4f6e8c"}
-    )
-    assert response.json()["display_name"] == "Personal"
-    assert response.json()["color"] == "#4F6E8C"
-    assert logged_in.patch("/api/accounts/1", json={"color": "red"}).status_code == 422
-    assert logged_in.patch("/api/accounts/1", json={"display_name": " "}).status_code == 422
-    assert logged_in.patch("/api/accounts/9", json={"color": "#000000"}).status_code == 404
 
 
 def test_disconnect_deletes_and_revokes(logged_in: TestClient, google: FakeGoogle) -> None:
