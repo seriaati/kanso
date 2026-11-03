@@ -5,6 +5,7 @@ import type { Label, NamedLabel, SyncStatus } from '../../app/mail'
 import { href, mailboxNav, sameView, type Route, type View } from '../../app/nav'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
+import { Avatar } from '../sidebar/AccountSwitcher'
 import { LabelEditor } from '../sidebar/LabelEditor'
 import { SyncNote } from '../sidebar/Sidebar'
 import styles from './MenuSheet.module.css'
@@ -42,9 +43,7 @@ export function MenuSheet({ accounts, route, labels, userLabels, sync, ai, onSel
             aria-current={account.id === route.accountId || undefined}
             onClick={() => (account.id === route.accountId ? onClose() : onSelectAccount(account.id))}
           >
-            <span className={styles.avatar} style={{ background: account.color }} aria-hidden="true">
-              {account.display_name.charAt(0).toUpperCase()}
-            </span>
+            <Avatar account={account} className={styles.avatar} />
             <span className={styles.text}>
               <span className={styles.name}>{account.display_name}</span>
               <span className={styles.sub}>{account.email}</span>

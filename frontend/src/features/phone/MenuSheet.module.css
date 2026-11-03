@@ -102,16 +102,11 @@
   color: var(--accent);
 }
 
-.avatar {
-  flex: none;
+/* Sizes up the shared sidebar Avatar; the extra class wins regardless of stylesheet order. */
+.account .avatar {
   width: 28px;
   height: 28px;
-  border-radius: 50%;
-  color: var(--surface);
   font-size: 12px;
-  font-weight: 700;
-  display: grid;
-  place-items: center;
 }
 
 .text {

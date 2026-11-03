@@ -16,15 +16,15 @@ type Props = {
   onSelect: (id: number) => void
 }
 
-export function Avatar({ account }: { account: Account | null }) {
+export function Avatar({ account, className = '' }: { account: Account | null; className?: string }) {
   // Falls back to the initial when the photo can't load (offline, or Google moved it).
   const [failed, setFailed] = useState<string | null>(null)
   const photo = account?.avatar_url
   if (photo && photo !== failed) {
-    return <img className={styles.avatar} src={photo} alt="" referrerPolicy="no-referrer" onError={() => setFailed(photo)} />
+    return <img className={`${styles.avatar} ${className}`} src={photo} alt="" referrerPolicy="no-referrer" onError={() => setFailed(photo)} />
   }
   return (
-    <span className={`${styles.avatar} ${account ? '' : styles.none}`} style={account ? { background: account.color } : undefined} aria-hidden="true">
+    <span className={`${styles.avatar} ${account ? '' : styles.none} ${className}`} style={account ? { background: account.color } : undefined} aria-hidden="true">
       {account ? account.display_name.charAt(0).toUpperCase() : <Icon name="accounts" size={14} strokeWidth={2} />}
     </span>
   )
