@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kanso.api.threads import section_thread_ids
 from kanso.db import redis as events
-from kanso.db.models import Account, BlockedSender, Label, Message, MessageLabel, Thread
+from kanso.db.models import Account, BlockedSender, Label, Message, MessageLabel, Outbox, Thread
 from kanso.db.session import get_session
 from kanso.sync import outbox, store
 
@@ -239,6 +239,19 @@ async def thread_action(body: ActionIn, db: DB) -> ActionOut:
 
 @router.post("/undo")
 async def undo(body: UndoIn, db: DB) -> UndoOut:
+    # Undoing Not spam puts the thread back in Spam, so its senders are blocked again.
+    unspammed = await db.scalars(
+        select(Message.thread_id)
+        .join(
+            Outbox,
+            (Outbox.account_id == Message.account_id)
+            & (Message.gmail_id == func.any(Outbox.message_ids)),
+        )
+        .where(Outbox.id.in_(body.entries), Outbox.action == "unspam")
+        .distinct()
+    )
+    if thread_ids := list(unspammed):
+        await block_senders(db, thread_ids, block=True)
     touched = await outbox.undo(db, body.entries)
     await db.commit()
     await publish(touched, wake=True)

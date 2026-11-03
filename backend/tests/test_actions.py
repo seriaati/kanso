@@ -195,6 +195,15 @@ def test_restore_moves_to_the_inbox(synced: TestClient, gmail: FakeGmail) -> Non
     assert gmail_labels(gmail, "m5") == {"INBOX"}
 
 
+def test_undo_restore_goes_back_to_trash(synced: TestClient, gmail: FakeGmail) -> None:
+    ids = act(synced, "untrash", "t4")
+    assert synced.post("/api/threads/undo", json={"entries": ids}).status_code == 200
+    thread = threads()["t4"]
+    assert thread.in_trash and not thread.in_inbox
+    drain(gmail)
+    assert gmail_labels(gmail, "m5") == {"TRASH"}
+
+
 def test_actions_publish_and_wake_the_worker(synced: TestClient, fake_redis: Any) -> None:
     async def listen() -> list[tuple[bytes, bytes]]:
         pubsub = fake_redis.pubsub()
@@ -569,6 +578,15 @@ def test_not_spam_moves_back_and_unblocks(synced: TestClient, gmail: FakeGmail) 
     gmail.add("m6", "t5", ["INBOX"], make_raw("Again", "Hi"))
     sync(gmail)
     assert threads()["t5"].in_inbox
+
+
+def test_undo_not_spam_blocks_again(synced: TestClient, gmail: FakeGmail) -> None:
+    act(synced, "spam", "t2")
+    ids = act(synced, "unspam", "t2")
+    assert synced.post("/api/threads/undo", json={"entries": ids}).status_code == 200
+    thread = threads()["t2"]
+    assert thread.in_spam and not thread.in_inbox
+    assert run(_blocked()) == {"daniel@example.com"}
 
 
 def _newsletter(gmail: FakeGmail, headers: dict[str, str]) -> int:

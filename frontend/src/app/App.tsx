@@ -110,6 +110,15 @@ function storeWidth(key: string, width: number | null) {
 const NOTICE_MS = 5000
 const UNDO_MS = 6000
 
+// The actions that say what they did, all but Report spam with an undo.
+const told: Partial<Record<ThreadAction, string>> = {
+  done: 'done',
+  delete: 'moved to Trash',
+  untrash: 'restored to the inbox',
+  spam: 'reported as spam',
+  unspam: 'moved to the inbox',
+}
+
 function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route }) {
   const [notice, setNotice] = useState<Notice | null>(null)
   const say = useCallback((text: string, undo?: () => void) => setNotice({ id: Date.now(), text, undo }), [])
@@ -286,21 +295,19 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     }
     const sent = threadAction.mutateAsync({ action, threads: on, label, section: scope?.section })
     sent.catch(() => undefined) // shown by the mutation's onError
-    if (action === 'done' || action === 'delete') {
+    const what = told[action]
+    if (what) {
+      const count = scope?.count ?? on.length
+      const after = action === 'spam' ? ' Sender blocked.' : action === 'unspam' ? ' Sender unblocked.' : ''
+      const text = `${count === 1 ? `${what.charAt(0).toUpperCase()}${what.slice(1)}` : `${count} threads ${what}`}.${after}`
+      // No undo for Report spam: it would leave the sender blocked. Not spam in Spam reverses both.
+      if (action === 'spam') say(text)
       // Undo works even before the server has answered (e z in quick succession).
-      const what = action === 'done' ? 'done' : 'moved to Trash'
-      const count = scope?.count ?? on.length
-      const text = count === 1 ? `${what.charAt(0).toUpperCase()}${what.slice(1)}.` : `${count} threads ${what}.`
-      say(text, () => {
-        setNotice(null)
-        void sent.then(({ entries }) => entries.length > 0 && undo(entries))
-      })
-    }
-    // No undo: it would leave the sender blocked. Not spam in Spam reverses both.
-    if (action === 'spam' || action === 'unspam') {
-      const count = scope?.count ?? on.length
-      const what = action === 'spam' ? 'Reported as spam' : 'Moved to the inbox'
-      say(`${count === 1 ? what : `${count} threads: ${what.toLowerCase()}`}. Sender ${action === 'spam' ? 'blocked' : 'unblocked'}.`)
+      else
+        say(text, () => {
+          setNotice(null)
+          void sent.then(({ entries }) => entries.length > 0 && undo(entries))
+        })
     }
   }
   const unsubscribeFrom = (id: number) =>
