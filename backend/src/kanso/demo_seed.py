@@ -107,19 +107,16 @@ THREADS: list[DemoThread] = [
 
 # A demo thread is never sent to Claude; it gets these summaries instead.
 SUMMARIES = {
-    "Team offsite in March": "Lena is holding a venue in Lisbon for the offsite on March 10–12 and needs the final headcount by Friday; finance approved the travel budget. Still open: whether the Berlin team joins in person or by video, which changes the headcount.",
-    "新版官网上线时间": "新版官网预计下下周一上线，配合十一月底的市场活动；开发下周三完成，之后测试两三天。翻译稿供应商承诺周四前交付，李伟需在周四下午向王芳确认，再决定日文版是否推迟一周。",
+    "Team offsite in March": "Lena needs your headcount by Friday for the March 10–12 Lisbon offsite.",
+    "新版官网上线时间": "The new website launches the Monday after next, with the Japanese version waiting on Thursday's translations.",
 }
 
 
 def demo_summary(subject: str, bodies: list[str]) -> str:
     if subject in SUMMARIES:
         return SUMMARIES[subject]
-    latest = " ".join(bodies[-1].split()) if bodies else ""
-    if len(latest) > 140:
-        latest = latest[:140] + " …"
-    count = f"{len(bodies)} messages" if len(bodies) != 1 else "One message"
-    return f"Demo summary, made without Claude. {count}; the latest says: “{latest}”"
+    count = f"{len(bodies)} messages" if len(bodies) != 1 else "one message"
+    return f"Demo summary of {count}, made without Claude."
 
 
 def _png(width: int, height: int, rgb: tuple[int, int, int]) -> bytes:

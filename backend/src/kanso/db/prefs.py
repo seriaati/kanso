@@ -18,7 +18,7 @@ AI_KEY_REJECTED = "ai_key_rejected"
 # The Claude model per AI feature, keyed by the usage table's feature names.
 MODEL_DEFAULTS = {
     "labeling": "claude-haiku-5-5",
-    "summary": "claude-sonnet-5-5",
+    "summary": "claude-haiku-5-5",
     "assistant": "claude-sonnet-5-5",
 }
 

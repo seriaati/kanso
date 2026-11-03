@@ -124,8 +124,6 @@ class SummaryOut(BaseModel):
 
 class SummaryState(BaseModel):
     messages: int  # drafts left out; 0: nothing to summarize
-    long: bool  # long enough to be summarized on open
-    lang: str | None  # the thread's language hint
     summary: SummaryOut | None  # the stored summary, if it covers the latest message
 
 
@@ -145,8 +143,6 @@ async def thread_summary(thread_id: int, db: DB) -> SummaryState:
     row = await summaries.fresh(db, context)
     return SummaryState(
         messages=len(context.entries),
-        long=summaries.is_long(context.entries),
-        lang=context.lang,
         summary=None if row is None else SummaryOut.model_validate(summaries.public(row)),
     )
 

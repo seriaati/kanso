@@ -162,8 +162,42 @@
   border-top: 1px solid var(--line-soft);
 }
 
+.summary {
+  margin: 4px 0 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: var(--text-ui);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.summaryIcon {
+  flex: none;
+  height: 1.5em; /* the first line's */
+  display: flex;
+  align-items: center;
+  color: var(--accent);
+}
+
+.summaryMuted {
+  color: var(--muted);
+}
+
+.summaryRetry {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .subject + .message,
-.subject + .collapsed {
+.subject + .collapsed,
+.summary + .message,
+.summary + .collapsed {
   border-top: 0;
 }
 
@@ -239,7 +273,8 @@
   padding: 10px 0;
 }
 
-.subject + .collapsed {
+.subject + .collapsed,
+.summary + .collapsed {
   margin-top: 4px;
 }
 

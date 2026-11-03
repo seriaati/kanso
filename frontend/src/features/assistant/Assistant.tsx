@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react'
+import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react'
 import {
   ASK_FILES,
   ask,
@@ -6,17 +6,13 @@ import {
   conversationsKey,
   decide,
   deleteConversation,
-  summarize,
-  summaryKey,
   undoAction,
   useConversation,
   useConversations,
   readFile,
-  useSummaryState,
   type AssistantAction,
   type ChatEvent,
   type ChatItem,
-  type SummaryState,
 } from '../../app/ai'
 import { refreshAll } from '../../app/actions'
 import { ApiError, queryClient } from '../../app/api'
@@ -25,8 +21,6 @@ import { Markdown } from './markdown'
 import styles from './Assistant.module.css'
 
 const CONVERSATION_KEY = 'kanso.assistant.conversation'
-// Delay before auto-summarizing, so stepping through threads with j/k doesn't start one each.
-const AUTO_DELAY_MS = 400
 
 function read(key: string): string | null {
   try {
@@ -195,7 +189,7 @@ export function Assistant({ accountId, threadId, threadHref, onOpenThread, onNot
 
   const last = items.at(-1)
   const size = `${items.length}:${last && last.kind !== 'action' ? last.text.length : ''}:${live?.error ?? ''}`
-  // Stays at the bottom unless the reader scrolled up, also when the summary above appears.
+  // Stays at the bottom unless the reader scrolled up.
   useLayoutEffect(() => {
     const body = bodyRef.current
     if (body && atBottom.current) body.scrollTop = body.scrollHeight
@@ -233,11 +227,6 @@ export function Assistant({ accountId, threadId, threadHref, onOpenThread, onNot
           <Icon name="close" size={14} strokeWidth={2} />
         </button>
       </div>
-      {!history && threadId !== null && (
-        <div className={styles.summary}>
-          <SummaryCard key={threadId} threadId={threadId} />
-        </div>
-      )}
       <div
         className={styles.body}
         ref={bodyRef}
@@ -494,72 +483,4 @@ function when(iso: string): string {
   const date = new Date(iso)
   const today = new Date().toDateString() === date.toDateString()
   return today ? date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-}
-
-type Run = { text: string; error: string | null }
-
-// Mounted only while the panel is open and about the thread, so nothing else starts a summary.
-function SummaryCard({ threadId }: { threadId: number }) {
-  const state = useSummaryState(threadId)
-  const [run, setRun] = useState<Run | null>(null)
-  const abort = useRef<AbortController | null>(null)
-  useEffect(() => () => abort.current?.abort(), [])
-
-  const start = () => {
-    abort.current?.abort()
-    const controller = new AbortController()
-    abort.current = controller
-    setRun({ text: '', error: null })
-    summarize(threadId, (text) => setRun({ text, error: null }), controller.signal).then(
-      (summary) => {
-        queryClient.setQueryData<SummaryState>(summaryKey(threadId), (old) => old && { ...old, summary })
-        setRun(null)
-      },
-      (error: Error) => {
-        if (!controller.signal.aborted) setRun({ text: '', error: error.message })
-      },
-    )
-  }
-  const startLater = useEffectEvent(start)
-
-  const data = state.data
-  // Once per open; a failure waits for "Try again".
-  const auto = !!data?.long && !data.summary && run === null
-  useEffect(() => {
-    if (!auto) return
-    const timer = setTimeout(startLater, AUTO_DELAY_MS)
-    return () => clearTimeout(timer)
-  }, [auto])
-
-  // A thread of drafts only, or one that is gone.
-  if (state.isError || !data || data.messages === 0) return null
-  const lang = data.lang ?? undefined
-  if (run?.error)
-    return (
-      <p className={styles.card}>
-        <b>Summary</b> · <span className={styles.muted}>Couldn’t summarize this thread: {run.error}.</span>{' '}
-        <button type="button" className={styles.link} onClick={start}>
-          Try again
-        </button>
-      </p>
-    )
-  if (run)
-    return (
-      <p className={styles.card} lang={lang} aria-busy="true">
-        <b>Summary</b> · {run.text || <span className={styles.muted}>Summarizing…</span>}
-      </p>
-    )
-  if (data.summary)
-    return (
-      <p className={styles.card} lang={lang}>
-        <b>Summary</b> · {data.summary.text}
-      </p>
-    )
-  // Short threads are summarized on request; long ones are on their way.
-  if (data.long) return null
-  return (
-    <button type="button" className={styles.offer} onClick={start} title="Summarize this thread with Claude">
-      Summarize this thread
-    </button>
-  )
 }

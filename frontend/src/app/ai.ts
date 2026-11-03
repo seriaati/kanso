@@ -38,8 +38,7 @@ export function useStartLabelInbox() {
 }
 
 export type Summary = { text: string; model: string; created_at: string }
-/** `long`: summarized on open, shorter ones on request. */
-export type SummaryState = { messages: number; long: boolean; lang: string | null; summary: Summary | null }
+export type SummaryState = { messages: number; summary: Summary | null }
 
 // Under the thread's key, so a live update to the thread (a new reply) refetches it too.
 export const summaryKey = (threadId: number) => ['thread', threadId, 'summary']

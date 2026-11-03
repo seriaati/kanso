@@ -127,12 +127,12 @@ def test_model_settings(logged_in: TestClient) -> None:
     assert logged_in.get("/api/settings").json() == {
         "assistant_confirm": True,
         "labeling_model": "claude-haiku-5-5",
-        "summary_model": "claude-sonnet-5-5",
+        "summary_model": "claude-haiku-5-5",
         "assistant_model": "claude-sonnet-5-5",
         "models": models,
     }
     response = logged_in.patch("/api/settings", json={"assistant_model": "claude-opus-5-5"})
     assert response.json()["assistant_model"] == "claude-opus-5-5"
-    assert response.json()["summary_model"] == "claude-sonnet-5-5"  # the others stay
+    assert response.json()["summary_model"] == "claude-haiku-5-5"  # the others stay
     assert logged_in.patch("/api/settings", json={"labeling_model": "gpt-4"}).status_code == 422
     assert logged_in.get("/api/settings").json()["labeling_model"] == "claude-haiku-5-5"

@@ -235,26 +235,13 @@ def _entries(*bodies: str) -> list[summaries.Entry]:
     return [summaries.Entry("A <a@example.com>", NOW, b) for b in bodies]
 
 
-def test_threshold_counts_messages_and_trimmed_text() -> None:
-    assert not summaries.is_long(_entries("Hi", "Hello", "Yes"))
-    assert summaries.is_long(_entries("Hi", "Hello", "Yes", "Ok"))  # LONG_MESSAGES
-    assert not summaries.is_long(_entries("x" * 3999))
-    assert summaries.is_long(_entries("x" * 2000, "y" * 2000))  # LONG_TEXT
-    # A Chinese or Japanese character counts as three: 1400 of them read like 4200 letters.
-    assert summaries.weight("会议") == 6
-    assert summaries.is_long(_entries("会" * 1400))
-    assert not summaries.is_long(_entries("会" * 1300))
-
-
-def test_long_is_judged_on_trimmed_text(ai_on: None, thread: int, logged_in: TestClient) -> None:
+def test_state_counts_messages_without_drafts(
+    ai_on: None, thread: int, logged_in: TestClient
+) -> None:
     state = logged_in.get(f"/api/threads/{thread}/summary").json()
-    assert state == {"messages": 2, "long": False, "lang": None, "summary": None}
-    # A huge quote under a short reply doesn't make the thread long.
-    quote = "\n".join(f"> line {i} of the original " * 3 for i in range(200))
-    add("m3", _raw("Lena Fischer <lena@example.com>", "Great, thanks!\n\n" + quote), 2)
-    assert not logged_in.get(f"/api/threads/{thread}/summary").json()["long"]
-    add("m4", _raw("Kenji <kenji@example.com>", "One more thing."), 1)
-    assert logged_in.get(f"/api/threads/{thread}/summary").json()["long"]  # four messages
+    assert state == {"messages": 2, "summary": None}
+    add("d1", _raw(f"Me <{ME}>", "draft text in progress"), 0.5, ("DRAFT",))
+    assert logged_in.get(f"/api/threads/{thread}/summary").json()["messages"] == 2
 
 
 def test_prompt_sends_sender_date_and_trimmed_bodies_only(
@@ -263,7 +250,7 @@ def test_prompt_sends_sender_date_and_trimmed_bodies_only(
     add("d1", _raw(f"Me <{ME}>", "draft text in progress"), 0.5, ("DRAFT",))  # a draft: left out
     summarize(logged_in, thread)
     [request] = claude.requests
-    assert request["model"] == "claude-sonnet-5-5"  # the default
+    assert request["model"] == "claude-haiku-5-5"  # the default
     assert request["output_config"] == {"effort": "low"}
     assert request["stream"] is True
     assert request["system"] == summaries.INSTRUCTIONS
@@ -284,16 +271,16 @@ def test_prompt_sends_sender_date_and_trimmed_bodies_only(
 def test_summary_model_is_set_in_settings(
     ai_on: None, thread: int, logged_in: TestClient, claude: FakeClaude
 ) -> None:
-    logged_in.patch("/api/settings", json={"summary_model": "claude-haiku-5-5"})
+    logged_in.patch("/api/settings", json={"summary_model": "claude-sonnet-5-5"})
     summarize(logged_in, thread)
-    assert claude.requests[0]["model"] == "claude-haiku-5-5"
+    assert claude.requests[0]["model"] == "claude-sonnet-5-5"
     [row] = rows(Summary)
-    assert row.model == "claude-haiku-5-5"
+    assert row.model == "claude-sonnet-5-5"
 
 
 def test_long_threads_are_capped_newest_first() -> None:
     entries = _entries(*(f"message {i} " + "x" * 3000 for i in range(20)))
-    text = summaries.prompt(summaries.Context(1, "Long", None, "m20", entries, demo=False))
+    text = summaries.prompt(summaries.Context(1, "Long", "m20", entries, demo=False))
     assert "(8 earlier messages left out)" in text
     assert "message 19 " in text and "message 8 " in text and "message 7 " not in text
     assert text.count("<message>") == 12
@@ -439,11 +426,11 @@ def test_usage_is_recorded_under_summary(
     summarize(logged_in, thread)
     summarize(logged_in, thread)  # stored: no second request, no usage
     [row] = rows(AiUsage)
-    assert (row.feature, row.model, row.requests) == ("summary", "claude-sonnet-5-5", 1)
+    assert (row.feature, row.model, row.requests) == ("summary", "claude-haiku-5-5", 1)
     assert (row.input_tokens, row.output_tokens) == (900, 45)
     [feature] = logged_in.get("/api/ai/usage").json()["features"]
     assert feature["feature"] == "summary"
-    assert feature["cost_usd"] == pytest.approx((900 * 2 + 45 * 10) / 1_000_000)
+    assert feature["cost_usd"] == pytest.approx((900 * 0.10 + 45 * 0.50) / 1_000_000)
 
 
 def test_demo_threads_get_a_canned_summary(
@@ -457,17 +444,14 @@ def test_demo_threads_get_a_canned_summary(
 
     ids = run(thread_ids())
     long = ids["Team offsite in March"]
-    state = logged_in.get(f"/api/threads/{long}/summary").json()
-    assert state["long"] and state["summary"] is None
+    assert logged_in.get(f"/api/threads/{long}/summary").json()["summary"] is None
     got = summarize(logged_in, long)
     assert len([e for e in got if e["type"] == "delta"]) > 3
     done = got[-1]["summary"]
     assert (done["text"], done["model"]) == (demo_seed.SUMMARIES["Team offsite in March"], "demo")
     chinese = ids["新版官网上线时间"]
-    assert logged_in.get(f"/api/threads/{chinese}/summary").json()["lang"] == "zh"
-    assert summarize(logged_in, chinese)[-1]["summary"]["text"].startswith("新版官网")
+    assert summarize(logged_in, chinese)[-1]["summary"]["text"].startswith("The new website")
     short = ids["Re: Dinner on Saturday?"]
-    assert not logged_in.get(f"/api/threads/{short}/summary").json()["long"]
     assert summarize(logged_in, short)[-1]["summary"]["text"].startswith("Demo summary")
     assert claude.requests == []
     assert {u.feature for u in rows(AiUsage)} == {"labeling"}  # the seed's simulated usage only
@@ -480,7 +464,7 @@ def test_a_demo_instance_summarizes_demo_threads_with_claude(
     run(demo_seed.seed())
     [offsite] = [t.id for t in rows(Thread) if t.subject == "Team offsite in March"]
     done = summarize(logged_in, offsite)[-1]["summary"]
-    assert (done["text"], done["model"]) == (SUMMARY, "claude-sonnet-5-5")
+    assert (done["text"], done["model"]) == (SUMMARY, "claude-haiku-5-5")
     assert len(claude.requests) == 1
     assert {u.feature for u in rows(AiUsage)} == {"summary"}  # no simulated usage
 

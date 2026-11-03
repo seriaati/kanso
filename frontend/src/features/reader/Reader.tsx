@@ -9,7 +9,9 @@ import { Icon, type IconName } from '../../components/Icon'
 import { Composer, type Focus } from '../compose/Composer'
 import bar from '../phone/BottomBar.module.css'
 import { Avatar as AccountAvatar } from '../sidebar/AccountSwitcher'
+import { useConfig } from '../../app/ai'
 import { EmailFrame } from './EmailFrame'
+import { Summary } from './Summary'
 import styles from './Reader.module.css'
 
 // Remote images, to offer "Show images". The frame's CSP blocks them either way.
@@ -454,12 +456,14 @@ function ThreadView({ thread, me, hideDrafts, onOpenDraft }: ThreadViewProps) {
       return next
     })
   const many = messages.length > 1
+  const ai = useConfig().data?.ai ?? false
 
   return (
     <>
       <h2 className={styles.subject} lang={messages[0]?.lang ?? thread.lang ?? undefined}>
         {thread.subject || '(no subject)'}
       </h2>
+      {ai && <Summary threadId={thread.id} />}
       {messages.map((message) => {
         const expanded = (message.unread || message.id === lastId) !== flipped.has(message.id)
         return expanded ? (
