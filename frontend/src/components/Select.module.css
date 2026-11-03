@@ -1,0 +1,49 @@
+.select {
+  height: 34px;
+  min-width: 0;
+  padding: 0 8px 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  scale: none;
+  transition: border-color var(--fast) ease;
+}
+
+.select svg {
+  flex: none;
+  color: var(--muted);
+}
+
+.select:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+
+.select:focus-visible,
+.select[aria-expanded='true'] {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.select:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  .select {
+    height: 44px;
+  }
+}

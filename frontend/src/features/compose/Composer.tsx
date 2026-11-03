@@ -15,6 +15,7 @@ import {
 } from '../../app/compose'
 import { fileSize } from '../../app/format'
 import { Icon, type IconName } from '../../components/Icon'
+import { Select } from '../../components/Select'
 import { EmailFrame } from '../reader/EmailFrame'
 import { cleanHtml, escapeHtml, safeUrl } from './editor'
 import styles from './Composer.module.css'
@@ -321,21 +322,17 @@ function Form({ initial: latest, accounts, inline, title, minimized, onToggleMin
             <label className={styles.rowLabel} htmlFor={`from-${id}`}>
               From
             </label>
-            <select
+            <Select
               id={`from-${id}`}
               className={styles.select}
-              value={accountId}
-              onChange={(event) => {
-                setAccountId(Number(event.target.value))
+              label="From"
+              value={String(accountId)}
+              options={accounts.map((account) => ({ value: String(account.id), label: account.email }))}
+              onChange={(value) => {
+                setAccountId(Number(value))
                 changed()
               }}
-            >
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.email}
-                </option>
-              ))}
-            </select>
+            />
           </div>
         )}
         <RecipientField

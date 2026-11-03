@@ -2,7 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from
 import { Icon, type IconName } from './Icon'
 import styles from './Menu.module.css'
 
-export type MenuItem = { icon: IconName; label: string; onSelect: () => void; shortcut?: string }
+// checked: one choice among the items (Select), marked with a check.
+export type MenuItem = { icon?: IconName; label: string; onSelect: () => void; shortcut?: string; checked?: boolean }
 
 type Props = {
   /** A button (the menu shows below it) or a right-click point. */
@@ -15,7 +16,7 @@ type Props = {
 // Fixed to the window, so a scrolling container doesn't clip it.
 export function Menu({ anchor, label, items, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null)
-  const [place, setPlace] = useState<{ top: number; left: number } | null>(null)
+  const [place, setPlace] = useState<{ top: number; left: number; minWidth?: number } | null>(null)
   const button = anchor instanceof HTMLElement ? anchor : null
   useLayoutEffect(() => {
     const menu = ref.current
@@ -25,12 +26,16 @@ export function Menu({ anchor, label, items, onClose }: Props) {
     let top = box ? box.bottom + 4 : (anchor as { y: number }).y
     // Near the foot of the window, open upwards.
     if (top + menu.offsetHeight > window.innerHeight - 8) top = (box ? box.top - 4 : top) - menu.offsetHeight
-    setPlace({ top: Math.max(8, top), left: Math.max(8, Math.min(x, window.innerWidth - menu.offsetWidth - 8)) })
+    // At least as wide as its button.
+    const width = Math.max(menu.offsetWidth, box?.width ?? 0)
+    setPlace({ top: Math.max(8, top), left: Math.max(8, Math.min(x, window.innerWidth - width - 8)), minWidth: box?.width })
   }, [anchor, button])
-  // Focus the first item once placed: while hidden it can't take focus.
+  // Focus the checked item, else the first, once placed: while hidden it can't take focus.
   const placed = place !== null
   useEffect(() => {
-    if (placed) ref.current?.querySelector('button')?.focus()
+    if (!placed) return
+    const menu = ref.current
+    ;(menu?.querySelector<HTMLButtonElement>('[aria-checked="true"]') ?? menu?.querySelector('button'))?.focus()
   }, [placed])
   useEffect(() => {
     const onPointer = (event: PointerEvent) => {
@@ -91,16 +96,18 @@ export function Menu({ anchor, label, items, onClose }: Props) {
         <button
           key={item.label}
           type="button"
-          role="menuitem"
+          role={item.checked === undefined ? 'menuitem' : 'menuitemradio'}
+          aria-checked={item.checked}
           className={styles.item}
           onClick={() => {
             onClose()
             item.onSelect()
           }}
         >
-          <Icon name={item.icon} size={15} />
+          {item.icon && <Icon name={item.icon} size={15} />}
           <span className={styles.label}>{item.label}</span>
           {item.shortcut && <kbd>{item.shortcut}</kbd>}
+          {item.checked && <Icon name="check" size={15} />}
         </button>
       ))}
     </div>

@@ -43,7 +43,6 @@
   color: var(--muted);
 }
 
-.select,
 .subject,
 .recipientInput,
 .linkInput {
@@ -53,12 +52,13 @@
   color: inherit;
 }
 
-.select {
+/* A bare Select: the row is the field. */
+.row .select {
   flex: 1;
-  min-width: 0;
   height: 30px;
   padding: 0;
-  cursor: pointer;
+  border: 0;
+  background: transparent;
 }
 
 .subject {
@@ -68,7 +68,6 @@
   padding: 0;
 }
 
-.select:focus,
 .subject:focus,
 .recipientInput:focus,
 .linkInput:focus {
