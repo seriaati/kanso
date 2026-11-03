@@ -98,6 +98,9 @@ THREADS: list[DemoThread] = [
     ("Personal", [(ME, 40, "Hi Priya, attaching the trail map for next time.")], "Trail map", {"sent", "done"}, "utf-8"),
     (None, [(ME, 10, "Hi Kenji, a few notes on section 4 before")], "Notes on the contract", {"draft"}, "utf-8"),
     (None, [(("Prize Center", "winner@prizes.example.com"), 200, "You have won! Click here.")], "Congratulations!!!", {"trash"}, "utf-8"),
+    (None, [(("Account Security", "security@paypa1-verify.example.com"), 14, "Your account is locked. Confirm your password within 24 hours to avoid suspension.")], "Action required: your account is locked", {"spam", "unread"}, "utf-8"),
+    (None, [(("Crypto Yield Pro", "invest@cryptoyield.example.com"), 33, "Earn 40% a month, guaranteed. Reply with your wallet address to get started.")], "Guaranteed 40% monthly returns", {"spam"}, "utf-8"),
+    (None, [(("Rank Booster", "growth@rankbooster.example.com"), 60, "We noticed your website isn't on page one of Google. We can fix that for $99.")], "Quick question about your website", {"spam"}, "utf-8"),
 ]
 # fmt: on
 
@@ -234,7 +237,7 @@ async def seed() -> int:
                 )
                 if from_me:
                     gmail_labels.append("DRAFT" if "draft" in flags else "SENT")
-                if not ({"done", "draft", "trash"} & flags) and not from_me:
+                if not ({"done", "draft", "trash", "spam"} & flags) and not from_me:
                     gmail_labels.append("INBOX")
                 if "unread" in flags and last:
                     gmail_labels.append("UNREAD")
@@ -242,6 +245,8 @@ async def seed() -> int:
                     gmail_labels.append("STARRED")
                 if "trash" in flags:
                     gmail_labels.append("TRASH")
+                if "spam" in flags:
+                    gmail_labels.append("SPAM")
                 meta = {
                     "id": f"demo{t:03}{m:02}",
                     "threadId": f"demo{t:03}",
