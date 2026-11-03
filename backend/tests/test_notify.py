@@ -204,8 +204,8 @@ def test_new_unread_inbox_mail_is_pushed(mail: tuple[FakeGmail, Browser]) -> Non
     sync(gmail)
     assert browser.received == [
         {
-            "title": "Daniel | Re: Old news",
-            "body": "A reply",
+            "title": "Daniel",
+            "body": "Re: Old news\nA reply",
             "url": "/inbox/1",
             "tag": "thread-1",
             "thread_id": 1,
