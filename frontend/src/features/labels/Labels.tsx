@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import type { Account } from '../../app/accounts'
 import { userLabels, type Label, type NamedLabel } from '../../app/mail'
+import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
 import styles from '../settings/Settings.module.css'
 import { LabelEditor } from '../sidebar/LabelEditor'
@@ -20,6 +21,7 @@ export function Labels({ account, labels, ai, onMenu }: Props) {
   // '' for a new label.
   const [editing, setEditing] = useState<string | null>(null)
   const named = userLabels(labels)
+  const edited = named.find((l) => l.name === editing)
   const flags = (label: NamedLabel) => [ai && label.aiManaged && 'AI labels new mail', label.isBundle && 'Bundled'].filter(Boolean).join(' · ')
   return (
     <section className={styles.settings} aria-label="Labels">
@@ -41,33 +43,28 @@ export function Labels({ account, labels, ai, onMenu }: Props) {
                 </p>
                 <ul className={styles.list}>
                   {named.map((label) => (
-                    <li key={label.name}>
-                      {editing === label.name ? (
-                        <LabelEditor label={label} accountId={account.id} ai={ai} onDone={() => setEditing(null)} />
-                      ) : (
-                        <div className={styles.row}>
-                          <span className={styles.dot} style={{ background: label.color }} aria-hidden="true" />
-                          <div className={styles.text}>
-                            <span className={styles.name}>
-                              {label.name}
-                              {flags(label) && <span className={styles.flags}> · {flags(label)}</span>}
-                            </span>
-                            {ai && label.description && <span className={styles.muted}>{label.description}</span>}
-                          </div>
-                          <button type="button" className={styles.edit} onClick={() => setEditing(label.name)}>
-                            Edit
-                          </button>
-                        </div>
-                      )}
+                    <li key={label.name} className={styles.row}>
+                      <span className={styles.dot} style={{ background: label.color }} aria-hidden="true" />
+                      <div className={styles.text}>
+                        <span className={styles.name}>
+                          {label.name}
+                          {flags(label) && <span className={styles.flags}> · {flags(label)}</span>}
+                        </span>
+                        {ai && label.description && <span className={styles.muted}>{label.description}</span>}
+                      </div>
+                      <button type="button" className={styles.edit} onClick={() => setEditing(label.name)}>
+                        Edit
+                      </button>
                     </li>
                   ))}
                 </ul>
-                {editing === '' ? (
-                  <LabelEditor accountId={account.id} ai={ai} onDone={() => setEditing(null)} />
-                ) : (
-                  <button type="button" className={styles.add} onClick={() => setEditing('')}>
-                    + New label
-                  </button>
+                <button type="button" className={styles.add} onClick={() => setEditing('')}>
+                  + New label
+                </button>
+                {(editing === '' || edited) && (
+                  <Dialog title={edited ? 'Edit label' : 'New label'} onClose={() => setEditing(null)}>
+                    <LabelEditor label={edited} accountId={account.id} ai={ai} onDone={() => setEditing(null)} />
+                  </Dialog>
                 )}
               </>
             ) : (

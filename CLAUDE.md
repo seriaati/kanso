@@ -60,6 +60,8 @@ kanso is a tool for working through email, not a dashboard. **Function comes bef
 - **No decorative real estate.** No hero numbers, banners or stat tiles.
 - **Key controls always in view, in the same place**: account switcher, Compose, search, labels.
 - **The assistant docks beside the mail and never covers it.**
+- **Edit in a modal, not inline.** Editing or creating something (a label, an account) opens a
+  dialog; a list never turns into a form in place.
 - **Zen, paper and calm**: warm paper tones, ink-like text, restrained accents, quiet typography,
   light and dark themes, subtle motion that is off under `prefers-reduced-motion`.
 

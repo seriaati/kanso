@@ -164,11 +164,7 @@
 .editor {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin: 4px 0;
-  padding: 10px;
-  border-radius: var(--radius-card);
-  background: var(--paper);
+  gap: 12px;
 }
 
 .input {

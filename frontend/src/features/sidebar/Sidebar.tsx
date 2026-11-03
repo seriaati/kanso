@@ -140,7 +140,6 @@ export function Sidebar(props: Props) {
             label={edited}
             accountId={route.accountId}
             ai={ai}
-            plain
             onDone={(change) => {
               setEditing(null)
               if (change && edited) onLabelChanged(edited.name, change)

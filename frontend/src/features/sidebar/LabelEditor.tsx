@@ -8,12 +8,10 @@ type Props = {
   accountId: number
   ai: boolean
   onDone: (change?: { renamed?: string; deleted?: boolean }) => void
-  /** In the sidebar's dialog: no card of its own, and no Delete (the label's menu has it). */
-  plain?: boolean
 }
 
-// Name and color go to Gmail; the other settings are kanso's own.
-export function LabelEditor({ label, accountId, ai, onDone, plain }: Props) {
+// Shown in a Dialog. Name and color go to Gmail; the other settings are kanso's own.
+export function LabelEditor({ label, accountId, ai, onDone }: Props) {
   const [name, setName] = useState(label?.name ?? '')
   const [color, setColor] = useState(label?.color ?? labelColors[0].value)
   const [description, setDescription] = useState(label?.description ?? '')
@@ -46,7 +44,7 @@ export function LabelEditor({ label, accountId, ai, onDone, plain }: Props) {
 
   return (
     <form
-      className={`${styles.editor} ${plain ? styles.plain : ''}`}
+      className={styles.editor}
       aria-label={label ? `Edit label ${label.name}` : 'New label'}
       onSubmit={(event) => {
         event.preventDefault()
@@ -114,7 +112,7 @@ export function LabelEditor({ label, accountId, ai, onDone, plain }: Props) {
         </p>
       )}
       <div className={styles.actions}>
-        {label && !plain && (
+        {label && (
           <button
             type="button"
             className={styles.delete}
@@ -138,7 +136,7 @@ export function LabelEditor({ label, accountId, ai, onDone, plain }: Props) {
 export function DeleteLabel({ label, onDone }: { label: NamedLabel; onDone: (deleted: boolean) => void }) {
   const remove = useDeleteLabel()
   return (
-    <div className={`${styles.editor} ${styles.plain}`}>
+    <div className={styles.editor}>
       <p className={styles.hint}>
         “{label.name}” is removed in Gmail too. The mail stays.
       </p>

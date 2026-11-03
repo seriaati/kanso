@@ -129,7 +129,7 @@ export function MenuSheet({ accounts, route, labels, userLabels, sync, ai, onSel
       </nav>
       {creating && route.accountId !== null && (
         <Dialog title="New label" onClose={() => setCreating(false)}>
-          <LabelEditor accountId={route.accountId} ai={ai} plain onDone={() => setCreating(false)} />
+          <LabelEditor accountId={route.accountId} ai={ai} onDone={() => setCreating(false)} />
         </Dialog>
       )}
     </>

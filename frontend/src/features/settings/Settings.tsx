@@ -5,6 +5,7 @@ import type { SyncStatus } from '../../app/mail'
 import { usePhone } from '../../app/media'
 import { usePush } from '../../app/notifications'
 import { useChangePassword, useDemoPassword, useLogoutEverywhere, useSettings, useUpdateSettings } from '../../app/settings'
+import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
 import { Avatar, DisplayOptions } from '../sidebar/AccountSwitcher'
 import styles from './Settings.module.css'
@@ -80,32 +81,32 @@ function syncLine(status: SyncStatus | undefined): string {
 
 function Accounts({ accounts, sync, demo }: { accounts: Account[]; sync: SyncStatus[]; demo: boolean }) {
   const [editing, setEditing] = useState<number | null>(null)
+  const edited = accounts.find((a) => a.id === editing)
   return (
     <Section title="Accounts">
       <ul className={styles.list}>
         {accounts.map((account) => {
           const status = sync.find((s) => s.account_id === account.id)
           return (
-            <li key={account.id}>
-              {editing === account.id ? (
-                <AccountEditor account={account} onDone={() => setEditing(null)} />
-              ) : (
-                <div className={styles.row}>
-                  <Avatar account={account} />
-                  <div className={styles.text}>
-                    <span className={styles.name}>{account.display_name}</span>
-                    <span className={styles.muted}>{account.email}</span>
-                    <span className={`${styles.muted} ${status?.state === 'error' ? styles.problem : ''}`}>{syncLine(status)}</span>
-                  </div>
-                  <button type="button" className={styles.edit} onClick={() => setEditing(account.id)}>
-                    Edit
-                  </button>
-                </div>
-              )}
+            <li key={account.id} className={styles.row}>
+              <Avatar account={account} />
+              <div className={styles.text}>
+                <span className={styles.name}>{account.display_name}</span>
+                <span className={styles.muted}>{account.email}</span>
+                <span className={`${styles.muted} ${status?.state === 'error' ? styles.problem : ''}`}>{syncLine(status)}</span>
+              </div>
+              <button type="button" className={styles.edit} onClick={() => setEditing(account.id)}>
+                Edit
+              </button>
             </li>
           )
         })}
       </ul>
+      {edited && (
+        <Dialog title="Edit account" onClose={() => setEditing(null)}>
+          <AccountEditor account={edited} onDone={() => setEditing(null)} />
+        </Dialog>
+      )}
       {accounts.length === 0 && <p className={styles.note}>No Gmail account connected yet.</p>}
       {demo ? (
         <p className={styles.note}>This is a demo: its mail is made up, no Gmail account can be connected, and every change resets each day.</p>
