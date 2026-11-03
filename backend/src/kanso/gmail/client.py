@@ -174,6 +174,19 @@ class Gmail:
         raw = body.pop("raw", "")
         return body, base64.urlsafe_b64decode(raw + "=" * (-len(raw) % 4))
 
+    async def message_headers(self, gmail_id: str, names: list[str]) -> dict[str, str]:
+        """By lowercase name; a repeated header keeps its first value."""
+        params = {"format": "metadata", "metadataHeaders": names}
+        body = await self.request("GET", f"/messages/{gmail_id}", params=params)
+        headers: dict[str, str] = {}
+        for header in body.get("payload", {}).get("headers", []):
+            headers.setdefault(header["name"].lower(), header["value"])
+        return headers
+
+    async def send_message(self, raw: bytes) -> dict[str, Any]:
+        body = {"raw": base64.urlsafe_b64encode(raw).decode()}
+        return await self.request("POST", "/messages/send", json=body)
+
     async def message_labels(self, gmail_id: str) -> dict[str, Any]:
         return await self.request("GET", f"/messages/{gmail_id}", params={"format": "minimal"})
 

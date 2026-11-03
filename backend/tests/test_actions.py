@@ -2,6 +2,7 @@ import asyncio
 import sys
 import time
 from datetime import UTC, datetime
+from email import message_from_bytes
 from typing import Any
 
 import pytest
@@ -13,6 +14,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from kanso import demo_seed
+from kanso.api import unsubscribe
 from kanso.db import session
 from kanso.db.models import Account, BlockedSender, Label, Outbox, Thread
 from kanso.db.session import Session
@@ -556,3 +558,60 @@ def test_not_spam_moves_back_and_unblocks(synced: TestClient, gmail: FakeGmail) 
     gmail.add("m6", "t5", ["INBOX"], make_raw("Again", "Hi"))
     sync(gmail)
     assert threads()["t5"].in_inbox
+
+
+def _newsletter(gmail: FakeGmail, headers: dict[str, str]) -> int:
+    raw = make_raw("News", "Read on", "News <news@list.example>", headers)
+    gmail.add("m6", "t5", ["INBOX"], raw)
+    sync(gmail)
+    return threads()["t5"].id
+
+
+def test_unsubscribe_one_click(
+    synced: TestClient, gmail: FakeGmail, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    posted: list[str] = []
+
+    async def one_click(url: str) -> bool:
+        posted.append(url)
+        return True
+
+    monkeypatch.setattr(unsubscribe, "_one_click", one_click)
+    thread_id = _newsletter(
+        gmail,
+        {
+            "List-Unsubscribe": "<mailto:leave@list.example>, <https://list.example/u/1>",
+            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        },
+    )
+    response = synced.post(f"/api/threads/{thread_id}/unsubscribe")
+    assert response.json() == {"method": "one-click", "url": None}
+    assert posted == ["https://list.example/u/1"] and gmail.sent == []
+
+
+def test_unsubscribe_by_email(synced: TestClient, gmail: FakeGmail) -> None:
+    # No one-click: the email comes first, even when it is listed second.
+    header = "<https://list.example/u/1>, <mailto:leave@list.example?subject=stop%20it>"
+    thread_id = _newsletter(gmail, {"List-Unsubscribe": header})
+    response = synced.post(f"/api/threads/{thread_id}/unsubscribe")
+    assert response.json()["method"] == "email"
+    [raw] = gmail.sent
+    sent = message_from_bytes(raw)
+    assert (sent["To"], sent["Subject"]) == ("leave@list.example", "stop it")
+
+
+def test_unsubscribe_link_or_nothing(synced: TestClient, gmail: FakeGmail) -> None:
+    thread_id = _newsletter(gmail, {"List-Unsubscribe": "<https://list.example/u/1>"})
+    response = synced.post(f"/api/threads/{thread_id}/unsubscribe")
+    assert response.json() == {"method": "link", "url": "https://list.example/u/1"}
+
+    # t1's newest message is the user's own reply: Daniel's message is the one asked about.
+    response = synced.post(f"/api/threads/{threads()['t1'].id}/unsubscribe")
+    assert response.status_code == 422
+    assert "GET /messages/m1 metadata" in gmail.requests
+
+
+def test_one_click_never_posts_into_the_network() -> None:
+    for host in ("127.0.0.1", "10.0.0.5", "169.254.169.254", "::1", "localhost"):
+        assert not run(unsubscribe._public(host, 443))
+    assert not run(unsubscribe._one_click("https://127.0.0.1/unsubscribe"))

@@ -2,6 +2,7 @@
 
 import base64
 import json
+from email import message_from_bytes
 from email.message import EmailMessage
 from typing import Any
 from urllib.parse import parse_qs
@@ -16,8 +17,15 @@ class Crash(BaseException):
 SYSTEM = ["INBOX", "SENT", "DRAFT", "TRASH", "SPAM", "UNREAD", "STARRED", "IMPORTANT"]
 
 
-def make_raw(subject: str, body: str, sender: str = "Daniel <daniel@example.com>") -> bytes:
+def make_raw(
+    subject: str,
+    body: str,
+    sender: str = "Daniel <daniel@example.com>",
+    headers: dict[str, str] | None = None,
+) -> bytes:
     msg = EmailMessage()
+    for name, value in (headers or {}).items():
+        msg[name] = value
     msg["From"] = sender
     msg["To"] = "me@gmail.com"
     msg["Subject"] = subject
@@ -193,6 +201,10 @@ class FakeGmail:
             body = {k: v for k, v in message.items() if k != "raw"}
             if params.get("format") == "raw":
                 body["raw"] = base64.urlsafe_b64encode(message["raw"]).decode().rstrip("=")
+            elif params.get("format") == "metadata":
+                parsed = message_from_bytes(message["raw"])
+                headers = [{"name": k, "value": str(v)} for k, v in parsed.items()]
+                body = {"id": body["id"], "payload": {"headers": headers}}
             else:  # minimal
                 body = {k: body[k] for k in ("id", "threadId", "labelIds")}
             return httpx.Response(200, json=body)
@@ -218,6 +230,12 @@ class FakeGmail:
     def _write(self, method: str, path: str, body: Any) -> httpx.Response:
         if path.startswith("/drafts"):
             return self._draft(method, path.removeprefix("/drafts").strip("/"), body)
+        if path == "/messages/send":
+            raw = base64.urlsafe_b64decode(body["raw"] + "=" * (-len(body["raw"]) % 4))
+            sent_id = self._next_id("s")
+            self.add(sent_id, self._next_id("t"), ["SENT"], raw)
+            self.sent.append(raw)
+            return httpx.Response(200, json=self._ref(sent_id))
         if path == "/messages/batchModify":
             if any(i not in self.messages for i in body["ids"]):
                 return httpx.Response(400, json={"error": {"message": "Invalid id value"}})

@@ -194,6 +194,10 @@ export function useThreadAction(onError: (message: string) => void) {
   })
 }
 
+export type Unsubscribed = { method: 'one-click' | 'email' | 'link'; url: string | null }
+
+export const unsubscribe = (threadId: number) => api<Unsubscribed>(`/threads/${threadId}/unsubscribe`, { method: 'POST' })
+
 export function useUndo(onError: (message: string) => void) {
   return useMutation({
     mutationKey,

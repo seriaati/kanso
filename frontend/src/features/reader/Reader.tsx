@@ -28,6 +28,8 @@ type Props = {
   targets: ThreadSummary[]
   onQuick: (quick: Quick) => void
   onToggleRead: () => void
+  /** The open thread's sender's list. */
+  onUnsubscribe: () => void
   onLabel: () => void
   picker: ReactNode
   phone: boolean
@@ -148,11 +150,11 @@ function ToolButton({ icon, label, title, pressed, disabled, onClick }: ToolButt
 
 const name = (title: string) => title.replace(/ \(.*\)$/, '')
 
-type ToolbarProps = Pick<Props, 'targets' | 'onQuick' | 'onToggleRead' | 'onLabel' | 'picker' | 'onReply' | 'onCloseThread'> & {
+type ToolbarProps = Pick<Props, 'targets' | 'onQuick' | 'onToggleRead' | 'onUnsubscribe' | 'onLabel' | 'picker' | 'onReply' | 'onCloseThread'> & {
   canReply: boolean
 }
 
-function Toolbar({ targets, onQuick, onToggleRead, onLabel, picker, canReply, onReply, onCloseThread }: ToolbarProps) {
+function Toolbar({ targets, onQuick, onToggleRead, onUnsubscribe, onLabel, picker, canReply, onReply, onCloseThread }: ToolbarProps) {
   const none = targets.length === 0
   const quick = (q: Quick) => {
     const { icon, title, pressed } = quickAction(q, targets)
@@ -196,6 +198,7 @@ function Toolbar({ targets, onQuick, onToggleRead, onLabel, picker, canReply, on
         onToggleRead={onToggleRead}
         onReplyAll={canReply ? () => onReply('reply_all') : undefined}
         spam={{ label: name(quickAction('spam', targets).title), toggle: () => onQuick('spam') }}
+        onUnsubscribe={canReply ? onUnsubscribe : undefined}
       />
       <span className={styles.separator} aria-hidden="true" />
       <ToolButton icon="close" label="Close" title="Close (Esc)" onClick={onCloseThread} />
@@ -206,7 +209,7 @@ function Toolbar({ targets, onQuick, onToggleRead, onLabel, picker, canReply, on
 type PhoneProps = Props & { canReply: boolean }
 
 // Phones: Back and the rarer actions at the top, the everyday ones at the bottom (PhoneActions).
-function PhoneHeader({ targets, onQuick, onToggleRead, onReply, canReply, backLabel, onBack, onAsk }: PhoneProps) {
+function PhoneHeader({ targets, onQuick, onToggleRead, onUnsubscribe, onReply, canReply, backLabel, onBack, onAsk }: PhoneProps) {
   const none = targets.length === 0
   const important = quickAction('important', targets)
   return (
@@ -224,6 +227,7 @@ function PhoneHeader({ targets, onQuick, onToggleRead, onReply, canReply, backLa
         onForward={canReply ? () => onReply('forward') : undefined}
         important={{ on: !!important.pressed, toggle: () => onQuick('important') }}
         spam={{ label: name(quickAction('spam', targets).title), toggle: () => onQuick('spam') }}
+        onUnsubscribe={canReply ? onUnsubscribe : undefined}
         onAsk={onAsk}
       />
     </div>
@@ -285,10 +289,11 @@ type MoreProps = {
   important?: { on: boolean; toggle: () => void }
   /** Report spam, or Not spam. */
   spam: { label: string; toggle: () => void }
+  onUnsubscribe?: () => void
   onAsk?: () => void
 }
 
-function More({ disabled, unread, onToggleRead, onReplyAll, onForward, important, spam, onAsk }: MoreProps) {
+function More({ disabled, unread, onToggleRead, onReplyAll, onForward, important, spam, onUnsubscribe, onAsk }: MoreProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLSpanElement>(null)
   useEffect(() => {
@@ -352,6 +357,18 @@ function More({ disabled, unread, onToggleRead, onReplyAll, onForward, important
             >
               {important.on ? 'Not important' : 'Mark important'}
               <kbd>=</kbd>
+            </button>
+          )}
+          {onUnsubscribe && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false)
+                onUnsubscribe()
+              }}
+            >
+              Unsubscribe
             </button>
           )}
           <button

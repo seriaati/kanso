@@ -17,7 +17,7 @@ import { Sidebar, type Notice } from '../features/sidebar/Sidebar'
 import { LabelInbox } from '../features/threads/LabelInbox'
 import { InboxZero, ThreadList, type LabelChip, type ListRow } from '../features/threads/ThreadList'
 import { pickAccount, rememberAccount, useAccounts, type Account } from './accounts'
-import { applied, inList, quickAction, quickTarget, useThreadAction, useUndo, type Quick, type SectionScope, type ThreadAction } from './actions'
+import { applied, inList, quickAction, quickTarget, unsubscribe, useThreadAction, useUndo, type Quick, type SectionScope, type ThreadAction } from './actions'
 import { useConfig } from './ai'
 import { ApiError, Unauthorized } from './api'
 import { createDraft, openDraft, type ComposeMode } from './compose'
@@ -303,6 +303,16 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
       say(`${count === 1 ? what : `${count} threads: ${what.toLowerCase()}`}. Sender ${action === 'spam' ? 'blocked' : 'unblocked'}.`)
     }
   }
+  const unsubscribeFrom = (id: number) =>
+    void unsubscribe(id)
+      .then(({ method, url }) => {
+        if (method !== 'link' || !url) return say(method === 'email' ? 'Unsubscribed by email.' : 'Unsubscribed.')
+        const page = window.open(url, '_blank')
+        if (!page) return say('Your browser blocked the unsubscribe page. Allow pop-ups and try again.')
+        page.opener = null
+        say('Finish unsubscribing on the sender’s page.')
+      })
+      .catch((error: Error) => say(`Couldn’t unsubscribe: ${error.message}`))
   const quick = (q: Quick, on = targets) => run(quickTarget(q, on), on)
   // Every thread the user has seen (newer arrivals stay), loaded here or not.
   const doneAll = (section: Section) => {
@@ -739,6 +749,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
                   targets={targets}
                   onQuick={(q) => quick(q)}
                   onToggleRead={() => toggleRead()}
+                  onUnsubscribe={() => threadId !== null && unsubscribeFrom(threadId)}
                   onLabel={() => setPicking((open) => !open)}
                   picker={multi ? null : picker}
                   phone={phone}

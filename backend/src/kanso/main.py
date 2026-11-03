@@ -21,6 +21,7 @@ from kanso.api import (
     prefs,
     sync,
     threads,
+    unsubscribe,
 )
 from kanso.core.hardening import Hardening
 from kanso.core.security import require_session
@@ -49,6 +50,7 @@ for router in (
     accounts.router,
     threads.router,
     actions.router,
+    unsubscribe.router,
     labels.router,
     compose.router,
     sync.router,
