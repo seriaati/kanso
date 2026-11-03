@@ -7,12 +7,13 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import select
+from sqlalchemy import delete, func, select, tuple_
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kanso.api.threads import section_thread_ids
 from kanso.db import redis as events
-from kanso.db.models import Label, Message, MessageLabel, Thread
+from kanso.db.models import Account, BlockedSender, Label, Message, MessageLabel, Thread
 from kanso.db.session import get_session
 from kanso.sync import outbox, store
 
@@ -33,6 +34,8 @@ Action = Literal[
     "unread",
     "label",
     "unlabel",
+    "spam",
+    "unspam",
 ]
 
 # action -> (add or remove, Gmail label id (None: the named user label), which messages).
@@ -50,7 +53,11 @@ ACTIONS: dict[str, tuple[Literal["add", "remove"], str | None, Literal["all", "l
     "unread": ("add", "UNREAD", "latest"),
     "label": ("add", None, "all"),
     "unlabel": ("remove", None, "all"),
+    "spam": ("add", "SPAM", "all"),
+    "unspam": ("remove", "SPAM", "all"),
 }
+# Done along with the action, as an entry of its own so undo restores exactly what changed.
+FOLLOW_UPS = {"spam": "done", "unspam": "inbox"}
 
 
 class Section(BaseModel):
@@ -177,7 +184,39 @@ async def apply_action(
         await db.flush()
         entries.append(entry.id)
         touched[account_id] = changed
+    if follow_up := FOLLOW_UPS.get(action):
+        more, more_touched = await apply_action(db, follow_up, thread_ids)
+        entries += more
+        for account_id, changed in more_touched.items():
+            touched.setdefault(account_id, set()).update(changed)
     return entries, touched
+
+
+async def block_senders(db: AsyncSession, thread_ids: list[int], block: bool) -> None:
+    """Report spam blocks the threads' senders (never the account itself); Not spam unblocks
+    them. The caller commits."""
+    sender = func.lower(Message.from_email)
+    rows = await db.execute(
+        select(Message.account_id, sender)
+        .join(Account, Account.id == Message.account_id)
+        .where(
+            Message.thread_id.in_(thread_ids),
+            Message.from_email != "",
+            sender != func.lower(Account.email),
+        )
+    )
+    pairs = {(account_id, email) for account_id, email in rows}
+    if not pairs:
+        return
+    if block:
+        rows = [{"account_id": a, "email": e} for a, e in pairs]
+        await db.execute(insert(BlockedSender).values(rows).on_conflict_do_nothing())
+    else:
+        await db.execute(
+            delete(BlockedSender).where(
+                tuple_(BlockedSender.account_id, BlockedSender.email).in_(pairs)
+            )
+        )
 
 
 @router.post("/actions")
@@ -191,6 +230,8 @@ async def thread_action(body: ActionIn, db: DB) -> ActionOut:
     entries, touched = await apply_action(db, body.action, thread_ids, body.label)
     if body.action in ("label", "unlabel"):
         await store.mark_manual(db, thread_ids)  # AI labeling never overrides the user
+    if body.action in ("spam", "unspam"):
+        await block_senders(db, thread_ids, block=body.action == "spam")
     await db.commit()
     await publish(touched, wake=bool(entries))
     return ActionOut(entries=entries)

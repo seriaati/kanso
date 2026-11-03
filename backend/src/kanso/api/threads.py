@@ -49,6 +49,7 @@ class ThreadOut(BaseModel):
     important: bool
     in_inbox: bool
     in_trash: bool
+    in_spam: bool
     has_attachments: bool
     lang: str | None
     # In the grouped inbox: the label section the thread is placed in (None: unlabeled).

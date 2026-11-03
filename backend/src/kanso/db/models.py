@@ -84,6 +84,18 @@ class DomainLogo(Base):
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class BlockedSender(Base):
+    """Blocked by "Report spam": their new mail goes to Spam. Gmail filters can't do that."""
+
+    __tablename__ = "blocked_senders"
+
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("accounts.id", ondelete="CASCADE"), primary_key=True
+    )
+    email: Mapped[str] = mapped_column(Text, primary_key=True)  # lowercase
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Label(Base):
     __tablename__ = "labels"
     __table_args__ = (UniqueConstraint("account_id", "gmail_id"),)

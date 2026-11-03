@@ -14,7 +14,7 @@ from sqlalchemy.pool import NullPool
 
 from kanso import demo_seed
 from kanso.db import session
-from kanso.db.models import Account, Label, Outbox, Thread
+from kanso.db.models import Account, BlockedSender, Label, Outbox, Thread
 from kanso.db.session import Session
 from kanso.gmail import client, oauth
 from kanso.sync import engine, outbox
@@ -510,3 +510,49 @@ def test_label_created_in_one_account(synced: TestClient, gmail: FakeGmail) -> N
     assert "Garden" not in [x["name"] for x in synced.get("/api/labels?account_id=2").json()]
     assert synced.post("/api/labels", json=garden | {"account_id": 99}).status_code == 404
     assert gmail.writes[0][1]["color"] == {"backgroundColor": "#c2c2c2", "textColor": "#000000"}
+
+
+async def _blocked() -> set[str]:
+    async with Session() as db:
+        return set(await db.scalars(select(BlockedSender.email)))
+
+
+def test_spam_moves_out_of_the_inbox_and_blocks_the_sender(
+    synced: TestClient, gmail: FakeGmail
+) -> None:
+    # t1 holds Daniel's message and the user's reply: only Daniel is blocked.
+    act(synced, "spam", "t1")
+    thread = threads()["t1"]
+    assert thread.in_spam and not thread.in_inbox
+    assert [(e.action, e.message_ids, e.add_labels, e.remove_labels) for e in entries()] == [
+        ("spam", ["m1", "m2"], ["SPAM"], []),
+        ("done", ["m1"], [], ["INBOX"]),
+    ]
+    assert run(_blocked()) == {"daniel@example.com"}
+    assert synced.get("/api/threads?account_id=1&mailbox=spam").json()["threads"][0]["in_spam"]
+
+    assert drain(gmail) == 2
+    assert gmail_labels(gmail, "m1") == {"SPAM", "UNREAD", "Label_1"}
+    sync(gmail)
+    assert threads()["t1"].in_spam
+
+    # New mail from Daniel goes to Spam, in Gmail too.
+    gmail.add("m6", "t5", ["INBOX", "UNREAD"], make_raw("Again", "Hi", "DANIEL@example.com"))
+    sync(gmail)
+    assert threads()["t5"].in_spam and not threads()["t5"].in_inbox
+    assert drain(gmail) == 1
+    assert gmail_labels(gmail, "m6") == {"SPAM", "UNREAD"}
+
+
+def test_not_spam_moves_back_and_unblocks(synced: TestClient, gmail: FakeGmail) -> None:
+    act(synced, "spam", "t2")
+    act(synced, "unspam", "t2")
+    thread = threads()["t2"]
+    assert thread.in_inbox and not thread.in_spam
+    assert run(_blocked()) == set()
+    drain(gmail)
+    assert gmail_labels(gmail, "m3") == {"INBOX", "STARRED"}
+
+    gmail.add("m6", "t5", ["INBOX"], make_raw("Again", "Hi"))
+    sync(gmail)
+    assert threads()["t5"].in_inbox

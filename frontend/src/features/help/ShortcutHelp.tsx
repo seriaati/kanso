@@ -8,6 +8,7 @@ const shortcuts = [
   ['#', 'Delete (or restore from Trash)'],
   ['s', 'Star'],
   ['=', 'Important'],
+  ['!', 'Report spam and block the sender (or not spam)'],
   ['l', 'Label'],
   ['u', 'Mark unread / read'],
   ['x', 'Select (or Ctrl/⌘-click; Shift-click for a range); actions apply to all selected'],

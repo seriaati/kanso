@@ -296,6 +296,12 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
         void sent.then(({ entries }) => entries.length > 0 && undo(entries))
       })
     }
+    // No undo: it would leave the sender blocked. Not spam in Spam reverses both.
+    if (action === 'spam' || action === 'unspam') {
+      const count = scope?.count ?? on.length
+      const what = action === 'spam' ? 'Reported as spam' : 'Moved to the inbox'
+      say(`${count === 1 ? what : `${count} threads: ${what.toLowerCase()}`}. Sender ${action === 'spam' ? 'blocked' : 'unblocked'}.`)
+    }
   }
   const quick = (q: Quick, on = targets) => run(quickTarget(q, on), on)
   // Every thread the user has seen (newer arrivals stay), loaded here or not.
@@ -355,6 +361,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
       quickItem('delete'),
       quickItem('star'),
       quickItem('important'),
+      quickItem('spam'),
       // eslint-disable-next-line react-hooks/refs -- runs on a click in the menu, not during render
       { icon: 'mail', label: thread.unread ? 'Mark as read' : 'Mark as unread', shortcut: 'u', onSelect: () => toggleRead([thread]) },
       {
@@ -508,6 +515,9 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
         break
       case '=':
         quick('important')
+        break
+      case '!':
+        quick('spam')
         break
       case 'u':
         toggleRead()

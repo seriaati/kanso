@@ -195,6 +195,7 @@ function Toolbar({ targets, onQuick, onToggleRead, onLabel, picker, canReply, on
         unread={!none && targets.every((t) => t.unread)}
         onToggleRead={onToggleRead}
         onReplyAll={canReply ? () => onReply('reply_all') : undefined}
+        spam={{ label: name(quickAction('spam', targets).title), toggle: () => onQuick('spam') }}
       />
       <span className={styles.separator} aria-hidden="true" />
       <ToolButton icon="close" label="Close" title="Close (Esc)" onClick={onCloseThread} />
@@ -222,6 +223,7 @@ function PhoneHeader({ targets, onQuick, onToggleRead, onReply, canReply, backLa
         onReplyAll={canReply ? () => onReply('reply_all') : undefined}
         onForward={canReply ? () => onReply('forward') : undefined}
         important={{ on: !!important.pressed, toggle: () => onQuick('important') }}
+        spam={{ label: name(quickAction('spam', targets).title), toggle: () => onQuick('spam') }}
         onAsk={onAsk}
       />
     </div>
@@ -281,10 +283,12 @@ type MoreProps = {
   onForward?: () => void
   /** Phones: these live here rather than in a toolbar. */
   important?: { on: boolean; toggle: () => void }
+  /** Report spam, or Not spam. */
+  spam: { label: string; toggle: () => void }
   onAsk?: () => void
 }
 
-function More({ disabled, unread, onToggleRead, onReplyAll, onForward, important, onAsk }: MoreProps) {
+function More({ disabled, unread, onToggleRead, onReplyAll, onForward, important, spam, onAsk }: MoreProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLSpanElement>(null)
   useEffect(() => {
@@ -350,6 +354,17 @@ function More({ disabled, unread, onToggleRead, onReplyAll, onForward, important
               <kbd>=</kbd>
             </button>
           )}
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false)
+              spam.toggle()
+            }}
+          >
+            {spam.label}
+            <kbd>!</kbd>
+          </button>
           {onAsk && (
             <button
               type="button"

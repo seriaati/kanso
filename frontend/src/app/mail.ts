@@ -17,6 +17,7 @@ export type ThreadSummary = {
   important: boolean
   in_inbox: boolean
   in_trash: boolean
+  in_spam: boolean
   has_attachments: boolean
   lang: string | null
   /** Grouped inbox only; null: unlabeled. */

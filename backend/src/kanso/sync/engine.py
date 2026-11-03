@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kanso.ai import labeling
 from kanso.core.settings import settings
 from kanso.db import redis as events
-from kanso.db.models import Account, Label, Message
+from kanso.db.models import Account, BlockedSender, Label, Message
 from kanso.db.session import Session
 from kanso.gmail import mime
 from kanso.gmail.client import Gmail, GmailError, NotFound
@@ -204,6 +204,8 @@ async def incremental(db: AsyncSession, gmail: Gmail, account: Account) -> None:
         db, gmail, account.id, [g for g in added if g not in deleted], labels
     )
     thread_ids |= changed
+    blocked = await _spam_blocked(db, account.id, fetched)
+    thread_ids |= blocked
     # A user label change seen here was made by hand in Gmail (kanso's own are in the mirror
     # already), so AI labeling leaves that thread alone.
     user_labels = set(
@@ -237,6 +239,8 @@ async def incremental(db: AsyncSession, gmail: Gmail, account: Account) -> None:
     await db.commit()
     if queued:
         await labeling.wake()
+    if blocked:
+        await events.wake_outbox()
     thread_ids |= await outbox.reapply(db, account.id)
     await events.threads_changed(account.id, thread_ids)
     if had_error:
@@ -245,6 +249,28 @@ async def incremental(db: AsyncSession, gmail: Gmail, account: Account) -> None:
     await notify.new_mail(db, gmail.http, account.id, fetched)
     if records:
         log.info("account %s: %s changes synced", account.id, len(records))
+
+
+async def _spam_blocked(db: AsyncSession, account_id: int, gmail_ids: set[str]) -> set[int]:
+    """New mail from a blocked sender goes to Spam, in Gmail too. Returns the changed thread ids;
+    the caller refreshes them."""
+    if not gmail_ids:
+        return set()
+    blocked = list(
+        await db.scalars(
+            select(Message.gmail_id)
+            .join(
+                BlockedSender,
+                (BlockedSender.account_id == Message.account_id)
+                & (BlockedSender.email == func.lower(Message.from_email)),
+            )
+            .where(Message.account_id == account_id, Message.gmail_id.in_(gmail_ids))
+        )
+    )
+    if not blocked:
+        return set()
+    outbox.enqueue(db, account_id, "blocked", blocked, ["SPAM"], ["INBOX"])
+    return await store.apply_delta(db, account_id, blocked, ["SPAM"], ["INBOX"])
 
 
 async def renew_watch(db: AsyncSession, gmail: Gmail, account: Account) -> None:

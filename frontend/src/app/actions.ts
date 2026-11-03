@@ -18,6 +18,8 @@ export type ThreadAction =
   | 'unread'
   | 'label'
   | 'unlabel'
+  | 'spam'
+  | 'unspam'
 
 export type ActionInput = {
   action: ThreadAction
@@ -48,6 +50,9 @@ export function applied(thread: ThreadSummary, { action, label }: Omit<ActionInp
     case 'read':
     case 'unread':
       return { ...thread, unread: action === 'unread' }
+    case 'spam':
+    case 'unspam':
+      return { ...thread, in_spam: action === 'spam', in_inbox: action === 'unspam' }
     case 'label':
     case 'unlabel': {
       if (!label) return thread
@@ -58,11 +63,13 @@ export function applied(thread: ThreadSummary, { action, label }: Omit<ActionInp
   }
 }
 
-// Search results can't be judged here, so only Trash leaves them.
+// Search results can't be judged here, so only Trash and Spam leave them.
 export function inList(params: URLSearchParams, thread: ThreadSummary): boolean {
   const mailbox = params.get('mailbox')
   if (mailbox === 'trash') return thread.in_trash
   if (thread.in_trash) return false
+  if (mailbox === 'spam') return thread.in_spam
+  if (thread.in_spam) return false
   if (mailbox === 'inbox') return thread.in_inbox
   if (mailbox === 'starred') return thread.starred
   if (mailbox === 'done') return !thread.in_inbox
@@ -72,7 +79,7 @@ export function inList(params: URLSearchParams, thread: ThreadSummary): boolean 
 }
 
 
-export type Quick = 'done' | 'delete' | 'star' | 'important'
+export type Quick = 'done' | 'delete' | 'star' | 'important' | 'spam'
 
 export function quickAction(quick: Quick, threads: ThreadSummary[]): { icon: IconName; title: string; pressed?: boolean } {
   const all = (test: (t: ThreadSummary) => boolean) => threads.length > 0 && threads.every(test)
@@ -87,6 +94,8 @@ export function quickAction(quick: Quick, threads: ThreadSummary[]): { icon: Ico
       const on = all((t) => t.important)
       return { icon: 'important', title: on ? 'Not important (=)' : 'Important (=)', pressed: on }
     }
+    case 'spam':
+      return all((t) => t.in_spam) ? { icon: 'inbox', title: 'Not spam (!)' } : { icon: 'spam', title: 'Report spam (!)' }
   }
 }
 
@@ -101,6 +110,8 @@ export function quickTarget(quick: Quick, threads: ThreadSummary[]): ThreadActio
       return all((t) => t.starred) ? 'unstar' : 'star'
     case 'important':
       return all((t) => t.important) ? 'unimportant' : 'important'
+    case 'spam':
+      return all((t) => t.in_spam) ? 'unspam' : 'spam'
   }
 }
 
