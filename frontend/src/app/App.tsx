@@ -11,6 +11,7 @@ import { LabelPicker, type LabelOption } from '../features/labels/LabelPicker'
 import { Login } from '../features/login/Login'
 import { Reader, type ThreadDraft } from '../features/reader/Reader'
 import { Selection } from '../features/reader/Selection'
+import { Labels } from '../features/labels/Labels'
 import { Settings } from '../features/settings/Settings'
 import { Sidebar, type Notice } from '../features/sidebar/Sidebar'
 import { LabelInbox } from '../features/threads/LabelInbox'
@@ -238,6 +239,8 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     if (threadId !== null) setCursor(threadId)
     go({ threadId: null })
   }
+  // Labels belong to the account in view, so its page stays open; Settings closes.
+  const selectAccount = (id: number) => go({ accountId: id, threadId: null, page: route.page === 'labels' ? 'labels' : undefined })
   const search = (q: string) => go({ view: q ? { kind: 'search', q } : { kind: 'mailbox', mailbox: 'inbox' }, threadId: null })
 
   // For this view only. `anchor` is where a Shift-click range starts.
@@ -439,7 +442,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
 
 
   const title = view.kind === 'mailbox' ? mailboxTitles[view.mailbox] : view.kind === 'label' ? view.name : 'Search'
-  const pageTitle = route.settings ? 'Settings' : title
+  const pageTitle = route.page === 'settings' ? 'Settings' : route.page === 'labels' ? 'Labels' : title
   useEffect(() => {
     document.title = `${pageTitle} · kanso`
   }, [pageTitle])
@@ -468,7 +471,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
 
   const onKey = useEffectEvent((event: KeyboardEvent) => {
     if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return
-    if (route.settings) return
+    if (route.page) return
     const target = event.target instanceof Element ? event.target : null
     if (target?.closest('input, textarea, select, [contenteditable]')) return
     if (help) {
@@ -568,7 +571,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const showAssistant = ai && accountId !== null && !draftOnly && (phone ? asking : threadId !== null || asking)
   const paneOpen = phone || threadId !== null || showAssistant
   const assistantOnly = phone || threadId === null
-  const screen = route.settings ? 'settings' : phone && showAssistant ? 'assistant' : threadId !== null ? 'thread' : 'list'
+  const screen = route.page ? route.page : phone && showAssistant ? 'assistant' : threadId !== null ? 'thread' : 'list'
 
   return (
     <div
@@ -594,7 +597,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
           notice={notice}
           ai={ai}
           update={update}
-          onSelectAccount={(id) => go({ accountId: id, threadId: null, settings: false })}
+          onSelectAccount={selectAccount}
           onCompose={compose}
           onLabelChanged={(name, { renamed, deleted }) => {
             if (view.kind !== 'label' || view.name !== name) return
@@ -627,12 +630,14 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
           userLabels={named}
           sync={sync.data ?? []}
           ai={ai}
-          onSelectAccount={(id) => go({ accountId: id, threadId: null, settings: false })}
+          onSelectAccount={selectAccount}
           onClose={() => setMenu({ open: false, at: location.key })}
         />
       )}
-      {route.settings ? (
-        <Settings accounts={accounts} accountId={accountId} labels={labels.data ?? []} sync={sync.data ?? []} ai={ai} onMenu={openMenu} />
+      {route.page === 'settings' ? (
+        <Settings accounts={accounts} sync={sync.data ?? []} ai={ai} onMenu={openMenu} />
+      ) : route.page === 'labels' ? (
+        <Labels key={accountId} account={accounts.find((a) => a.id === accountId)} labels={labels.data ?? []} ai={ai} onMenu={openMenu} />
       ) : (
         <>
           <ThreadList

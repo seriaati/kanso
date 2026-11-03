@@ -92,6 +92,23 @@
   color: var(--muted);
 }
 
+.headingRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.manage {
+  margin-right: 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.manage:hover,
+.manage[aria-current] {
+  color: var(--ink);
+}
+
 .labels {
   flex: 1;
   min-height: 0;

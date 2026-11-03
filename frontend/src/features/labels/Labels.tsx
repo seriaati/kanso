@@ -1,0 +1,83 @@
+import { useState } from 'react'
+import { Link } from 'react-router'
+import type { Account } from '../../app/accounts'
+import { userLabels, type Label, type NamedLabel } from '../../app/mail'
+import { Icon } from '../../components/Icon'
+import styles from '../settings/Settings.module.css'
+import { LabelEditor } from '../sidebar/LabelEditor'
+
+type Props = {
+  /** The account in view (undefined: none connected) and its labels. */
+  account: Account | undefined
+  labels: Label[]
+  ai: boolean
+  onMenu?: () => void
+}
+
+// Labels belong to one account, so they get a page of their own rather than a part of Settings
+// (which applies to every account).
+export function Labels({ account, labels, ai, onMenu }: Props) {
+  // '' for a new label.
+  const [editing, setEditing] = useState<string | null>(null)
+  const named = userLabels(labels)
+  const flags = (label: NamedLabel) => [ai && label.aiManaged && 'AI labels new mail', label.isBundle && 'Bundled'].filter(Boolean).join(' · ')
+  return (
+    <section className={styles.settings} aria-label="Labels">
+      <header className={styles.header}>
+        {onMenu && (
+          <button type="button" className={styles.menu} aria-label="Mailboxes and labels" onClick={onMenu}>
+            <Icon name="menu" size={18} />
+          </button>
+        )}
+        <h1 className={styles.title}>Labels</h1>
+      </header>
+      <div className={styles.scroll}>
+        <div className={styles.page}>
+          <section className={styles.section}>
+            {account ? (
+              <>
+                <p className={styles.intro}>
+                  {account.email}’s labels.{ai && ' Describe a label and turn on AI, and Claude sorts new inbox mail into it.'}
+                </p>
+                <ul className={styles.list}>
+                  {named.map((label) => (
+                    <li key={label.name}>
+                      {editing === label.name ? (
+                        <LabelEditor label={label} accountId={account.id} ai={ai} onDone={() => setEditing(null)} />
+                      ) : (
+                        <div className={styles.row}>
+                          <span className={styles.dot} style={{ background: label.color }} aria-hidden="true" />
+                          <div className={styles.text}>
+                            <span className={styles.name}>
+                              {label.name}
+                              {flags(label) && <span className={styles.flags}> · {flags(label)}</span>}
+                            </span>
+                            {ai && label.description && <span className={styles.muted}>{label.description}</span>}
+                          </div>
+                          <button type="button" className={styles.edit} onClick={() => setEditing(label.name)}>
+                            Edit
+                          </button>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                {editing === '' ? (
+                  <LabelEditor accountId={account.id} ai={ai} onDone={() => setEditing(null)} />
+                ) : (
+                  <button type="button" className={styles.add} onClick={() => setEditing('')}>
+                    + New label
+                  </button>
+                )}
+              </>
+            ) : (
+              <p className={styles.intro}>
+                No Gmail account connected yet. <Link to="/settings">Connect one in Settings</Link>.
+              </p>
+            )}
+          </section>
+        </div>
+      </div>
+    </section>
+  )
+}

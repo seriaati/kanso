@@ -20,7 +20,10 @@ export const mailboxNav: { mailbox: Mailbox; name: string; icon: IconName; quiet
 
 export type View = { kind: 'mailbox'; mailbox: Mailbox } | { kind: 'label'; name: string } | { kind: 'search'; q: string }
 
-export type Route = { view: View; threadId: number | null; accountId: number | null; settings?: boolean }
+// A page replaces the thread list: Settings (all accounts) or Labels (the account in view).
+export type Page = 'settings' | 'labels'
+
+export type Route = { view: View; threadId: number | null; accountId: number | null; page?: Page }
 
 const isMailbox = (value: string | undefined): value is Mailbox => mailboxes.includes(value as Mailbox)
 
@@ -34,7 +37,7 @@ function parse(pathname: string, params: URLSearchParams): Route | null {
   const [first, second, third] = segments
   const accountId = Number(params.get('account')) || null
   const thread = (segment: string | undefined) => (segment && /^\d+$/.test(segment) ? Number(segment) : null)
-  if (first === 'settings' && !second) return { view: { kind: 'mailbox', mailbox: 'inbox' }, threadId: null, accountId, settings: true }
+  if ((first === 'settings' || first === 'labels') && !second) return { view: { kind: 'mailbox', mailbox: 'inbox' }, threadId: null, accountId, page: first }
   if (first === 'label' && second) return { view: { kind: 'label', name: second }, threadId: thread(third), accountId }
   if (first === 'search') return { view: { kind: 'search', q: params.get('q') ?? '' }, threadId: thread(second), accountId }
   if (isMailbox(first)) return { view: { kind: 'mailbox', mailbox: first }, threadId: thread(second), accountId }
@@ -46,8 +49,8 @@ export function useRoute(): Route | null {
   return parse(pathname, new URLSearchParams(search))
 }
 
-export function href({ view, threadId, accountId, settings }: Route): string {
-  if (settings) return accountId === null ? '/settings' : `/settings?account=${accountId}`
+export function href({ view, threadId, accountId, page }: Route): string {
+  if (page) return accountId === null ? `/${page}` : `/${page}?account=${accountId}`
   let path =
     view.kind === 'mailbox' ? `/${view.mailbox}` : view.kind === 'label' ? `/label/${encodeURIComponent(view.name)}` : '/search'
   if (threadId !== null) path += `/${threadId}`

@@ -58,7 +58,7 @@ export function MenuSheet({ accounts, route, labels, userLabels, sync, ai, onSel
         <div className={styles.grid}>
           {mailboxNav.map(({ mailbox, name, icon, quiet }) => {
             const view: View = { kind: 'mailbox', mailbox }
-            const current = !route.settings && sameView(view, route.view)
+            const current = !route.page && sameView(view, route.view)
             return (
               <Link
                 key={mailbox}
@@ -76,11 +76,20 @@ export function MenuSheet({ accounts, route, labels, userLabels, sync, ai, onSel
 
         {route.accountId !== null && (
           <>
-            <h2 className={styles.heading}>Labels</h2>
+            <div className={styles.headingRow}>
+              <h2 className={styles.heading}>Labels</h2>
+              <Link
+                to={href({ ...route, threadId: null, page: 'labels' })}
+                className={styles.manage}
+                aria-current={route.page === 'labels' ? 'page' : undefined}
+              >
+                Manage
+              </Link>
+            </div>
             <div className={styles.grid}>
               {userLabels.map((label) => {
                 const view: View = { kind: 'label', name: label.name }
-                const current = !route.settings && sameView(view, route.view)
+                const current = !route.page && sameView(view, route.view)
                 return (
                   <Link
                     key={label.id}

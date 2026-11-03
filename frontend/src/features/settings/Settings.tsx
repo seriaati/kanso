@@ -1,27 +1,22 @@
 import { useState, type ReactNode } from 'react'
 import { accountColors, useDisconnectAccount, useUpdateAccount, type Account } from '../../app/accounts'
 import { useAiUsage } from '../../app/ai'
-import { userLabels, type Label, type NamedLabel, type SyncStatus } from '../../app/mail'
+import type { SyncStatus } from '../../app/mail'
 import { usePhone } from '../../app/media'
 import { usePush } from '../../app/notifications'
 import { useChangePassword, useDemoPassword, useLogoutEverywhere, useSettings, useUpdateSettings } from '../../app/settings'
 import { Icon } from '../../components/Icon'
 import { Avatar, DisplayOptions } from '../sidebar/AccountSwitcher'
-import { LabelEditor } from '../sidebar/LabelEditor'
 import styles from './Settings.module.css'
 
 type Props = {
   accounts: Account[]
-  /** The selected account (null: none connected) and its labels. */
-  accountId: number | null
-  labels: Label[]
   sync: SyncStatus[]
   ai: boolean
   onMenu?: () => void
 }
 
-export function Settings({ accounts, accountId, labels, sync, ai, onMenu }: Props) {
-  const account = accounts.find((a) => a.id === accountId)
+export function Settings({ accounts, sync, ai, onMenu }: Props) {
   const phone = usePhone()
   const demo = useDemoPassword() !== null // true until known: no flash of Connect on a demo
   return (
@@ -37,7 +32,6 @@ export function Settings({ accounts, accountId, labels, sync, ai, onMenu }: Prop
       <div className={styles.scroll}>
         <div className={styles.page}>
           <Accounts accounts={accounts} sync={sync} demo={demo} />
-          {account && <Labels account={account} labels={labels} ai={ai} />}
           {/* On a desktop these are in the account menu. */}
           {phone && (
             <Section title="Display">
@@ -184,50 +178,6 @@ function AccountEditor({ account, onDone }: { account: Account; onDone: () => vo
         </button>
       </div>
     </form>
-  )
-}
-
-function Labels({ account, labels, ai }: { account: Account; labels: Label[]; ai: boolean }) {
-  // '' for a new label.
-  const [editing, setEditing] = useState<string | null>(null)
-  const named = userLabels(labels)
-  const flags = (label: NamedLabel) => [ai && label.aiManaged && 'AI labels new mail', label.isBundle && 'Bundled'].filter(Boolean).join(' · ')
-  return (
-    <Section title="Labels">
-      <p className={styles.intro}>
-        {account.email}’s labels.{ai && ' Describe a label and turn on AI, and Claude sorts new inbox mail into it.'}
-      </p>
-      <ul className={styles.list}>
-        {named.map((label) => (
-          <li key={label.name}>
-            {editing === label.name ? (
-              <LabelEditor label={label} accountId={account.id} ai={ai} onDone={() => setEditing(null)} />
-            ) : (
-              <div className={styles.row}>
-                <span className={styles.dot} style={{ background: label.color }} aria-hidden="true" />
-                <div className={styles.text}>
-                  <span className={styles.name}>
-                    {label.name}
-                    {flags(label) && <span className={styles.flags}> · {flags(label)}</span>}
-                  </span>
-                  {ai && label.description && <span className={styles.muted}>{label.description}</span>}
-                </div>
-                <button type="button" className={styles.edit} onClick={() => setEditing(label.name)}>
-                  Edit
-                </button>
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
-      {editing === '' ? (
-        <LabelEditor accountId={account.id} ai={ai} onDone={() => setEditing(null)} />
-      ) : (
-        <button type="button" className={styles.add} onClick={() => setEditing('')}>
-          + New label
-        </button>
-      )}
-    </Section>
   )
 }
 
