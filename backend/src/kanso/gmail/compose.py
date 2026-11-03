@@ -19,17 +19,33 @@ from kanso.gmail import mime
 # {"name": ..., "email": ...}, as the mirror stores them.
 Addr = dict[str, Any]
 
-# Blockquote stays for drafts written in Gmail, which keep their quote in the body.
-BODY_TAGS = {"p", "div", "br", "b", "strong", "i", "em", "a", "ul", "ol", "li", "blockquote"}
+# What the composer writes, Markdown shortcuts included. Blockquote also stays for drafts written
+# in Gmail, which keep their quote in the body.
+BODY_TAGS = {
+    *("p", "div", "br", "b", "strong", "i", "em", "a", "ul", "ol", "li", "blockquote"),
+    *("code", "pre", "h1", "h2", "h3", "img"),
+}
+
+
+def _body_urls(tag: str, attribute: str, value: str) -> str | None:
+    """Images are the draft's own inline ones (cid:), never remote; links are never cid:."""
+    is_cid = value.strip().lower().startswith("cid:")
+    if tag == "img" and attribute == "src":
+        return value if is_cid else None
+    if tag == "a" and attribute == "href" and is_cid:
+        return None
+    return value
 
 
 def sanitize_body(body: str) -> str:
-    return nh3.clean(
+    clean = nh3.clean(
         body,
         tags=BODY_TAGS,
-        attributes={"a": {"href"}},
-        url_schemes={"http", "https", "mailto"},
+        attributes={"a": {"href"}, "img": {"src", "alt"}},
+        url_schemes={"http", "https", "mailto", "cid"},
+        attribute_filter=_body_urls,
     )
+    return re.sub(r"<img(?![^>]*\ssrc=)[^>]*>", "", clean)  # a remote image left without its src
 
 
 # Subject prefixes, so a reply to "Re: x" stays "Re: x" (also German, Nordic, Dutch, Chinese).
@@ -152,13 +168,14 @@ def forward_quote(original: Original, tz: str | None) -> tuple[str, str]:
 
 
 class _Text(HTMLParser):
-    """Plain text with "- " and "1. " list items and links as "text <url>"."""
+    """Plain text with "- " and "1. " list items, links as "text <url>" and code in backticks."""
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.out: list[str] = []
         self.lists: list[int | None] = []  # None: bulleted; n: numbered, n items so far
         self.link: tuple[str, int] | None = None  # (href, where its text starts)
+        self.pre = 0  # inside <pre>: whitespace stays
 
     def _break(self) -> None:
         if self.out and not self.out[-1].endswith("\n"):
@@ -167,8 +184,12 @@ class _Text(HTMLParser):
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag == "br":
             self.out.append("\n")
-        elif tag in ("p", "div", "blockquote"):
+        elif tag in ("p", "div", "blockquote", "pre", "h1", "h2", "h3"):
             self._break()
+            if tag == "pre":
+                self.pre += 1
+        elif tag == "code" and not self.pre:
+            self.out.append("`")
         elif tag in ("ul", "ol"):
             self._break()
             self.lists.append(0 if tag == "ol" else None)
@@ -189,8 +210,12 @@ class _Text(HTMLParser):
         if tag == "p":
             self._break()
             self.out.append("\n")
-        elif tag in ("div", "li", "blockquote"):
+        elif tag in ("div", "li", "blockquote", "pre", "h1", "h2", "h3"):
             self._break()
+            if tag == "pre":
+                self.pre = max(self.pre - 1, 0)
+        elif tag == "code" and not self.pre:
+            self.out.append("`")
         elif tag in ("ul", "ol"):
             if self.lists:
                 self.lists.pop()
@@ -203,7 +228,9 @@ class _Text(HTMLParser):
             self.link = None
 
     def handle_data(self, data: str) -> None:
-        self.out.append(re.sub(r"[ \t\r\n]+", " ", data).replace("\xa0", " "))
+        if not self.pre:
+            data = re.sub(r"[ \t\r\n]+", " ", data)
+        self.out.append(data.replace("\xa0", " "))
 
 
 def html_to_text(body: str) -> str:
@@ -216,12 +243,14 @@ def html_to_text(body: str) -> str:
 
 @dataclass
 class Part:
-    """With a content_id it is an inline image, related to the HTML part."""
+    """With a content_id it is an inline image, related to the HTML part. A body_only one is left
+    out when the HTML doesn't show it (an image inserted, then deleted)."""
 
     filename: str
     mime_type: str
     content: bytes
     content_id: str | None = None
+    body_only: bool = False
 
 
 def _addresses(addresses: list[Addr]) -> list[Address]:
@@ -296,7 +325,7 @@ def build_message(
                 disposition="inline",
             )
     for part in attachments:
-        if not (part.content_id and f"cid:{part.content_id}" in document):
+        if not (part.content_id and f"cid:{part.content_id}" in document) and not part.body_only:
             maintype, subtype = _types(part.mime_type)
             msg.add_attachment(part.content, maintype, subtype, filename=part.filename)
     return msg.as_bytes()

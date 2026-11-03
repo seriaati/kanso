@@ -1,5 +1,6 @@
 import logging
 from typing import Annotated, Literal
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
@@ -48,6 +49,7 @@ class AttachmentOut(BaseModel):
     filename: str
     mime_type: str
     size: int
+    content_id: str | None  # an image shown in the body (cid:)
 
 
 class DraftOut(BaseModel):
@@ -181,9 +183,14 @@ async def discard_draft(draft_id: int, db: DB) -> Response:
 
 @router.post("/drafts/{draft_id}/attachments")
 async def add_attachment(
-    draft_id: int, request: Request, db: DB, filename: Annotated[str, Query(max_length=255)]
+    draft_id: int,
+    request: Request,
+    db: DB,
+    filename: Annotated[str, Query(max_length=255)],
+    inline: bool = False,
 ) -> DraftOut:
-    """The file is the request body; its type is the Content-Type."""
+    """The file is the request body; its type is the Content-Type. An inline image is shown in
+    the body as cid:<content_id>."""
     async with drafts.lock(draft_id):
         draft = await _get(db, draft_id)
         room = drafts.ATTACHMENTS_LIMIT - sum(a["size"] for a in draft.attachments)
@@ -198,11 +205,34 @@ async def add_attachment(
             chunks.append(chunk)
         mime_type = request.headers.get("content-type", "").split(";")[0].strip()
         try:
-            await drafts.add_attachment(draft, filename, mime_type, b"".join(chunks))
+            await drafts.add_attachment(draft, filename, mime_type, b"".join(chunks), inline)
         except drafts.DraftError as error:
             raise _error(error) from error
         await db.commit()
     return await _out(db, draft)
+
+
+@router.get("/drafts/{draft_id}/attachments/{attachment_id}")
+async def get_attachment(draft_id: int, attachment_id: str, db: DB) -> Response:
+    """What the composer shows for an inline image (and a download for anything else)."""
+    draft = await _get(db, draft_id)
+    async with gmail_client.http_client() as http:
+        try:
+            entry, content = await drafts.attachment_content(db, draft, attachment_id, http)
+        except GMAIL_ERRORS as error:
+            raise _error(error) from error
+    await db.commit()
+    image = entry["mime_type"] in drafts.IMAGE_TYPES
+    return Response(
+        content,
+        media_type=entry["mime_type"] if image else "application/octet-stream",
+        headers={
+            "Content-Disposition": f"{'inline' if image else 'attachment'}; "
+            f"filename*=UTF-8''{quote(entry['filename'])}",
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, max-age=86400",
+        },
+    )
 
 
 @router.delete("/drafts/{draft_id}/attachments/{attachment_id}")

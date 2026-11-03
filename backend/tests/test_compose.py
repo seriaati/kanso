@@ -151,6 +151,20 @@ def test_body_is_sanitized_to_plain_rich_text() -> None:
     assert "kept text" in clean
 
 
+def test_body_keeps_markdown_blocks_and_only_its_own_images() -> None:
+    dirty = (
+        "<h2>Plan</h2><pre>a  b\n  c</pre><p>Run <code>make</code></p>"
+        '<img src="cid:shot@kanso" alt="shot"><img src="https://t.example/p.gif">'
+        '<a href="cid:shot@kanso">x</a>'
+    )
+    clean = compose.sanitize_body(dirty)
+    assert "<h2>Plan</h2>" in clean and "<code>make</code>" in clean
+    assert '<img src="cid:shot@kanso" alt="shot">' in clean
+    assert "t.example" not in clean and clean.count("<img") == 1
+    assert 'href="cid:' not in clean
+    assert compose.html_to_text(clean) == "Plan\na  b\n  c\nRun `make`\n\nx"
+
+
 def original(**fields: Any) -> Message:
     values: dict[str, Any] = {
         "from_name": "Daniel Reyes",
@@ -608,6 +622,53 @@ def test_attachments_upload_limit_remove_and_recovery(
     }
     assert files == {"报价.txt": b"quote"}
     assert not any(uploads.rglob("*"))  # cleaned up after sending
+
+
+@db_test
+def test_inline_images_go_in_the_body_and_leave_with_it(
+    synced: TestClient, gmail: FakeGmail
+) -> None:
+    draft = new_draft(synced)
+    url = f"/api/drafts/{draft['id']}/attachments"
+    not_image = synced.post(
+        url,
+        params={"filename": "a.txt", "inline": True},
+        content=b"x",
+        headers={"Content-Type": "text/plain"},
+    )
+    assert not_image.status_code == 400
+    added = synced.post(
+        url,
+        params={"filename": "shot.png", "inline": True},
+        content=b"PNG-bytes",
+        headers={"Content-Type": "image/png"},
+    ).json()
+    [image] = added["attachments"]
+    assert image["content_id"] == f"{image['id']}@kanso"
+    shown = synced.get(f"{url}/{image['id']}")
+    assert shown.content == b"PNG-bytes" and shown.headers["content-type"] == "image/png"
+
+    to = [{"name": "", "email": "ana@example.com"}]
+    body = content(draft, to=to, body_html=f'<div>See <img src="cid:{image["content_id"]}"></div>')
+    assert synced.post(f"/api/drafts/{draft['id']}/send", json=body).json()["status"] == "sent"
+    msg = parse(gmail.sent[0])
+    related = [p for p in msg.walk() if p.get_content_type() == "multipart/related"]
+    [png] = [p for p in related[0].walk() if p.get_content_type() == "image/png"]
+    assert png["Content-ID"] == f"<{image['content_id']}>" and png.get_content() == b"PNG-bytes"
+    assert list(msg.iter_attachments()) == []
+
+    # Deleted from the body, it doesn't turn into an attachment.
+    other = new_draft(synced)
+    url = f"/api/drafts/{other['id']}/attachments"
+    synced.post(
+        url,
+        params={"filename": "s.png", "inline": True},
+        content=b"P",
+        headers={"Content-Type": "image/png"},
+    )
+    synced.put(f"/api/drafts/{other['id']}", json=content(other, body_html="<div>No image</div>"))
+    [saved] = gmail.drafts.values()
+    assert mime.parse(gmail.messages[saved]["raw"]).attachments == []
 
 
 @db_test

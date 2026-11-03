@@ -33,6 +33,7 @@ from kanso.sync import store
 log = logging.getLogger(__name__)
 
 ATTACHMENTS_LIMIT = 25 * 1024 * 1024  # Gmail's limit for a message's attachments
+IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}  # what goes in the body
 CACHE_KEEP = timedelta(days=1)  # since last use
 ORPHAN_AFTER = timedelta(days=1)  # drafts opened but never saved
 RESUME_AFTER = timedelta(minutes=1)  # a send left unfinished this long is resumed by the worker
@@ -234,18 +235,25 @@ def clean_filename(name: str) -> str:
     return name.replace("\\", "/").rsplit("/", 1)[-1].strip() or "attachment"
 
 
-async def add_attachment(draft: Draft, filename: str, mime_type: str, content: bytes) -> None:
+async def add_attachment(
+    draft: Draft, filename: str, mime_type: str, content: bytes, inline: bool = False
+) -> None:
+    """An inline image is shown in the body (cid:) and goes out related to the HTML."""
     if draft.sending_since:
         raise DraftError(409, "This message is being sent.")
+    if inline and mime_type not in IMAGE_TYPES:
+        raise DraftError(400, "Only PNG, JPEG, GIF and WebP images go in the message.")
     used = sum(a["size"] for a in draft.attachments)
     if used + len(content) > ATTACHMENTS_LIMIT:
         raise DraftError(413, "Attachments can add up to 25 MB, as in Gmail.")
+    entry_id = _new_id()
     entry = {
-        "id": _new_id(),
+        "id": entry_id,
         "filename": clean_filename(filename),
         "mime_type": mime_type or "application/octet-stream",
         "size": len(content),
-        "content_id": None,
+        "content_id": f"{entry_id}@kanso" if inline else None,
+        "body_only": inline,  # dropped once the body no longer shows it
         "src": None,
     }
     await asyncio.to_thread(_write, _path(draft.id, entry["id"]), content)
@@ -261,22 +269,48 @@ def remove_attachment(draft: Draft, attachment_id: str) -> None:
     _path(draft.id, attachment_id).unlink(missing_ok=True)
 
 
+async def _content(
+    db: AsyncSession,
+    draft: Draft,
+    entry: dict[str, Any],
+    http: httpx.AsyncClient,
+    raws: dict[tuple[int, str], bytes | None],
+) -> bytes:
+    path = _path(draft.id, entry["id"])
+    content = await asyncio.to_thread(_read, path)
+    if content is None:
+        content = await _fetch(db, entry, http, raws)
+        if content is None:
+            raise DraftError(
+                409,
+                f"“{entry['filename']}” is no longer available. Remove it and attach it again.",
+            )
+        await asyncio.to_thread(_write, path, content)
+    return content
+
+
+async def attachment_content(
+    db: AsyncSession, draft: Draft, attachment_id: str, http: httpx.AsyncClient
+) -> tuple[dict[str, Any], bytes]:
+    entry = next((a for a in draft.attachments if a["id"] == attachment_id), None)
+    if entry is None:
+        raise DraftError(404, "That attachment is no longer in the draft.")
+    return entry, await _content(db, draft, entry, http, {})
+
+
 async def _parts(db: AsyncSession, draft: Draft, http: httpx.AsyncClient) -> list[compose.Part]:
     raws: dict[tuple[int, str], bytes | None] = {}
     parts = []
     for entry in draft.attachments:
-        path = _path(draft.id, entry["id"])
-        content = await asyncio.to_thread(_read, path)
-        if content is None:
-            content = await _fetch(db, entry, http, raws)
-            if content is None:
-                raise DraftError(
-                    409,
-                    f"“{entry['filename']}” is no longer available. Remove it and attach it again.",
-                )
-            await asyncio.to_thread(_write, path, content)
+        content = await _content(db, draft, entry, http, raws)
         parts.append(
-            compose.Part(entry["filename"], entry["mime_type"], content, entry.get("content_id"))
+            compose.Part(
+                entry["filename"],
+                entry["mime_type"],
+                content,
+                entry.get("content_id"),
+                entry.get("body_only", False),
+            )
         )
     return parts
 
