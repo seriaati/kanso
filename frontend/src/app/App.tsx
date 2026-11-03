@@ -96,9 +96,10 @@ const mailboxTitles: Record<Mailbox, string> = {
 }
 
 // Dragged widths, per browser. null: the default (the list: an even split with the pane,
-// ThreadList.module.css; the sidebar: Sidebar.module.css).
+// ThreadList.module.css; the sidebar: Sidebar.module.css; the assistant: Assistant.module.css).
 const LIST_WIDTH_KEY = 'kanso.listWidth'
 const SIDEBAR_WIDTH_KEY = 'kanso.sidebarWidth'
+const ASSISTANT_WIDTH_KEY = 'kanso.assistantWidth'
 
 function storedWidth(key: string): number | null {
   try {
@@ -239,11 +240,13 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const [reply, setReply] = useState<ThreadDraft | null>(null)
   const starting = useRef(false)
   const [help, setHelp] = useState(false)
-  // The assistant alone in the email pane, with no thread open (q).
+  // The assistant, beside the mail (on a phone, a screen of its own). Questions go with the open
+  // thread, if any.
   const [asking, setAsking] = useState(false)
   const [picking, setPicking] = useState(false)
   const [listWidth, setListWidth] = useState(() => storedWidth(LIST_WIDTH_KEY))
   const [sidebarWidth, setSidebarWidth] = useState(() => storedWidth(SIDEBAR_WIDTH_KEY))
+  const [assistantWidth, setAssistantWidth] = useState(() => storedWidth(ASSISTANT_WIDTH_KEY))
   const searchRef = useRef<HTMLInputElement>(null)
   const assistantRef = useRef<AssistantHandle>(null)
 
@@ -407,7 +410,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   }
 
   const markedRead = useRef<number | null>(null)
-  // A thread of drafts only is the composer itself: no assistant under it.
+  // A thread of drafts only is the composer itself: nothing for the assistant to read.
   const draftOnly = threadId !== null && !!detail.data?.messages.length && detail.data.messages.every((m) => m.draft)
   const openThread = threadId === null ? undefined : (threads.find((t) => t.id === threadId) ?? detail.data)
   const markRead = useEffectEvent(() => {
@@ -575,7 +578,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
         break
       case 'q':
         if (assistantRef.current) assistantRef.current.focus()
-        else if (ai && !phone && threadId === null) setAsking(true)
+        else if (ai && accountId !== null) setAsking(true)
         else return
         break
       case '/':
@@ -604,10 +607,25 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   }, [])
 
   // On a phone the assistant is a screen of its own, opened from Ask (or a thread's ⋯ menu).
-  const showAssistant = ai && accountId !== null && !draftOnly && (phone ? asking : threadId !== null || asking)
-  const paneOpen = phone || threadId !== null || showAssistant
-  const assistantOnly = phone || threadId === null
+  const showAssistant = ai && accountId !== null && asking
+  const paneOpen = phone || threadId !== null
   const screen = route.page ? route.page : phone && showAssistant ? 'assistant' : threadId !== null ? 'thread' : 'list'
+  const assistant = showAssistant && (
+    <Assistant
+      key={accountId}
+      accountId={accountId}
+      ref={assistantRef}
+      threadId={draftOnly ? null : threadId}
+      threadHref={(id) => href({ ...route, threadId: id })}
+      onOpenThread={(id) => {
+        if (phone) setAsking(false) // to the thread, from the assistant's screen
+        open(id)
+      }}
+      onNotice={say}
+      phone={phone}
+      onClose={() => setAsking(false)}
+    />
+  )
 
   return (
     <div
@@ -620,6 +638,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
           : ({
               '--list-width': listWidth ? `${listWidth}px` : undefined,
               '--sidebar-width': sidebarWidth ? `${sidebarWidth}px` : undefined,
+              '--assistant-width': assistantWidth ? `${assistantWidth}px` : undefined,
             } as CSSProperties)
       }
     >
@@ -718,7 +737,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
                 />
               )
             }
-            onAsk={ai && !phone && !paneOpen ? () => setAsking(true) : undefined}
+            onAsk={ai && !phone && !paneOpen && !showAssistant && accountId !== null ? () => setAsking(true) : undefined}
             onRowMenu={phone ? undefined : (thread, point) => setRowMenu({ thread, ...point })}
             menuId={rowMenu?.thread.id}
             onSelectClick={phone ? undefined : clickSelect}
@@ -751,7 +770,9 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
           )}
           {paneOpen && (
             <div className={styles.pane}>
-              {!(showAssistant && assistantOnly) && (
+              {phone && showAssistant ? (
+                assistant
+              ) : (
                 <Reader
                   threadId={threadId}
                   accounts={accounts}
@@ -773,25 +794,30 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
                   backLabel={title}
                   onBack={back}
                   onAsk={phone && ai && accountId !== null ? () => setAsking(true) : undefined}
-                />
-              )}
-              {showAssistant && (
-                <Assistant
-                  key={accountId}
-                  accountId={accountId}
-                  ref={assistantRef}
-                  threadId={threadId}
-                  threadHref={(id) => href({ ...route, threadId: id })}
-                  onOpenThread={(id) => {
-                    if (phone) setAsking(false) // to the thread, from the assistant's screen
-                    open(id)
-                  }}
-                  onNotice={say}
-                  phone={phone}
-                  onClose={assistantOnly ? () => setAsking(false) : undefined}
+                  onAssistant={!phone && ai && accountId !== null ? () => (showAssistant ? setAsking(false) : setAsking(true)) : undefined}
+                  assistantOpen={showAssistant}
                 />
               )}
             </div>
+          )}
+          {showAssistant && !phone && (
+            <>
+              <Resizer
+                label="Resize the assistant"
+                side="after"
+                width={assistantWidth ?? undefined}
+                min={280}
+                onResize={(width, done) => {
+                  setAssistantWidth(width)
+                  if (done) storeWidth(ASSISTANT_WIDTH_KEY, width)
+                }}
+                onReset={() => {
+                  setAssistantWidth(null)
+                  storeWidth(ASSISTANT_WIDTH_KEY, null)
+                }}
+              />
+              {assistant}
+            </>
           )}
         </>
       )}

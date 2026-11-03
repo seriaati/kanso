@@ -1,8 +1,8 @@
 import { useRef, type KeyboardEvent, type PointerEvent } from 'react'
 import styles from './Resizer.module.css'
 
-const MIN = 320 // the panel before the handle, unless `min` says otherwise
-const MIN_AFTER = 380 // what stays for the one after it
+const MIN = 320 // the panel resized, unless `min` says otherwise
+const MIN_OTHER = 380 // what stays for the panel on the handle's other side
 const STEP = 24 // arrow keys
 
 type Props = {
@@ -10,18 +10,23 @@ type Props = {
   width?: number
   min?: number
   max?: number
+  /** The panel it resizes: the one before it (default) or after it. */
+  side?: 'before' | 'after'
   /** `done` once a drag or key press ends. */
   onResize: (width: number, done: boolean) => void
   onReset: () => void
 }
 
-// Resizes the element before it.
-export function Resizer({ label, width, min = MIN, max = Infinity, onResize, onReset }: Props) {
+// Resizes the element before it (or after it), taking the room from the one on its other side.
+export function Resizer({ label, width, min = MIN, max = Infinity, side = 'before', onResize, onReset }: Props) {
   const drag = useRef<{ x: number; width: number; max: number; last: number } | null>(null)
+  const sign = side === 'before' ? 1 : -1 // dragging right grows the panel before, shrinks the one after
 
   const measure = (handle: HTMLElement) => {
-    const box = (handle.previousElementSibling as HTMLElement).getBoundingClientRect()
-    return { width: box.width, max: Math.min(max, Math.max(min, window.innerWidth - box.left - MIN_AFTER)) }
+    const before = (handle.previousElementSibling as HTMLElement).getBoundingClientRect().width
+    const after = (handle.nextElementSibling as HTMLElement | null)?.getBoundingClientRect().width ?? 0
+    const [width, other] = side === 'before' ? [before, after] : [after, before]
+    return { width, max: Math.min(max, Math.max(min, width + other - MIN_OTHER)) }
   }
   const clamp = (value: number, most: number) => Math.round(Math.min(Math.max(value, min), most))
 
@@ -56,7 +61,7 @@ export function Resizer({ label, width, min = MIN, max = Infinity, onResize, onR
       onPointerMove={(event) => {
         const start = drag.current
         if (!start) return
-        start.last = clamp(start.width + event.clientX - start.x, start.max)
+        start.last = clamp(start.width + sign * (event.clientX - start.x), start.max)
         onResize(start.last, false)
       }}
       onPointerUp={end}
@@ -66,7 +71,7 @@ export function Resizer({ label, width, min = MIN, max = Infinity, onResize, onR
         if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
         event.preventDefault()
         const now = measure(event.currentTarget)
-        onResize(clamp(now.width + (event.key === 'ArrowRight' ? STEP : -STEP), now.max), true)
+        onResize(clamp(now.width + sign * (event.key === 'ArrowRight' ? STEP : -STEP), now.max), true)
       }}
     />
   )

@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react'
 import {
+  ASK_FILES,
   ask,
   conversationKey,
   conversationsKey,
@@ -10,6 +11,7 @@ import {
   undoAction,
   useConversation,
   useConversations,
+  readFile,
   useSummaryState,
   type AssistantAction,
   type ChatEvent,
@@ -22,7 +24,6 @@ import { Icon } from '../../components/Icon'
 import { Markdown } from './markdown'
 import styles from './Assistant.module.css'
 
-const MINIMIZED_KEY = 'kanso.assistant.minimized'
 const CONVERSATION_KEY = 'kanso.assistant.conversation'
 // Delay before auto-summarizing, so stepping through threads with j/k doesn't start one each.
 const AUTO_DELAY_MS = 400
@@ -49,13 +50,14 @@ export type AssistantHandle = { focus: () => void }
 type Props = {
   /** Its conversations are the account's: App remounts it (key) when the account changes. */
   accountId: number
+  /** The open thread, if any: questions go with its content. */
   threadId: number | null
   threadHref: (id: number) => string
   onOpenThread: (id: number) => void
   onNotice: (text: string, undo?: () => void) => void
+  /** A screen of its own; otherwise a panel beside the mail. */
   phone: boolean
-  /** Set when alone in the email pane: it closes instead of minimizing. */
-  onClose?: () => void
+  onClose: () => void
   ref?: Ref<AssistantHandle>
 }
 
@@ -64,14 +66,10 @@ type Live = { base: ChatItem[]; items: ChatItem[]; error: string | null; endedAt
 
 export function Assistant({ accountId, threadId, threadHref, onOpenThread, onNotice, phone, onClose, ref }: Props) {
   const storageKey = `${CONVERSATION_KEY}.${accountId}`
-  const [minimizedDocked, setMinimized] = useState(() => phone || read(MINIMIZED_KEY) === '1')
-  const alone = !!onClose
-  const minimized = minimizedDocked && !alone
   const [conversationId, setConversationId] = useState(() => Number(read(storageKey)) || null)
   const [history, setHistory] = useState(false)
-  // The "this thread" chip comes back for each newly opened thread.
-  const [scope, setScope] = useState<{ threadId: number | null; all: boolean }>({ threadId, all: false })
-  const allMail = threadId === null || (scope.threadId === threadId && scope.all)
+  const [files, setFiles] = useState<File[]>([]) // attached to the next question
+  const fileRef = useRef<HTMLInputElement>(null)
   const [draft, setDraft] = useState('')
   const [live, setLive] = useState<Live | null>(null)
   const busy = live !== null && live.endedAt === null
@@ -97,16 +95,9 @@ export function Assistant({ accountId, threadId, threadHref, onOpenThread, onNot
     setHistory(false)
     atBottom.current = true
   }
-  const restore = () => {
-    if (!phone) write(MINIMIZED_KEY, '0')
-    setMinimized(false)
-  }
-  useEffect(() => {
-    if (alone) inputRef.current?.focus()
-  }, [alone])
+  useEffect(() => inputRef.current?.focus(), [])
   useImperativeHandle(ref, () => ({
     focus: () => {
-      restore()
       setHistory(false)
       requestAnimationFrame(() => inputRef.current?.focus())
     },
@@ -177,14 +168,24 @@ export function Assistant({ accountId, threadId, threadHref, onOpenThread, onNot
       })
   }
 
+  const attach = (added: File[]) => {
+    const all = [...files, ...added]
+    if (all.length > ASK_FILES) onNotice(`Attach up to ${ASK_FILES} files to a question.`)
+    setFiles(all.slice(0, ASK_FILES))
+  }
   const send = () => {
     const text = draft.trim()
-    if (!text || busy) return
+    if ((!text && !files.length) || busy) return
+    const attached = files
     setDraft('')
+    setFiles([])
     setHistory(false)
     atBottom.current = true
-    const about = allMail ? null : threadId
-    stream((onEvent, signal) => ask(accountId, current, text, about, onEvent, signal), [{ kind: 'user', text }])
+    const names = attached.map((f) => f.name)
+    stream(
+      async (onEvent, signal) => ask(accountId, current, text, threadId, await Promise.all(attached.map(readFile)), onEvent, signal),
+      [{ kind: 'user', text, files: names }],
+    )
   }
   const onDecide = (action: AssistantAction, confirm: boolean) => {
     if (busy || current === null) return
@@ -207,127 +208,134 @@ export function Assistant({ accountId, threadId, threadHref, onOpenThread, onNot
     })
     observer.observe(body)
     return () => observer.disconnect()
-  }, [minimized])
+  }, [])
 
-  const toggle = () => {
-    if (!phone) write(MINIMIZED_KEY, minimized ? '0' : '1')
-    setMinimized(!minimized)
-  }
   const openThread = (id: number) => onOpenThread(id)
 
   return (
     <aside
-      className={`${styles.assistant} ${minimized ? styles.minimized : ''} ${phone ? styles.sheet : ''} ${alone ? styles.alone : ''}`}
+      className={`${styles.assistant} ${phone ? styles.sheet : styles.panel}`}
       aria-label="Assistant"
     >
       <div className={styles.header}>
         <span className={styles.title}>Assistant</span>
-        {threadId !== null && !allMail ? (
-          <span className={styles.chip}>
-            this thread
-            <button type="button" className={styles.chipRemove} aria-label="Ask about all mail instead" title="Ask about all mail instead" onClick={() => setScope({ threadId, all: true })}>
-              <Icon name="close" size={11} strokeWidth={2.2} />
-            </button>
-          </span>
-        ) : threadId !== null ? (
-          <button type="button" className={styles.chipButton} title="Ask about this thread" onClick={() => setScope({ threadId, all: false })}>
-            all mail
-          </button>
-        ) : (
-          <span className={styles.chip}>all mail</span>
-        )}
         <span className={styles.spacer} />
-        {!minimized && (
+        <button type="button" className={styles.icon} aria-label="New conversation" title="New conversation" onClick={() => {
+          open(null)
+          requestAnimationFrame(() => inputRef.current?.focus())
+        }}>
+          <Icon name="plus" size={15} />
+        </button>
+        <button type="button" className={styles.icon} aria-label="Recent conversations" aria-pressed={history} title="Recent conversations" onClick={() => setHistory(!history)}>
+          <Icon name="history" size={15} />
+        </button>
+        <button type="button" className={styles.icon} aria-label="Close assistant" title="Close the assistant" onClick={onClose}>
+          <Icon name="close" size={14} strokeWidth={2} />
+        </button>
+      </div>
+      {!history && threadId !== null && (
+        <div className={styles.summary}>
+          <SummaryCard key={threadId} threadId={threadId} />
+        </div>
+      )}
+      <div
+        className={styles.body}
+        ref={bodyRef}
+        onScroll={(event) => {
+          const body = event.currentTarget
+          atBottom.current = body.scrollHeight - body.scrollTop - body.clientHeight < 24
+        }}
+      >
+        {history ? (
+          <History accountId={accountId} current={current} onOpen={open} />
+        ) : (
           <>
-            <button type="button" className={styles.icon} aria-label="New conversation" title="New conversation" onClick={() => {
-              open(null)
-              requestAnimationFrame(() => inputRef.current?.focus())
-            }}>
-              <Icon name="plus" size={15} />
-            </button>
-            <button type="button" className={styles.icon} aria-label="Recent conversations" aria-pressed={history} title="Recent conversations" onClick={() => setHistory(!history)}>
-              <Icon name="history" size={15} />
-            </button>
+            {items.map((item, i) => (
+              <Item
+                key={item.kind === 'action' ? item.action.id : i}
+                item={item}
+                busy={busy}
+                threadHref={threadHref}
+                onOpenThread={openThread}
+                onDecide={onDecide}
+                onUndo={(action) => current !== null && void undo(current, action)}
+              />
+            ))}
+            {busy && last?.kind !== 'text' && <p className={styles.activity}>Thinking…</p>}
+            {live?.error && <p className={styles.error}>{live.error}</p>}
           </>
         )}
-        {onClose ? (
-          <button type="button" className={styles.icon} aria-label="Close assistant" title="Close (Esc)" onClick={onClose}>
-            <Icon name="close" size={14} strokeWidth={2} />
-          </button>
-        ) : (
+      </div>
+      <form
+        className={styles.ask}
+        onSubmit={(event) => {
+          event.preventDefault()
+          send()
+        }}
+      >
+        {files.length > 0 && (
+          <ul className={styles.files} aria-label="Attached files">
+            {files.map((file, i) => (
+              <li key={`${file.name}-${i}`} className={styles.file}>
+                <span className={styles.fileName}>{file.name}</span>
+                <button
+                  type="button"
+                  className={styles.chipRemove}
+                  aria-label={`Remove ${file.name}`}
+                  title="Remove"
+                  onClick={() => setFiles(files.filter((_, j) => j !== i))}
+                >
+                  <Icon name="close" size={11} strokeWidth={2.2} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className={styles.askRow}>
           <button
             type="button"
-            className={`${styles.icon} ${styles.toggle}`}
-            aria-label={minimized ? 'Restore assistant' : 'Minimize assistant'}
-            aria-expanded={!minimized}
-            title={minimized ? 'Restore (q)' : 'Minimize'}
-            onClick={toggle}
+            className={styles.icon}
+            aria-label="Attach files"
+            title="Attach images, PDFs or text files (or paste them)"
+            onClick={() => fileRef.current?.click()}
           >
-            <Icon name="chevronDown" size={14} strokeWidth={2} />
+            <Icon name="attach" size={15} />
           </button>
-        )}
-      </div>
-      {!minimized && (
-        <>
-          {!history && threadId !== null && (
-            <div className={styles.summary}>
-              <SummaryCard key={threadId} threadId={threadId} />
-            </div>
-          )}
-          <div
-            className={styles.body}
-            ref={bodyRef}
-            onScroll={(event) => {
-              const body = event.currentTarget
-              atBottom.current = body.scrollHeight - body.scrollTop - body.clientHeight < 24
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            hidden
+            accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/*,.md,.csv,.json,.yaml,.yml,.log"
+            onChange={(event) => {
+              const chosen = Array.from(event.target.files ?? [])
+              event.target.value = ''
+              attach(chosen)
             }}
-          >
-            {history ? (
-              <History accountId={accountId} current={current} onOpen={open} />
-            ) : (
-              <>
-                {items.map((item, i) => (
-                  <Item
-                    key={item.kind === 'action' ? item.action.id : i}
-                    item={item}
-                    busy={busy}
-                    threadHref={threadHref}
-                    onOpenThread={openThread}
-                    onDecide={onDecide}
-                    onUndo={(action) => current !== null && void undo(current, action)}
-                  />
-                ))}
-                {busy && last?.kind !== 'text' && <p className={styles.activity}>Thinking…</p>}
-                {live?.error && <p className={styles.error}>{live.error}</p>}
-              </>
-            )}
-          </div>
-          <form
-            className={styles.ask}
-            onSubmit={(event) => {
+          />
+          <input
+            ref={inputRef}
+            type="text"
+            value={draft}
+            maxLength={4000}
+            aria-label="Ask the assistant"
+            title="Ask the assistant (q)"
+            onChange={(event) => setDraft(event.target.value)}
+            onPaste={(event) => {
+              const pasted = Array.from(event.clipboardData.files)
+              if (!pasted.length) return
               event.preventDefault()
-              send()
+              attach(pasted)
             }}
-          >
-            <input
-              ref={inputRef}
-              type="text"
-              value={draft}
-              maxLength={4000}
-              placeholder={threadId === null || allMail ? 'Ask about all mail' : 'Ask about this thread or all mail'}
-              aria-label="Ask the assistant"
-              title="Ask the assistant (q)"
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Escape') event.currentTarget.blur()
-              }}
-            />
-            <button type="submit" className={styles.send} aria-label="Send" title="Send (Enter)" disabled={busy || !draft.trim()}>
-              <Icon name="send" size={13} strokeWidth={2.4} />
-            </button>
-          </form>
-        </>
-      )}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') event.currentTarget.blur()
+            }}
+          />
+          <button type="submit" className={styles.send} aria-label="Send" title="Send (Enter)" disabled={busy || (!draft.trim() && !files.length)}>
+            <Icon name="send" size={13} strokeWidth={2.4} />
+          </button>
+        </div>
+      </form>
     </aside>
   )
 }
@@ -344,7 +352,21 @@ type ItemProps = {
 function Item({ item, busy, threadHref, onOpenThread, onDecide, onUndo }: ItemProps) {
   switch (item.kind) {
     case 'user':
-      return <p className={styles.question}>{item.text}</p>
+      return (
+        <div className={styles.question}>
+          {item.files && item.files.length > 0 && (
+            <ul className={styles.sentFiles} aria-label="Attached files">
+              {item.files.map((name, i) => (
+                <li key={i}>
+                  <Icon name="attach" size={12} />
+                  {name}
+                </li>
+              ))}
+            </ul>
+          )}
+          {item.text}
+        </div>
+      )
     case 'activity':
       return <p className={styles.activity}>{item.text}</p>
     case 'text':
@@ -476,7 +498,7 @@ function when(iso: string): string {
 
 type Run = { text: string; error: string | null }
 
-// Mounted only while the panel is open, so a minimized panel never starts a summary.
+// Mounted only while the panel is open and about the thread, so nothing else starts a summary.
 function SummaryCard({ threadId }: { threadId: number }) {
   const state = useSummaryState(threadId)
   const [run, setRun] = useState<Run | null>(null)

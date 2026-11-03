@@ -39,6 +39,9 @@ type Props = {
   onBack: () => void
   /** Phones, with AI on: the assistant, about this thread. */
   onAsk?: () => void
+  /** Desktop, with AI on: opens the assistant beside the mail (about this thread) or closes it. */
+  onAssistant?: () => void
+  assistantOpen?: boolean
 }
 
 export function Reader(props: Props) {
@@ -185,11 +188,15 @@ function ToolButton({ icon, label, title, pressed, disabled, onClick }: ToolButt
 
 const name = (title: string) => title.replace(/ \(.*\)$/, '')
 
-type ToolbarProps = Pick<Props, 'targets' | 'onQuick' | 'onToggleRead' | 'onUnsubscribe' | 'onLabel' | 'picker' | 'onReply' | 'onCloseThread'> & {
+type ToolbarProps = Pick<
+  Props,
+  'targets' | 'onQuick' | 'onToggleRead' | 'onUnsubscribe' | 'onLabel' | 'picker' | 'onReply' | 'onCloseThread' | 'onAssistant' | 'assistantOpen'
+> & {
   canReply: boolean
 }
 
-function Toolbar({ targets, onQuick, onToggleRead, onUnsubscribe, onLabel, picker, canReply, onReply, onCloseThread }: ToolbarProps) {
+function Toolbar(props: ToolbarProps) {
+  const { targets, onQuick, onToggleRead, onUnsubscribe, onLabel, picker, canReply, onReply, onCloseThread, onAssistant, assistantOpen } = props
   const none = targets.length === 0
   const quick = (q: Quick) => {
     const { icon, title, pressed } = quickAction(q, targets)
@@ -215,6 +222,15 @@ function Toolbar({ targets, onQuick, onToggleRead, onUnsubscribe, onLabel, picke
         spam={{ label: name(quickAction('spam', targets).title), toggle: () => onQuick('spam') }}
         onUnsubscribe={canReply ? onUnsubscribe : undefined}
       />
+      {onAssistant && (
+        <ToolButton
+          icon="assistant"
+          label="Assistant"
+          title={assistantOpen ? 'Close the assistant' : 'Ask the assistant (q)'}
+          pressed={assistantOpen}
+          onClick={onAssistant}
+        />
+      )}
       <span className={styles.separator} aria-hidden="true" />
       <ToolButton icon="close" label="Close" title="Close (Esc)" onClick={onCloseThread} />
     </div>

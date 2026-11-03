@@ -1,11 +1,11 @@
 import json
 from collections.abc import AsyncIterator
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Self
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kanso.ai import assistant
@@ -41,12 +41,25 @@ class ConversationDetail(BaseModel):
     pending: bool
 
 
+class FileIn(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    media_type: str = Field(max_length=100)
+    data: str = Field(max_length=34_000_000)  # base64
+
+
 class AskIn(BaseModel):
     account_id: int  # the account the conversation is about
     conversation_id: int | None = None  # None: a new conversation
-    text: str = Field(min_length=1, max_length=4000)
-    thread_id: int | None = None  # the open thread, when "this thread" is on
+    text: str = Field(default="", max_length=4000)
+    thread_id: int | None = None  # the open thread, if any
     timezone: str = Field("UTC", max_length=64)  # the browser's IANA time zone
+    files: list[FileIn] = Field(default=[], max_length=assistant.FILES_PER_QUESTION)
+
+    @model_validator(mode="after")
+    def _asks_something(self) -> Self:
+        if not self.text.strip() and not self.files:
+            raise ValueError("Write a question or attach a file.")
+        return self
 
 
 class DecideIn(BaseModel):
@@ -100,7 +113,13 @@ async def ask(body: AskIn, db: DB) -> Response:
         lock = await assistant.acquire(body.conversation_id)
     try:
         conversation_id = await assistant.ask(
-            db, body.account_id, body.conversation_id, body.text, body.thread_id, body.timezone
+            db,
+            body.account_id,
+            body.conversation_id,
+            body.text.strip(),
+            body.thread_id,
+            body.timezone,
+            [f.model_dump() for f in body.files],
         )
         await db.commit()
     except BaseException:

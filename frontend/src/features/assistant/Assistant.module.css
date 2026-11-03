@@ -1,26 +1,26 @@
 .assistant {
-  flex: 1 1 45%;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  border-top: 1px solid var(--line);
   background: var(--assistant);
 }
 
-.minimized {
-  flex: none;
+/* Beside the mail, right of the email pane (or the list). Its width is dragged in App.tsx; by
+ * default half of the email pane's share in the split view. */
+.panel {
+  flex: 0 0 var(--assistant-width, calc(25% - var(--sidebar-width, 200px) / 4));
+  min-width: 280px;
+  border-left: 1px solid var(--line);
+  transition:
+    opacity var(--medium) ease,
+    translate var(--slow) var(--ease);
 }
 
-.alone {
-  border-top: 0;
-}
-
-.toggle svg {
-  transition: rotate var(--medium) var(--ease);
-}
-
-.toggle[aria-expanded='false'] svg {
-  rotate: 180deg;
+@starting-style {
+  .panel {
+    opacity: 0;
+    translate: 48px 0;
+  }
 }
 
 .header {
@@ -31,33 +31,17 @@
   padding: 8px 12px 8px 16px;
 }
 
+.panel .header {
+  min-height: 47px; /* in line with the email pane's toolbar */
+  border-bottom: 1px solid var(--line-soft);
+  margin-bottom: 10px;
+}
+
 .title {
   margin-right: 2px;
   font-family: var(--font-heading);
   font-size: 15px;
   font-weight: 700;
-}
-
-.chip,
-.chipButton {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  height: 22px;
-  padding: 0 8px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: transparent;
-  font-size: var(--text-small);
-  color: var(--muted);
-}
-
-.chip:has(.chipRemove) {
-  padding-right: 3px;
-}
-
-.chipButton:hover {
-  background: var(--selected);
 }
 
 .chipRemove {
@@ -344,9 +328,9 @@
   flex: none;
   margin: 8px 14px 12px;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 6px 6px 12px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
   border: 1px solid var(--line);
   border-radius: var(--radius-card);
   background: var(--surface);
@@ -354,6 +338,56 @@
 
 .ask:focus-within {
   border-color: var(--accent);
+}
+
+.askRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.files {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.file {
+  max-width: 100%;
+  height: 24px;
+  padding: 0 3px 0 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--assistant);
+  font-size: var(--text-small);
+}
+
+.fileName {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sentFiles {
+  margin: 0 0 4px;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-small);
+  color: var(--muted);
+}
+
+.sentFiles li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-wrap: anywhere;
 }
 
 .ask input {
@@ -399,11 +433,6 @@
     height: 44px;
   }
 
-  .sheet .chip,
-  .sheet .chipButton {
-    height: 30px;
-  }
-
   .sheet .chipRemove {
     width: 26px;
     height: 26px;
@@ -411,6 +440,6 @@
 
   .sheet .ask {
     margin: 6px 10px 10px;
-    padding: 2px 2px 2px 12px;
+    padding: 2px;
   }
 }

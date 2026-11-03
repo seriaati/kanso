@@ -338,6 +338,7 @@ class AssistantMessage(Base):
     role: Mapped[str] = mapped_column(String(10))  # "user" | "assistant"
     content: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)  # API content blocks
     text: Mapped[str | None] = mapped_column(Text)  # user turns: what the user typed
+    files: Mapped[list[str]] = mapped_column(JSONB, server_default="[]")  # ...and attached
     # Proposed changes awaiting Confirm or Cancel
     # ({id (the tool_use id), tool, action, label, threads [{id, subject}], status, entries}).
     actions: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")

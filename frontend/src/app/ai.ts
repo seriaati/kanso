@@ -97,7 +97,8 @@ export type AssistantAction = {
 }
 
 export type ChatItem =
-  | { kind: 'user' | 'text' | 'activity'; text: string }
+  | { kind: 'user'; text: string; files?: string[] }
+  | { kind: 'text' | 'activity'; text: string }
   | { kind: 'action'; action: AssistantAction }
 
 export type Conversation = { id: number; title: string; items: ChatItem[]; pending: boolean }
@@ -145,15 +146,35 @@ async function chat(path: string, body: unknown, onEvent: (event: ChatEvent) => 
 }
 
 // A new conversation's id comes first, as a "conversation" event.
+/** A file for the assistant to read, as the server takes it (FileIn). */
+export type AskFile = { name: string; media_type: string; data: string }
+
+// The server's limits (ai/assistant.py).
+export const ASK_FILES = 5
+
+export function readFile(file: File): Promise<AskFile> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const url = String(reader.result) // data:<type>;base64,<data>
+      resolve({ name: file.name, media_type: file.type, data: url.slice(url.indexOf(',') + 1) })
+    }
+    reader.onerror = () => reject(reader.error ?? new Error(`Couldn’t read ${file.name}`))
+    reader.readAsDataURL(file)
+  })
+}
+
+/** About the open thread, if any: the server gives Claude its content. */
 export function ask(
   accountId: number,
   conversationId: number | null,
   text: string,
   threadId: number | null,
+  files: AskFile[],
   onEvent: (event: ChatEvent) => void,
   signal: AbortSignal,
 ) {
-  const body = { account_id: accountId, conversation_id: conversationId, text, thread_id: threadId, timezone: timezone() }
+  const body = { account_id: accountId, conversation_id: conversationId, text, thread_id: threadId, timezone: timezone(), files }
   return chat('/assistant/messages', body, onEvent, signal)
 }
 
