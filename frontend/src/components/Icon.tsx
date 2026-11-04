@@ -80,6 +80,7 @@ const paths = {
   chevronRight: <path d="M9 6l6 6-6 6" />,
   back: <path d="M15 6l-6 6 6 6" />,
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
+  sidebar: <path d="M4 5h16v14H4zM9.5 5v14" />,
   // Drawn a little low: the arrowhead carries its weight at the top.
   send: <path d="M12 20.5v-14M5 13.5l7-7 7 7" />,
   close: <path d="M6 6l12 12M18 6L6 18" />,

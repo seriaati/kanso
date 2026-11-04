@@ -13,6 +13,8 @@ type Props = {
   accounts: Account[]
   selected: Account | null
   ai: boolean
+  /** Just the avatar, for the collapsed sidebar. */
+  compact?: boolean
   onSelect: (id: number) => void
 }
 
@@ -48,7 +50,7 @@ function move(ids: number[], from: number, to: number): number[] {
   return rest
 }
 
-export function AccountSwitcher({ accounts, selected, ai, onSelect }: Props) {
+export function AccountSwitcher({ accounts, selected, ai, compact = false, onSelect }: Props) {
   const [open, setOpen] = useState(false)
   const keyRejected = useAiUsage(open && ai).data?.key_rejected
   const demo = useDemoPassword() !== null // true until known: no flash of Add account on a demo
@@ -83,7 +85,14 @@ export function AccountSwitcher({ accounts, selected, ai, onSelect }: Props) {
 
   return (
     <div className={styles.switcher} ref={ref}>
-      <button type="button" className={styles.trigger} aria-expanded={open} onClick={() => (open ? close() : setOpen(true))}>
+      <button
+        type="button"
+        className={`${styles.trigger} ${compact ? styles.compact : ''}`}
+        aria-expanded={open}
+        aria-label={compact ? (selected?.email ?? 'No account connected') : undefined}
+        title={compact ? (selected?.email ?? 'No account connected') : undefined}
+        onClick={() => (open ? close() : setOpen(true))}
+      >
         <Avatar account={selected} />
         <span className={styles.text}>
           <span className={styles.name}>{selected ? selected.display_name : 'No account connected'}</span>

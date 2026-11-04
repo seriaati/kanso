@@ -236,3 +236,29 @@
     width: 32px;
   }
 }
+
+/* The collapsed sidebar: the avatar alone, centred in the rail. */
+.trigger {
+  overflow: hidden;
+  transition: padding var(--slow) var(--ease);
+}
+
+.trigger .text {
+  transition: opacity var(--fast) ease var(--medium);
+}
+
+.trigger > svg {
+  transition:
+    rotate var(--medium) var(--ease),
+    opacity var(--fast) ease var(--medium);
+}
+
+.compact {
+  padding-inline: 5px;
+}
+
+.trigger.compact .text,
+.trigger.compact > svg {
+  opacity: 0;
+  transition-delay: 0s;
+}

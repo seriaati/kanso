@@ -18,6 +18,7 @@ const shortcuts = [
   ['Ctrl+Enter', 'Send (⌘+Enter on a Mac)'],
   ['/', 'Search'],
   ['q', 'Ask the assistant'],
+  ['[', 'Collapse / expand the sidebar'],
   ['?', 'This help'],
 ]
 

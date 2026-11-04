@@ -241,3 +241,131 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.toggle {
+  flex-shrink: 0;
+  width: 36px; /* its icon lines up with the mailboxes', so it stays put when collapsing */
+  height: 30px;
+  margin-top: 4px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+}
+
+.toggle:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.notices {
+  display: contents;
+}
+
+/* Collapsing narrows the sidebar while the icons stay where they are and the words fade: out
+   at once, back in once there is room. */
+.sidebar {
+  transition: flex-basis var(--slow) var(--ease);
+}
+
+:global([data-resizing]) .sidebar {
+  transition: none;
+}
+
+.nav,
+.compose,
+.headingRow,
+.newLabel {
+  overflow: hidden;
+}
+
+.name,
+.count,
+.text,
+.headingRow,
+.newLabel {
+  transition:
+    opacity var(--fast) ease var(--medium),
+    visibility 0s linear var(--medium);
+}
+
+.text {
+  max-width: 8em;
+  white-space: nowrap;
+  transition:
+    opacity var(--fast) ease var(--medium),
+    max-width var(--slow) var(--ease);
+}
+
+.compose {
+  transition: gap var(--slow) var(--ease);
+}
+
+/* Collapsed: an icon rail. Names show as tooltips (and stay for screen readers). */
+.collapsed {
+  position: relative; /* for the floating notices */
+  flex-basis: 56px;
+}
+
+.collapsed :is(.name, .count, .text, .headingRow, .newLabel) {
+  opacity: 0;
+  transition-delay: 0s;
+}
+
+.collapsed :is(.headingRow, .newLabel) {
+  visibility: hidden; /* once faded */
+  transition:
+    opacity var(--fast) ease,
+    visibility 0s linear var(--fast);
+}
+
+.collapsed .text {
+  max-width: 0;
+}
+
+.collapsed .compose {
+  gap: 0;
+}
+
+.collapsed .edit {
+  display: none;
+}
+
+.collapsed .notices {
+  position: absolute;
+  z-index: 10;
+  left: 8px;
+  bottom: 48px;
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+}
+
+.collapsed .notice {
+  box-shadow: var(--float-shadow);
+}
+
+/* A dot while syncing or on a sync problem; the details are its tooltip. */
+.collapsed .sync {
+  padding: 10px 0 0;
+  display: grid;
+  place-items: center;
+}
+
+.collapsed .sync::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.collapsed .sync p {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}

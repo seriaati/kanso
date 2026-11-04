@@ -23,13 +23,16 @@ type Props = {
   ai: boolean
   labeling: boolean
   update: boolean
+  /** An icon rail: names show as tooltips, label editing hides and notices float. */
+  collapsed: boolean
+  onToggle: () => void
   onSelectAccount: (id: number) => void
   onCompose: () => void
   onLabelChanged: (name: string, change: { renamed?: string; deleted?: boolean }) => void
 }
 
 export function Sidebar(props: Props) {
-  const { accounts, route, labels, userLabels, sync, notice, ai, labeling, update, onSelectAccount, onCompose, onLabelChanged } = props
+  const { accounts, route, labels, userLabels, sync, notice, ai, labeling, update, collapsed, onToggle, onSelectAccount, onCompose, onLabelChanged } = props
   // `editing` is '' for a new label.
   const [menu, setMenu] = useState<{ name: string; anchor: HTMLElement } | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
@@ -42,14 +45,14 @@ export function Sidebar(props: Props) {
 
   return (
     <nav
-      className={styles.sidebar}
+      className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''}`}
       aria-label="Mailboxes"
     >
-      <AccountSwitcher accounts={accounts} selected={selected} ai={ai} onSelect={onSelectAccount} />
+      <AccountSwitcher accounts={accounts} selected={selected} ai={ai} compact={collapsed} onSelect={onSelectAccount} />
 
-      <button type="button" className={styles.compose} onClick={onCompose}>
+      <button type="button" className={styles.compose} onClick={onCompose} title={collapsed ? 'Compose (c)' : undefined}>
         <Icon name="compose" size={14} strokeWidth={2} />
-        Compose
+        <span className={styles.text}>Compose</span>
       </button>
 
       {mailboxNav.map(({ mailbox, name, icon, quiet }) => {
@@ -61,6 +64,7 @@ export function Sidebar(props: Props) {
             to={to(view)}
             className={`${styles.nav} ${current ? styles.active : ''} ${quiet ? styles.quiet : ''}`}
             aria-current={current ? 'page' : undefined}
+            title={collapsed ? name : undefined}
           >
             <Icon name={icon} size={15} />
             <span className={styles.name}>{name}</span>
@@ -73,6 +77,7 @@ export function Sidebar(props: Props) {
           to={href({ ...route, threadId: null, page: 'cleanup' })}
           className={`${styles.nav} ${styles.quiet} ${route.page === 'cleanup' ? styles.active : ''}`}
           aria-current={route.page === 'cleanup' ? 'page' : undefined}
+          title={collapsed ? 'Clean up' : undefined}
         >
           <Icon name="sparkle" size={15} />
           <span className={styles.name}>Clean up</span>
@@ -101,6 +106,7 @@ export function Sidebar(props: Props) {
                 to={to(view)}
                 className={`${styles.nav} ${styles.label} ${current ? styles.active : ''}`}
                 aria-current={current ? 'page' : undefined}
+                title={collapsed ? label.name : undefined}
               >
                 <span className={styles.dot} style={{ background: label.color }} aria-hidden="true" />
                 <span className={styles.name}>{label.name}</span>
@@ -170,25 +176,37 @@ export function Sidebar(props: Props) {
         </Dialog>
       )}
 
-      {notice && (
-        <div className={styles.notice} role="status" key={notice.id}>
-          <span>{notice.text}</span>
-          {notice.undo && (
-            <button type="button" onClick={notice.undo} title="Undo (z)">
-              Undo
+      <div className={styles.notices}>
+        {notice && (
+          <div className={styles.notice} role="status" key={notice.id}>
+            <span>{notice.text}</span>
+            {notice.undo && (
+              <button type="button" onClick={notice.undo} title="Undo (z)">
+                Undo
+              </button>
+            )}
+          </div>
+        )}
+        {update && (
+          <div className={styles.notice} role="status">
+            <span>A new version of kanso is ready.</span>
+            <button type="button" onClick={applyUpdate}>
+              Reload
             </button>
-          )}
-        </div>
-      )}
-      {update && (
-        <div className={styles.notice} role="status">
-          <span>A new version of kanso is ready.</span>
-          <button type="button" onClick={applyUpdate}>
-            Reload
-          </button>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
       <SyncNote sync={sync.filter((s) => s.account_id === route.accountId)} />
+      <button
+        type="button"
+        className={styles.toggle}
+        aria-expanded={!collapsed}
+        aria-label={collapsed ? 'Expand the sidebar' : 'Collapse the sidebar'}
+        title={`${collapsed ? 'Expand' : 'Collapse'} the sidebar ([)`}
+        onClick={onToggle}
+      >
+        <Icon name="sidebar" size={15} />
+      </button>
     </nav>
   )
 }
@@ -204,7 +222,7 @@ export function SyncNote({ sync }: { sync: SyncStatus[] }) {
   })
   if (notes.length === 0) return null
   return (
-    <div className={styles.sync} role="status">
+    <div className={styles.sync} role="status" title={notes.map((note) => note.text).join('\n')}>
       {notes.map((note) => (
         <p key={note.id} title={note.title}>
           {note.text}

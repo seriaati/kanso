@@ -119,6 +119,25 @@ function storeWidth(key: string, width: number | null) {
   }
 }
 
+const SIDEBAR_COLLAPSED_KEY = 'kanso.sidebarCollapsed'
+
+function storedCollapsed(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'
+  } catch {
+    return false // storage blocked
+  }
+}
+
+function storeCollapsed(collapsed: boolean) {
+  try {
+    if (collapsed) localStorage.setItem(SIDEBAR_COLLAPSED_KEY, '1')
+    else localStorage.removeItem(SIDEBAR_COLLAPSED_KEY)
+  } catch {
+    // storage blocked: kept until the page reloads
+  }
+}
+
 const NOTICE_MS = 5000
 const UNDO_MS = 6000
 
@@ -271,6 +290,11 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const [picking, setPicking] = useState(false)
   const [listWidth, setListWidth] = useState(() => storedWidth(LIST_WIDTH_KEY))
   const [sidebarWidth, setSidebarWidth] = useState(() => storedWidth(SIDEBAR_WIDTH_KEY))
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(storedCollapsed)
+  const toggleSidebar = () => {
+    setSidebarCollapsed(!sidebarCollapsed)
+    storeCollapsed(!sidebarCollapsed)
+  }
   const [assistantWidth, setAssistantWidth] = useState(() => storedWidth(ASSISTANT_WIDTH_KEY))
   const searchRef = useRef<HTMLInputElement>(null)
   const assistantRef = useRef<AssistantHandle>(null)
@@ -625,6 +649,10 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
       case '?':
         setHelp(true)
         break
+      case '[':
+        if (phone) return
+        toggleSidebar()
+        break
       case 'Escape':
         if (selected.size) select(new Set())
         else if (threadId !== null) closeThread()
@@ -690,6 +718,8 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
           ai={ai}
           labeling={labeling}
           update={update}
+          collapsed={sidebarCollapsed}
+          onToggle={toggleSidebar}
           onSelectAccount={selectAccount}
           onCompose={compose}
           onLabelChanged={(name, { renamed, deleted }) => {
@@ -699,7 +729,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
           }}
         />
       )}
-      {!phone && (
+      {!phone && !sidebarCollapsed && (
         <Resizer
           label="Resize the sidebar"
           width={sidebarWidth ?? undefined}
