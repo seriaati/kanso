@@ -36,7 +36,9 @@ INSTRUCTIONS = f"""You help someone get a cluttered Gmail inbox to inbox zero. F
 the inbox mail that has no label yet, suggest labels to sort it into.
 
 Each label has:
-- name: short, like "Finance" or "Travel".
+- name: one short word or two, like "Finance" or "Travel", naming one thing. Never join two \
+topics with "&", "and" or "/": suggest them as two labels, or find one name that covers both, \
+like "Money" for bills and payments.
 - description: one short sentence, at most 15 words, on the kind of mail that belongs under \
 it, e.g. "Bills, bank statements, receipts and payment reminders". Another AI later sorts each \
 new email by reading these descriptions alone, so describe the category, not who sends it: no \
