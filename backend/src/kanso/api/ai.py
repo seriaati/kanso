@@ -64,11 +64,15 @@ class RunOut(BaseModel):
 
 class LabelInboxOut(BaseModel):
     eligible: int  # inbox threads a new run would classify
+    estimate_usd: float | None  # what labeling them costs, roughly; None: unknown (Jev)
     run: RunOut | None  # the latest run
 
 
 class LabelInboxIn(BaseModel):
     account_id: int
+    # Only threads whose latest message is in this range, when given.
+    after: datetime | None = None
+    before: datetime | None = None
 
 
 @router.get("/config")
@@ -141,10 +145,16 @@ async def _latest_run(db: AsyncSession, account_id: int) -> RunOut | None:
 
 
 @router.get("/ai/label-inbox")
-async def label_inbox_status(db: DB, account_id: int) -> LabelInboxOut:
-    stmt = labeling.eligible().where(Thread.account_id == account_id)
+async def label_inbox_status(
+    db: DB, account_id: int, after: datetime | None = None, before: datetime | None = None
+) -> LabelInboxOut:
+    stmt = labeling.eligible(after, before).where(Thread.account_id == account_id)
     eligible = await db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
-    return LabelInboxOut(eligible=eligible, run=await _latest_run(db, account_id))
+    return LabelInboxOut(
+        eligible=eligible,
+        estimate_usd=await labeling.estimate(db, eligible),
+        run=await _latest_run(db, account_id),
+    )
 
 
 @router.post("/ai/label-inbox")
@@ -152,10 +162,11 @@ async def label_inbox(body: LabelInboxIn, db: DB) -> LabelInboxOut:
     """Only the inbox: there is no AI pass over history."""
     if not (await keys.load(db)).labeling:
         raise HTTPException(status_code=409, detail=keys.LABELING_OFF)
-    await labeling.enqueue_inbox(db, body.account_id)
+    await labeling.enqueue_inbox(db, body.account_id, body.after, body.before)
     await db.commit()
     await labeling.wake()
-    return LabelInboxOut(eligible=0, run=await _latest_run(db, body.account_id))
+    run = await _latest_run(db, body.account_id)
+    return LabelInboxOut(eligible=0, estimate_usd=None, run=run)
 
 
 class SummaryOut(BaseModel):

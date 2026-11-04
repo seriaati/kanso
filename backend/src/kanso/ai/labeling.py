@@ -19,7 +19,7 @@ from kanso.api.actions import apply_action
 from kanso.core.settings import settings
 from kanso.db import prefs
 from kanso.db import redis as events
-from kanso.db.models import Account, AiQueue, Label, Message, MessageLabel, Thread
+from kanso.db.models import Account, AiQueue, AiUsage, Label, Message, MessageLabel, Thread
 from kanso.db.session import Session
 from kanso.sync import outbox
 
@@ -244,10 +244,11 @@ async def enqueue_new(db: AsyncSession, account_id: int, gmail_ids: set[str]) ->
     return await _enqueue(db, rows)
 
 
-def eligible() -> Any:
-    """Inbox threads a "Label existing inbox" run would classify."""
+def eligible(after: datetime | None = None, before: datetime | None = None) -> Any:
+    """Inbox threads a "Label existing inbox" run would classify, by their latest message's
+    date when given."""
     user_label = exists().where(Label.id == Thread.label_ids.any_(), Label.type == "user")
-    return select(Thread.id, Thread.account_id).where(
+    stmt = select(Thread.id, Thread.account_id).where(
         Thread.in_inbox.is_(True),
         Thread.in_trash.is_(False),
         Thread.in_spam.is_(False),
@@ -256,17 +257,56 @@ def eligible() -> Any:
         ~user_label,
         _has_ai_labels(Thread.account_id),
     )
+    if after is not None:
+        stmt = stmt.where(Thread.last_message_at >= after)
+    if before is not None:
+        stmt = stmt.where(Thread.last_message_at < before)
+    return stmt
 
 
-async def enqueue_inbox(db: AsyncSession, account_id: int) -> tuple[int, int]:
+async def enqueue_inbox(
+    db: AsyncSession,
+    account_id: int,
+    after: datetime | None = None,
+    before: datetime | None = None,
+) -> tuple[int, int]:
     """Returns the run id and its thread count. The caller commits, then calls wake()."""
-    stmt = eligible().where(Thread.account_id == account_id)
+    stmt = eligible(after, before).where(Thread.account_id == account_id)
     run_id = time.time_ns() // 1000
     rows = [
         {"account_id": a, "thread_id": t, "run_id": run_id}
         for t, a in (await db.execute(stmt)).all()
     ]
     return run_id, await _enqueue(db, rows)
+
+
+# Tokens of a typical call (input, output), until there are enough of the model's own calls.
+TYPICAL_TOKENS = (800, 150)
+TYPICAL_AFTER = 20  # calls
+
+
+async def estimate(db: AsyncSession, threads: int) -> float | None:
+    """What labeling this many threads costs in USD, roughly. None: Jev, or no known price."""
+    picked = await chosen(db, await keys.load(db))
+    if picked is None or picked[0] == JEV_MODEL:
+        return None
+    model = picked[0]
+    calls, *tokens = (
+        await db.execute(
+            select(
+                func.sum(AiUsage.requests),
+                func.sum(AiUsage.input_tokens),
+                func.sum(AiUsage.output_tokens),
+                func.sum(AiUsage.cache_read_tokens),
+                func.sum(AiUsage.cache_write_tokens),
+            ).where(AiUsage.feature == FEATURE, AiUsage.model == model)
+        )
+    ).one()
+    if (calls or 0) >= TYPICAL_AFTER:
+        per_call = usage.cost(model, *(float(n / calls) for n in tokens))  # sums: Decimal
+    else:
+        per_call = usage.cost(model, *TYPICAL_TOKENS, 0, 0)
+    return None if per_call is None else per_call * threads
 
 
 async def wake() -> None:

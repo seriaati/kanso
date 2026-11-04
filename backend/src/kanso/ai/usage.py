@@ -27,7 +27,9 @@ COUNTERS = (
 )
 
 
-def cost(model: str, input_: int, output: int, cache_read: int, cache_write: int) -> float | None:
+def cost(
+    model: str, input_: float, output: float, cache_read: float, cache_write: float
+) -> float | None:
     price = PRICES.get(model)
     if price is None:
         return None

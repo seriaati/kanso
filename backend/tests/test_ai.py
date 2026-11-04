@@ -525,7 +525,8 @@ def test_label_existing_inbox_covers_unlabeled_inbox_threads_only(
             "/api/threads/actions",
             json={"action": action, "thread_ids": [ids["t4"].id], "label": "Work"},
         )
-    assert synced.get("/api/ai/label-inbox?account_id=1").json() == {"eligible": 1, "run": None}
+    status = synced.get("/api/ai/label-inbox?account_id=1").json()
+    assert (status["eligible"], status["run"]) == (1, None)
     started = synced.post("/api/ai/label-inbox", json={"account_id": 1}).json()
     assert started["run"]["total"] == 1 and started["run"]["pending"] == 1
     assert queued() == {"t1": "pending"}
@@ -713,6 +714,48 @@ def test_label_settings_are_local(synced: TestClient, gmail: FakeGmail) -> None:
 # The Clean up page. The fixture's inbox, oldest first: t1 (Harbor, unlabeled), t2 (Daniel,
 # Work), t4 (Daniel, unlabeled), t5 (Brief, the Newsletters bundle). t3 is archived.
 BETWEEN_T2_AND_T4 = "2023-11-14T22:15:00Z"
+
+
+def test_label_existing_inbox_in_a_date_range(ai_on: None, synced: TestClient) -> None:
+    def eligible(query: str) -> int:
+        return synced.get(f"/api/ai/label-inbox?account_id=1{query}").json()["eligible"]
+
+    after, before = f"&after={BETWEEN_T2_AND_T4}", f"&before={BETWEEN_T2_AND_T4}"
+    assert (eligible(""), eligible(after), eligible(before)) == (2, 1, 1)
+    synced.post("/api/ai/label-inbox", json={"account_id": 1, "after": BETWEEN_T2_AND_T4})
+    assert queued() == {"t4": "pending"}
+
+
+async def _record_usage(model: str, requests: int, input_: int, output: int) -> None:
+    async with Session() as db:
+        db.add(
+            AiUsage(
+                day=datetime.now(UTC).date(),
+                feature="labeling",
+                model=model,
+                requests=requests,
+                input_tokens=input_,
+                output_tokens=output,
+                cache_read_tokens=0,
+                cache_write_tokens=0,
+            )
+        )
+        await db.commit()
+
+
+def test_labeling_estimate_uses_typical_calls_then_real_ones(
+    ai_on: None, synced: TestClient
+) -> None:
+    def estimate() -> float:
+        return synced.get("/api/ai/label-inbox?account_id=1").json()["estimate_usd"]
+
+    # Haiku, two threads.
+    assert estimate() == pytest.approx(2 * (800 * 0.10 + 150 * 0.50) / 1e6)
+    run(_record_usage("claude-haiku-5-5", 5, 50_000, 5_000))  # too few calls to go by
+    assert estimate() == pytest.approx(2 * (800 * 0.10 + 150 * 0.50) / 1e6)
+    run(_record_usage("claude-sonnet-5-5", 40, 40_000, 4_000))  # another model's
+    synced.patch("/api/settings", json={"labeling_model": "claude-sonnet-5-5"})
+    assert estimate() == pytest.approx(2 * (1000 * 2.00 + 100 * 10.00) / 1e6)
 
 
 def test_archive_inbox_threads_older_than_a_date_then_undo(
