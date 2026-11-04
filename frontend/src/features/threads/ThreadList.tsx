@@ -6,9 +6,10 @@ import { shortDate } from '../../app/format'
 import { quickAction, redundant, type Quick } from '../../app/actions'
 import type { Account } from '../../app/accounts'
 import { useDensity } from '../../app/density'
-import type { Section, ThreadSummary } from '../../app/mail'
+import type { LabelIcon, Section, ThreadSummary } from '../../app/mail'
 import { Avatar } from '../../components/Avatar'
 import { Icon, type IconName } from '../../components/Icon'
+import { LabelMark } from '../../components/LabelMark'
 import { Menu } from '../../components/Menu'
 import { InstallButton } from '../install/InstallButton'
 import { Avatar as AccountAvatar } from '../sidebar/AccountSwitcher'
@@ -18,14 +19,14 @@ import styles from './ThreadList.module.css'
 
 const quicks: Quick[] = ['done', 'delete', 'star', 'important']
 
-export type LabelChip = { name: string; color: string }
+export type LabelChip = { name: string; color: string; icon: LabelIcon | null }
 
 /** What a section or bundle header can do to all its threads. */
 export type SectionAction = 'done' | 'read' | 'delete'
 
 export type ListRow =
   | { kind: 'thread'; thread: ThreadSummary }
-  | { kind: 'section'; section: Section; color: string | null }
+  | { kind: 'section'; section: Section; label: LabelChip | null }
   | { kind: 'bundle'; section: Section; color: string | null; open: boolean; first: boolean }
 
 const ROW = 31
@@ -293,11 +294,11 @@ function SectionHeader({ row, top, onAction, children }: SectionProps) {
   const name = row.section.name ?? 'Other'
   return (
     <div className={styles.section} style={{ transform: `translateY(${top}px)` }} role="heading" aria-level={2}>
-      <span
-        className={`${styles.groupDot} ${row.color ? '' : styles.hollowDot}`}
-        style={row.color ? { background: row.color } : undefined}
-        aria-hidden="true"
-      />
+      {row.label ? (
+        <LabelMark color={row.label.color} icon={row.label.icon} size={13} />
+      ) : (
+        <span className={`${styles.groupDot} ${styles.hollowDot}`} aria-hidden="true" />
+      )}
       <span className={styles.groupName}>{name}</span>
       {count(row.section)}
       <span className={styles.groupActions}>
@@ -485,7 +486,7 @@ function ThreadRow(props: RowProps) {
         <span className={styles.summary} lang={lang}>
           {chips.map((chip) => (
             <span key={chip.name} className={styles.chip} lang="">
-              <span className={styles.chipDot} style={{ background: chip.color }} aria-hidden="true" />
+              <LabelMark color={chip.color} icon={chip.icon} size={11} dot={6} />
               {chip.name}
             </span>
           ))}

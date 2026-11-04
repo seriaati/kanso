@@ -1,0 +1,11 @@
+.mark {
+  flex: none;
+  align-self: center;
+  display: inline-grid;
+  place-items: center;
+}
+
+.dot {
+  border-radius: 50%;
+  background: currentColor;
+}

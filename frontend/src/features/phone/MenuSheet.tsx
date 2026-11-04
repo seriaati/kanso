@@ -5,6 +5,7 @@ import type { Label, NamedLabel, SyncStatus } from '../../app/mail'
 import { href, mailboxNav, sameView, type Route, type View } from '../../app/nav'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
+import { LabelMark } from '../../components/LabelMark'
 import { Avatar } from '../sidebar/AccountSwitcher'
 import { LabelEditor } from '../sidebar/LabelEditor'
 import { SyncNote } from '../sidebar/Sidebar'
@@ -162,7 +163,7 @@ export function MenuSheet({ accounts, route, labels, userLabels, sync, ai, onSel
                     className={`${styles.item} ${current ? styles.active : ''}`}
                     aria-current={current ? 'page' : undefined}
                   >
-                    <span className={styles.dot} style={{ background: label.color }} aria-hidden="true" />
+                    <LabelMark color={label.color} icon={label.icon} size={17} />
                     <span className={styles.name}>{label.name}</span>
                     {label.unread > 0 && (
                       <span className={styles.count} title={`${label.unread} unread`}>

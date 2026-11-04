@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { useEffect, useEffectEvent } from 'react'
+import type { IconName } from '../components/Icon'
 import { api, queryClient } from './api'
 import { preloadGlyphs } from './fonts'
 import type { View } from './nav'
@@ -78,6 +79,7 @@ export type Label = {
   description: string
   ai_managed: boolean
   is_bundle: boolean
+  icon: string | null
   threads_total: number
   threads_unread: number
   messages_total: number
@@ -238,6 +240,7 @@ export type NamedLabel = {
   color: string
   unread: number
   // kanso's own
+  icon: LabelIcon | null
   description: string
   aiManaged: boolean
   isBundle: boolean
@@ -249,6 +252,7 @@ export function namedLabel(label: Label): NamedLabel {
     name: label.name,
     color: labelColor(label.color),
     unread: label.threads_unread,
+    icon: isLabelIcon(label.icon) ? label.icon : null,
     description: label.description,
     aiManaged: label.ai_managed,
     isBundle: label.is_bundle,
@@ -273,6 +277,28 @@ export const labelColors = [
   { name: 'Rust', value: '#A35A3A' },
   { name: 'Sand', value: '#B8B3A2' },
 ]
+// A label's optional icon, drawn in its color; without one it is a colored dot.
+export const labelIcons = [
+  'home',
+  'briefcase',
+  'receipt',
+  'cart',
+  'plane',
+  'heart',
+  'book',
+  'people',
+  'bell',
+  'bolt',
+  'gift',
+  'calendar',
+  'star',
+  'code',
+  'image',
+  'link',
+] as const satisfies readonly IconName[]
+export type LabelIcon = (typeof labelIcons)[number]
+const isLabelIcon = (name: string | null): name is LabelIcon => (labelIcons as readonly string[]).includes(name ?? '')
+
 const palette = labelColors.map((c) => c.value)
 const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
 

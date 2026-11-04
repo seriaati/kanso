@@ -43,6 +43,8 @@ def gmail_color(color: str) -> dict[str, str]:
 
 
 Description = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
+# One of the UI's label icons (frontend/src/app/mail.ts labelIcons); "" is none, a colored dot.
+IconName = Annotated[str, StringConstraints(pattern=r"^[a-zA-Z]{0,32}$")]
 
 
 class LabelCreate(BaseModel):
@@ -52,6 +54,7 @@ class LabelCreate(BaseModel):
     description: Description = ""
     ai_managed: bool = False
     is_bundle: bool = False
+    icon: IconName = ""
 
 
 class LabelUpdate(BaseModel):
@@ -61,6 +64,7 @@ class LabelUpdate(BaseModel):
     description: Description | None = None
     ai_managed: bool | None = None
     is_bundle: bool | None = None
+    icon: IconName | None = None
 
 
 class LabelOut(BaseModel):
@@ -73,6 +77,7 @@ class LabelOut(BaseModel):
     description: str
     ai_managed: bool
     is_bundle: bool
+    icon: str | None
     threads_total: int
     threads_unread: int
     messages_total: int
@@ -116,6 +121,7 @@ async def list_labels(db: DB, account_id: int) -> list[LabelOut]:
                 description=label.description,
                 ai_managed=label.ai_managed,
                 is_bundle=label.is_bundle,
+                icon=label.icon,
                 threads_total=counts.total if counts else 0,
                 threads_unread=counts.unread if counts else 0,
                 messages_total=messages.get(label.id, 0),
@@ -154,6 +160,7 @@ def _out(label: Label) -> LabelOut:
         description=label.description,
         ai_managed=label.ai_managed,
         is_bundle=label.is_bundle,
+        icon=label.icon,
         threads_total=0,
         threads_unread=0,
         messages_total=0,
@@ -204,6 +211,7 @@ async def create_label(body: LabelCreate, db: DB) -> LabelOut:
     label.description = body.description
     label.ai_managed = body.ai_managed
     label.is_bundle = body.is_bundle
+    label.icon = body.icon or None
     await db.commit()
     return _out(label)
 
@@ -220,6 +228,8 @@ async def update_label(label_id: int, body: LabelUpdate, db: DB) -> LabelOut:
     for field in ("description", "ai_managed", "is_bundle"):
         if (value := getattr(body, field)) is not None:
             setattr(label, field, value)
+    if body.icon is not None:
+        label.icon = body.icon or None
     if not request:
         await db.commit()
         return _out(label)

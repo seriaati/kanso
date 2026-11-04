@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useCreateLabel, useDeleteLabel, useUpdateLabel } from '../../app/labels'
-import { labelColors, type NamedLabel } from '../../app/mail'
+import { labelColors, labelIcons, type LabelIcon, type NamedLabel } from '../../app/mail'
+import { LabelMark } from '../../components/LabelMark'
 import styles from './LabelEditor.module.css'
 
 type Props = {
@@ -12,11 +13,12 @@ type Props = {
   onDone: (change?: { renamed?: string; deleted?: boolean; created?: string }) => void
 }
 
-// Shown in a Dialog. Name and color go to Gmail; the other settings are kanso's own.
+// Shown in a Dialog. Name and color go to Gmail; the other settings (the icon too) are kanso's own.
 export function LabelEditor({ label, draft, accountId, ai, onDone }: Props) {
   const start = label ?? draft
   const [name, setName] = useState(start?.name ?? '')
   const [color, setColor] = useState(start?.color ?? labelColors[0].value)
+  const [icon, setIcon] = useState<LabelIcon | null>(label?.icon ?? null)
   const [description, setDescription] = useState(start?.description ?? '')
   const [aiManaged, setAiManaged] = useState(start?.aiManaged ?? false)
   const [isBundle, setIsBundle] = useState(start?.isBundle ?? false)
@@ -29,7 +31,7 @@ export function LabelEditor({ label, draft, accountId, ai, onDone }: Props) {
   const trimmed = name.trim()
 
   const save = () => {
-    const settings = { description: description.trim(), ai_managed: aiManaged, is_bundle: isBundle }
+    const settings = { description: description.trim(), ai_managed: aiManaged, is_bundle: isBundle, icon: icon ?? '' }
     if (!label) {
       create.mutate({ name: trimmed, color, account_id: accountId, ...settings }, { onSuccess: () => onDone({ created: trimmed }) })
       return
@@ -40,6 +42,7 @@ export function LabelEditor({ label, draft, accountId, ai, onDone }: Props) {
       description: settings.description !== label.description ? settings.description : undefined,
       ai_managed: aiManaged !== label.aiManaged ? aiManaged : undefined,
       is_bundle: isBundle !== label.isBundle ? isBundle : undefined,
+      icon: icon !== label.icon ? settings.icon : undefined,
     }
     if (Object.values(patch).every((value) => value === undefined)) return onDone()
     update.mutate({ id: label.id, ...patch }, { onSuccess: () => onDone({ renamed: patch.name }) })
@@ -79,6 +82,22 @@ export function LabelEditor({ label, draft, accountId, ai, onDone }: Props) {
             style={{ background: c.value }}
             onClick={() => setColor(c.value)}
           />
+        ))}
+      </div>
+      <div className={styles.icons} role="radiogroup" aria-label="Icon">
+        {[null, ...labelIcons].map((name) => (
+          <button
+            key={name ?? 'dot'}
+            type="button"
+            role="radio"
+            aria-checked={name === icon}
+            aria-label={name ? name.charAt(0).toUpperCase() + name.slice(1) : 'No icon'}
+            title={name ? name.charAt(0).toUpperCase() + name.slice(1) : 'No icon, a dot'}
+            className={styles.iconOption}
+            onClick={() => setIcon(name)}
+          >
+            <LabelMark color={color} icon={name} size={15} />
+          </button>
         ))}
       </div>
       {ai && (

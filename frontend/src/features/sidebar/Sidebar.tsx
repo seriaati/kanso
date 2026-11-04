@@ -6,6 +6,7 @@ import { href, mailboxNav, sameView, type Route, type View } from '../../app/nav
 import { applyUpdate } from '../../app/update'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
+import { LabelMark } from '../../components/LabelMark'
 import { Menu } from '../../components/Menu'
 import { AccountSwitcher } from './AccountSwitcher'
 import { DeleteLabel, LabelEditor } from './LabelEditor'
@@ -108,7 +109,7 @@ export function Sidebar(props: Props) {
                 aria-current={current ? 'page' : undefined}
                 title={collapsed ? label.name : undefined}
               >
-                <span className={styles.dot} style={{ background: label.color }} aria-hidden="true" />
+                <LabelMark color={label.color} icon={label.icon} size={15} />
                 <span className={styles.name}>{label.name}</span>
                 {label.unread > 0 && (
                   <span className={styles.count} title={`${label.unread} unread`}>

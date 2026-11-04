@@ -110,6 +110,7 @@ class Label(Base):
     description: Mapped[str] = mapped_column(Text, server_default="")
     ai_managed: Mapped[bool] = mapped_column(server_default=false())
     is_bundle: Mapped[bool] = mapped_column(server_default=false())
+    icon: Mapped[str | None] = mapped_column(String(32))  # drawn in the color; None: a dot
 
 
 class Thread(Base):

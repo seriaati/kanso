@@ -705,12 +705,25 @@ def test_label_settings_are_local(synced: TestClient, gmail: FakeGmail) -> None:
         False,
         True,
     )
+    assert label["icon"] is None  # a colored dot
+    url = f"/api/labels/{label['id']}"
+    assert synced.patch(url, json={"icon": "briefcase"}).json()["icon"] == "briefcase"
+    assert synced.patch(url, json={"description": "work"}).json()["icon"] == "briefcase"
+    assert synced.patch(url, json={"icon": ""}).json()["icon"] is None
+    assert synced.patch(url, json={"icon": "<svg>"}).status_code == 422
     assert len(gmail.writes) == writes  # nothing for Gmail
     created = synced.post(
         "/api/labels",
-        json={"name": "Receipts", "description": "orders", "is_bundle": True, "account_id": 1},
+        json={
+            "name": "Receipts",
+            "description": "orders",
+            "is_bundle": True,
+            "icon": "receipt",
+            "account_id": 1,
+        },
     ).json()
     assert created["is_bundle"] and created["description"] == "orders"
+    assert created["icon"] == "receipt"
 
 
 # The Clean up page. The fixture's inbox, oldest first: t1 (Harbor, unlabeled), t2 (Daniel,

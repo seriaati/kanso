@@ -336,7 +336,7 @@
 
 .chip {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline; /* on the name's baseline, whether it has an icon or a dot */
   gap: 4px;
   margin-right: 6px;
   padding: 0 6px;
@@ -346,12 +346,6 @@
   line-height: 16px;
   color: var(--muted);
   vertical-align: 1px;
-}
-
-.chipDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
 }
 
 .important {
@@ -455,6 +449,7 @@
 .groupDot {
   width: 8px;
   height: 8px;
+  margin: 0 2.5px; /* as wide as a label's mark */
   flex-shrink: 0;
   border-radius: 50%;
 }

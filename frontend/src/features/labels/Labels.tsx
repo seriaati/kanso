@@ -4,6 +4,7 @@ import type { Account } from '../../app/accounts'
 import { userLabels, type Label, type NamedLabel } from '../../app/mail'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
+import { LabelMark } from '../../components/LabelMark'
 import styles from '../settings/Settings.module.css'
 import { LabelEditor } from '../sidebar/LabelEditor'
 
@@ -44,7 +45,7 @@ export function Labels({ account, labels, ai, onMenu }: Props) {
                 <ul className={styles.list}>
                   {named.map((label) => (
                     <li key={label.name} className={styles.row}>
-                      <span className={styles.dot} style={{ background: label.color }} aria-hidden="true" />
+                      <LabelMark color={label.color} icon={label.icon} size={14} className={styles.mark} />
                       <div className={styles.text}>
                         <span className={styles.name}>
                           {label.name}

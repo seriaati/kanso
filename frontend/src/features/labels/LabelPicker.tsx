@@ -1,9 +1,11 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { usePhone } from '../../app/media'
+import type { LabelIcon } from '../../app/mail'
 import { Icon } from '../../components/Icon'
+import { LabelMark } from '../../components/LabelMark'
 import styles from './LabelPicker.module.css'
 
-export type LabelOption = { name: string; color: string; state: 'all' | 'some' | 'none' }
+export type LabelOption = { name: string; color: string; icon: LabelIcon | null; state: 'all' | 'some' | 'none' }
 
 type Props = {
   options: LabelOption[]
@@ -71,7 +73,7 @@ export function LabelPicker({ options, onToggle, onCreate, onClose, up }: Props)
               <span className={styles.box} aria-hidden="true">
                 {option.state === 'all' ? <Icon name="check" size={11} strokeWidth={2.4} /> : option.state === 'some' ? '–' : null}
               </span>
-              <span className={styles.dot} style={{ background: option.color }} aria-hidden="true" />
+              <LabelMark color={option.color} icon={option.icon} size={13} />
               <span className={styles.name}>{option.name}</span>
             </button>
           </li>

@@ -77,14 +77,6 @@
   padding: 6px 10px;
 }
 
-.dot {
-  flex-shrink: 0;
-  width: 8px;
-  height: 8px;
-  margin: 0 3.5px; /* as wide as the mailboxes' icons, so the names line up */
-  border-radius: 50%;
-}
-
 .heading {
   margin: 16px 10px 4px;
   font-size: 11px;

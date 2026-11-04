@@ -60,6 +60,33 @@ const paths = {
       <path d="M20 9H10a6 6 0 0 0-6 6v4" />
     </>
   ),
+  // Label icons (labelIcons in app/mail.ts), besides some above.
+  home: <path d="M4 11l8-7 8 7M6 9.5V20h12V9.5M10 20v-5.5h4V20" />,
+  briefcase: <path d="M3.5 8h17v11.5h-17zM9 8V4.5h6V8M3.5 13h17" />,
+  receipt: <path d="M6 3h12v18l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5L6 21zM9 8h6M9 12h6M9 16h3" />,
+  cart: (
+    <>
+      <path d="M3 4h2.5l2 11h10.5l2-8H6.3" />
+      <circle cx="9" cy="19.5" r="1.3" />
+      <circle cx="17" cy="19.5" r="1.3" />
+    </>
+  ),
+  plane: (
+    <path d="M12 3c.8 0 1.5.7 1.5 1.5V10l7.5 4.5v2L13.5 14v4l2.5 2v1.5L12 20.5l-4 1V20l2.5-2v-4L3 16.5v-2L10.5 10V4.5C10.5 3.7 11.2 3 12 3z" />
+  ),
+  heart: (
+    <path d="M12 20l-1.2-1.1C6.4 15 3.5 12.4 3.5 9.2 3.5 6.6 5.5 4.5 8 4.5c1.5 0 2.9.7 4 1.8 1.1-1.1 2.5-1.8 4-1.8 2.5 0 4.5 2.1 4.5 4.7 0 3.2-2.9 5.8-7.3 9.7z" />
+  ),
+  book: <path d="M4 5.5c2.5-1.5 5.5-1.5 8 0v14c-2.5-1.5-5.5-1.5-8 0zM12 5.5c2.5-1.5 5.5-1.5 8 0v14c-2.5-1.5-5.5-1.5-8 0z" />,
+  people: (
+    <>
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3.5 19.5a5.5 5.5 0 0 1 11 0M15.5 5.2a3 3 0 0 1 0 5.6M17 14.2c2 .7 3.5 2.7 3.5 5.3" />
+    </>
+  ),
+  bell: <path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15zM10 21h4" />,
+  bolt: <path d="M13 3L5 13.5h6L10 21l8-10.5h-6z" />,
+  gift: <path d="M4 9h16v4H4zM5.5 13v7.5h13V13M12 9v11.5M12 9C11 6 7 4.5 7 7s3 2 5 2zM12 9c1-3 5-4.5 5-2s-3 2-5 2z" />,
   more: (
     <g fill="currentColor" stroke="none">
       <circle cx="5" cy="12" r="1.6" />

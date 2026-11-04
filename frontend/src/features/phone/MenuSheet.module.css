@@ -191,14 +191,6 @@
   color: var(--muted);
 }
 
-.dot {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  margin: 0 4.5px;
-  border-radius: 50%;
-}
-
 .footer {
   margin-top: 12px;
   padding-top: 8px;

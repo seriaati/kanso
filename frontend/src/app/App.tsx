@@ -35,7 +35,6 @@ import { createDraft, openDraft, type ComposeMode } from './compose'
 import styles from './App.module.css'
 import { useCreateLabel } from './labels'
 import {
-  labelColor,
   namedLabel,
   useBundleThreads,
   useLabels,
@@ -225,9 +224,9 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const labelsById = useMemo(
     () =>
       new Map<number, LabelChip>(
-        (labels.data ?? []).filter((l) => l.type === 'user').map((l) => [l.id, { name: l.name, color: labelColor(l.color) }]),
+        named.map((l) => [l.id, { name: l.name, color: l.color, icon: l.icon }]),
       ),
-    [labels.data],
+    [named],
   )
   const listThreads = useMemo(() => unique(list.data?.pages), [list.data])
   const { hasNextPage, isFetching, fetchNextPage } = list
@@ -244,8 +243,8 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const sections = useMemo(() => (grouped ? (list.data?.pages[0]?.sections ?? []) : []), [grouped, list.data])
 
   const { rows, threads, mainEnd } = useMemo(() => {
-    const colors = new Map(named.map((l) => [l.name, l.color]))
-    const color = (name: string | null) => (name === null ? null : (colors.get(name) ?? null))
+    const marks = new Map(named.map((l) => [l.name, { name: l.name, color: l.color, icon: l.icon }]))
+    const mark = (name: string | null) => (name === null ? null : (marks.get(name) ?? null))
     const rows: ListRow[] = []
     let current: string | null | undefined
     for (const thread of listThreads) {
@@ -258,7 +257,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
           newest_at: thread.last_message_at,
           senders: [],
         }
-        rows.push({ kind: 'section', section, color: color(name) })
+        rows.push({ kind: 'section', section, label: mark(name) })
         current = name
       }
       rows.push({ kind: 'thread', thread })
@@ -267,7 +266,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     const bundles = sections.filter((s) => s.bundle && s.count > 0)
     bundles.forEach((section, i) => {
       const open = section.name === openBundle
-      rows.push({ kind: 'bundle', section, color: color(section.name), open, first: i === 0 })
+      rows.push({ kind: 'bundle', section, color: mark(section.name)?.color ?? null, open, first: i === 0 })
       if (open) for (const thread of bundleThreads) rows.push({ kind: 'thread', thread })
     })
     const opened = bundles.some((s) => s.name === openBundle)
@@ -517,7 +516,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
 
   const pickerOptions: LabelOption[] = named.map((l) => {
     const count = targets.filter((t) => t.label_ids.includes(l.id)).length
-    return { name: l.name, color: l.color, state: count === 0 ? 'none' : count === targets.length ? 'all' : 'some' }
+    return { name: l.name, color: l.color, icon: l.icon, state: count === 0 ? 'none' : count === targets.length ? 'all' : 'some' }
   })
   const picker =
     picking && targets.length > 0 && accountId !== null ? (
