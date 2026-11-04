@@ -41,12 +41,15 @@ TOOLS: list[dict[str, Any]] = [
         "name": "search_threads",
         "description": (
             "Search the user's mailbox (the Gmail account they're in): the full history, archived "
-            "(done) mail included; Trash and Spam only with label:trash or label:spam. Returns the "
-            'newest matching threads first. Words match as prefixes, "quoted phrases" as '
-            "phrases, and Chinese, Japanese and Korean text works. Operators: from:, to:, "
-            "label:<name>, is:unread, is:starred, has:attachment, after:YYYY-MM-DD and "
-            "before:YYYY-MM-DD (UTC days). Every word must match, so use few, distinctive words "
-            "and try other wordings when nothing turns up. An empty query lists the newest threads."
+            "(done) mail included; Trash and Spam only with in:trash, in:spam or in:anywhere. "
+            'Returns the newest matching threads first. Words match as prefixes, "quoted phrases" '
+            "as phrases, and Chinese, Japanese and Korean text works. Gmail's syntax: from:, to:, "
+            "cc:, bcc:, with: (any of these), subject:, filename:, list:, label:<name>, "
+            "is:/in: unread, read, starred, important, inbox, sent, draft, has:attachment, "
+            "after:/before:YYYY-MM-DD (UTC days), newer_than:/older_than: 7d, 2w, 3m or 1y, "
+            "larger:/smaller: 5M or 100K, -term to exclude, OR and parentheses. Every word must "
+            "match, so use few, distinctive words and try other wordings (or OR) when nothing "
+            "turns up. An empty query lists the newest threads."
         ),
         "input_schema": {
             "type": "object",

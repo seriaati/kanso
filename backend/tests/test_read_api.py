@@ -154,6 +154,7 @@ def test_me_and_recipients(demo: TestClient) -> None:
 
 LEASE = "Lease renewal for apartment 4B"
 STATEMENTS = ["Your October statement is ready", "Your September statement is ready"]
+NEWSLETTERS = ["The Morning Brief: Monday", "Hacker Weekly #312", "Design Notes: quiet interfaces"]
 
 
 @pytest.mark.parametrize(
@@ -198,6 +199,42 @@ STATEMENTS = ["Your October statement is ready", "Your September statement is re
         ("会议室 from:kenji", []),
         ("会議室", []),  # a Japanese word not in the (Chinese) mail
         ("is:weird", []),  # not an operator: searched as text
+        # Negation drops a thread with any message that matches.
+        ("statement -october", STATEMENTS[1:]),
+        ("-from:northwind statement", []),
+        ("from:kenji -has:attachment", ["Team offsite in March"]),
+        ("label:newsletters -list:hacker", [NEWSLETTERS[0], NEWSLETTERS[2]]),
+        ("-in:trash congratulations", []),
+        # OR binds tighter than the implied AND, as in Gmail; parentheses group.
+        ("lease OR itinerary", [LEASE, "Flight itinerary: Lisbon, Dec 12"]),
+        ("from:northwind october OR september", STATEMENTS),
+        ("(lease OR itinerary) -is:starred", [LEASE]),
+        ("-(lease OR itinerary) contract", ["Contract review, draft v2", "Notes on the contract"]),
+        ("lease AND contract", [LEASE]),
+        # Conditions on messages hold for one message together.
+        ("from:kenji has:attachment", ["Contract review, draft v2"]),
+        ("subject:statement", STATEMENTS),
+        ("subject:october", ["Your October statement is ready", "Your bill for October"]),
+        ("filename:pdf from:northwind", STATEMENTS[:1]),
+        ("filename:png", ["Photos from the hike"]),  # not the newsletters' inline logo
+        ("list:morning", ["The Morning Brief: Monday"]),
+        ("list:example.com", NEWSLETTERS),
+        ("with:priya", ["Trail map", "Photos from the hike"]),
+        ("cc:priya", []),
+        ("bcc:priya", []),
+        ("is:read label:receipts", ["Subscription receipt"]),
+        ("in:sent priya", ["Trail map"]),
+        ("is:draft", ["Notes on the contract"]),
+        ("in:trash", ["Congratulations!!!"]),
+        ("in:anywhere congratulations", ["Congratulations!!!"]),
+        ("older_than:30d", ["Your September statement is ready", "Lisbon apartment booking"]),
+        ("older_than:1y", []),
+        ("newer_than:2d from:kenji", ["Contract review, draft v2", "Team offsite in March"]),
+        ("newer:2000-01-01 from:akiyama", ["Appointment reminder: Nov 9, 10:30"]),
+        ("older:2000-01-01", []),
+        ("larger:2K label:personal", ["Photos from the hike"]),
+        ("larger:1M", []),
+        ("smaller:1", []),
     ],
 )  # fmt: skip
 def test_search(demo: TestClient, query: str, expected: list[str]) -> None:
@@ -206,7 +243,31 @@ def test_search(demo: TestClient, query: str, expected: list[str]) -> None:
 
 @pytest.mark.parametrize(
     "query",
-    ["don't", "a&b|c", "(x", "!", "'", "\\", ":*", "foo:bar:baz", '"unclosed', "from:", "%_"],
+    [
+        "don't",
+        "a&b|c",
+        "(x",
+        "!",
+        "'",
+        "\\",
+        ":*",
+        "foo:bar:baz",
+        '"unclosed',
+        "from:",
+        "%_",
+        "OR",
+        "AND",
+        "-",
+        "()",
+        ")(",
+        "-(",
+        "a OR",
+        "OR b",
+        "--x",
+        "larger:x",
+        "newer_than:",
+        "is:",
+    ],
 )
 def test_odd_search_input_is_harmless(demo: TestClient, query: str) -> None:
     assert demo.get("/api/threads", params={"account_id": 1, "q": query}).status_code == 200
