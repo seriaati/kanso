@@ -60,6 +60,13 @@ const paths = {
       <path d="M20 9H10a6 6 0 0 0-6 6v4" />
     </>
   ),
+  replyAll: (
+    <>
+      <path d="M12 14L7 9l5-5M7 14L2 9l5-5" />
+      <path d="M7 9h7a6 6 0 0 1 6 6v4" />
+    </>
+  ),
+  unsubscribe: <path d="M3.5 6h17v12h-17zM3.5 6.5l8.5 6.5 8.5-6.5M4 3.5l16 17" />,
   // Label icons (labelIcons in app/mail.ts), besides some above.
   home: <path d="M4 11l8-7 8 7M6 9.5V20h12V9.5M10 20v-5.5h4V20" />,
   briefcase: <path d="M3.5 8h17v11.5h-17zM9 8V4.5h6V8M3.5 13h17" />,

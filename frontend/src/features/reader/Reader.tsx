@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import type { Account } from '../../app/accounts'
 import { openDraft, useOpenDraft, type ComposeMode } from '../../app/compose'
 import { longDateTime } from '../../app/format'
@@ -6,6 +6,7 @@ import { quickAction, redundant, type Quick } from '../../app/actions'
 import { useThread, type Address, type Message, type ThreadDetail, type ThreadSummary } from '../../app/mail'
 import { Avatar } from '../../components/Avatar'
 import { Icon, type IconName } from '../../components/Icon'
+import { Menu, type MenuItem } from '../../components/Menu'
 import { Composer, type Focus } from '../compose/Composer'
 import bar from '../phone/BottomBar.module.css'
 import { Avatar as AccountAvatar } from '../sidebar/AccountSwitcher'
@@ -171,7 +172,14 @@ function replyAllAdds(message: Message, me: string) {
   return [...message.to, ...message.cc].some((a) => ![mine, sender].includes(a.email.toLowerCase()))
 }
 
-type ToolButtonProps = { icon: IconName; label: string; title: string; pressed?: boolean; disabled?: boolean; onClick?: () => void }
+type ToolButtonProps = {
+  icon: IconName
+  label: string
+  title: string
+  pressed?: boolean
+  disabled?: boolean
+  onClick?: (event: MouseEvent<HTMLButtonElement>) => void
+}
 
 function ToolButton({ icon, label, title, pressed, disabled, onClick }: ToolButtonProps) {
   return (
@@ -222,7 +230,7 @@ function Toolbar(props: ToolbarProps) {
         unread={!none && targets.every((t) => t.unread)}
         onToggleRead={onToggleRead}
         onReplyAll={canReply ? () => onReply('reply_all') : undefined}
-        spam={{ label: name(quickAction('spam', targets).title), toggle: () => onQuick('spam') }}
+        spam={{ label: name(quickAction('spam', targets).title), icon: quickAction('spam', targets).icon, toggle: () => onQuick('spam') }}
         onUnsubscribe={canReply ? onUnsubscribe : undefined}
       />
       {onAssistant && (
@@ -260,7 +268,7 @@ function PhoneHeader({ targets, onQuick, onToggleRead, onUnsubscribe, onReply, c
         onReplyAll={canReply ? () => onReply('reply_all') : undefined}
         onForward={canReply ? () => onReply('forward') : undefined}
         important={{ on: !!important.pressed, toggle: () => onQuick('important') }}
-        spam={{ label: name(quickAction('spam', targets).title), toggle: () => onQuick('spam') }}
+        spam={{ label: name(quickAction('spam', targets).title), icon: quickAction('spam', targets).icon, toggle: () => onQuick('spam') }}
         onUnsubscribe={canReply ? onUnsubscribe : undefined}
         onAsk={onAsk}
       />
@@ -322,116 +330,35 @@ type MoreProps = {
   /** Phones: these live here rather than in a toolbar. */
   important?: { on: boolean; toggle: () => void }
   /** Report spam, or Not spam. */
-  spam: { label: string; toggle: () => void }
+  spam: { label: string; icon: IconName; toggle: () => void }
   onUnsubscribe?: () => void
   onAsk?: () => void
 }
 
 function More({ disabled, unread, onToggleRead, onReplyAll, onForward, important, spam, onUnsubscribe, onAsk }: MoreProps) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLSpanElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const onPointer = (event: PointerEvent) => {
-      if (!ref.current?.contains(event.target as Node)) setOpen(false)
-    }
-    document.addEventListener('pointerdown', onPointer)
-    return () => document.removeEventListener('pointerdown', onPointer)
-  }, [open])
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null)
+  const items: MenuItem[] = [
+    ...(onReplyAll ? [{ icon: 'replyAll' as const, label: 'Reply all', shortcut: 'a', onSelect: onReplyAll }] : []),
+    ...(onForward ? [{ icon: 'forward' as const, label: 'Forward', shortcut: 'f', onSelect: onForward }] : []),
+    { icon: unread ? 'mailOpen' : 'mail', label: unread ? 'Mark as read' : 'Mark as unread', shortcut: 'u', onSelect: onToggleRead },
+    ...(important
+      ? [{ icon: 'important' as const, label: important.on ? 'Not important' : 'Mark important', shortcut: '=', onSelect: important.toggle }]
+      : []),
+    ...(onUnsubscribe ? [{ icon: 'unsubscribe' as const, label: 'Unsubscribe', onSelect: onUnsubscribe }] : []),
+    { icon: spam.icon, label: spam.label, shortcut: '!', onSelect: spam.toggle },
+    ...(onAsk ? [{ icon: 'assistant' as const, label: 'Ask about this thread', shortcut: 'q', onSelect: onAsk }] : []),
+  ]
   return (
-    <span className={styles.anchor} ref={ref}>
-      <ToolButton icon="more" label="More actions" title="More" disabled={disabled} onClick={() => setOpen(!open)} />
-      {open && !disabled && (
-        <div className={styles.menu} role="menu">
-          {onReplyAll && (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false)
-                onReplyAll()
-              }}
-            >
-              Reply all
-              <kbd>a</kbd>
-            </button>
-          )}
-          {onForward && (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false)
-                onForward()
-              }}
-            >
-              Forward
-              <kbd>f</kbd>
-            </button>
-          )}
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false)
-              onToggleRead()
-            }}
-          >
-            {unread ? 'Mark as read' : 'Mark as unread'}
-            <kbd>u</kbd>
-          </button>
-          {important && (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false)
-                important.toggle()
-              }}
-            >
-              {important.on ? 'Not important' : 'Mark important'}
-              <kbd>=</kbd>
-            </button>
-          )}
-          {onUnsubscribe && (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false)
-                onUnsubscribe()
-              }}
-            >
-              Unsubscribe
-            </button>
-          )}
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false)
-              spam.toggle()
-            }}
-          >
-            {spam.label}
-            <kbd>!</kbd>
-          </button>
-          {onAsk && (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false)
-                onAsk()
-              }}
-            >
-              Ask about this thread
-              <kbd>q</kbd>
-            </button>
-          )}
-        </div>
-      )}
-    </span>
+    <>
+      <ToolButton
+        icon="more"
+        label="More actions"
+        title="More"
+        disabled={disabled}
+        onClick={(event) => setAnchor(anchor ? null : event.currentTarget)}
+      />
+      {anchor && !disabled && <Menu anchor={anchor} label="More actions" items={items} onClose={() => setAnchor(null)} />}
+    </>
   )
 }
 
