@@ -39,7 +39,7 @@ export function Labels({ account, labels, ai, onMenu }: Props) {
             {account ? (
               <>
                 <p className={styles.intro}>
-                  {account.email}’s labels.{ai && ' Describe a label and turn on AI, and Claude sorts new inbox mail into it.'}
+                  {account.email}’s labels.{ai && ' Describe a label and turn on AI, and new inbox mail is sorted into it.'}
                 </p>
                 <ul className={styles.list}>
                   {named.map((label) => (

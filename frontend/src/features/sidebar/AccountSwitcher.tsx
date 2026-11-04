@@ -139,7 +139,7 @@ export function AccountSwitcher({ accounts, selected, ai, onSelect }: Props) {
           <hr className={styles.divider} />
           {keyRejected && (
             <p className={styles.notice} role="status">
-              Anthropic API key was rejected; check ANTHROPIC_API_KEY
+              Anthropic API key was rejected; replace it in Settings
             </p>
           )}
           <DisplayOptions />

@@ -161,7 +161,9 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   }, [accountId])
   const route = { ...urlRoute, accountId }
   const { view, threadId } = route
-  const ai = useConfig().data?.ai ?? false
+  const config = useConfig().data
+  const ai = config?.ai ?? false
+  const labeling = config?.labeling ?? false
   const phone = usePhone()
   const update = useUpdateReady()
   // The phone's menu sheet closes whenever the page changes (back too).
@@ -206,7 +208,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     let current: string | null | undefined
     for (const thread of listThreads) {
       const name = thread.section ?? null
-      if (grouped && ai && name !== current) {
+      if (grouped && labeling && name !== current) {
         const section = sections.find((s) => !s.bundle && s.name === name) ?? {
           name,
           bundle: false,
@@ -228,7 +230,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     })
     const opened = bundles.some((s) => s.name === openBundle)
     return { rows, threads: opened ? [...listThreads, ...bundleThreads] : listThreads, mainEnd }
-  }, [listThreads, bundleThreads, sections, openBundle, grouped, ai, named])
+  }, [listThreads, bundleThreads, sections, openBundle, grouped, labeling, named])
   const onRangeEnd = (last: number) => {
     if (hasNextPage && last >= mainEnd - 10) loadMore()
     if (bundleList.hasNextPage && !bundleList.isFetching && last >= rows.length - 10) void bundleList.fetchNextPage()
@@ -651,6 +653,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
           sync={sync.data ?? []}
           notice={notice}
           ai={ai}
+          labeling={labeling}
           update={update}
           onSelectAccount={selectAccount}
           onCompose={compose}
@@ -684,15 +687,15 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
           labels={labels.data ?? []}
           userLabels={named}
           sync={sync.data ?? []}
-          ai={ai}
+          ai={labeling}
           onSelectAccount={selectAccount}
           onClose={() => setMenu({ open: false, at: location.key })}
         />
       )}
       {route.page === 'settings' ? (
-        <Settings accounts={accounts} sync={sync.data ?? []} ai={ai} onMenu={openMenu} />
+        <Settings accounts={accounts} sync={sync.data ?? []} ai={ai} labeling={labeling} onMenu={openMenu} />
       ) : route.page === 'labels' ? (
-        <Labels key={accountId} account={accounts.find((a) => a.id === accountId)} labels={labels.data ?? []} ai={ai} onMenu={openMenu} />
+        <Labels key={accountId} account={accounts.find((a) => a.id === accountId)} labels={labels.data ?? []} ai={labeling} onMenu={openMenu} />
       ) : (
         <>
           <ThreadList
@@ -708,8 +711,8 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
             selected={selected}
             labelsById={labelsById}
             hideLabel={label?.name}
-            hideChips={grouped && ai}
-            labelInbox={ai && grouped && accountId !== null ? <LabelInbox accountId={accountId} onFinished={say} /> : undefined}
+            hideChips={grouped && labeling}
+            labelInbox={labeling && grouped && accountId !== null ? <LabelInbox accountId={accountId} onFinished={say} /> : undefined}
             onDoneAll={doneAll}
             onToggleBundle={(name) => setBundle(openBundle === name ? null : { viewKey, name })}
             threadHref={(id) => href({ ...route, threadId: id })}

@@ -8,9 +8,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kanso.ai import assistant
+from kanso.ai import assistant, keys
 from kanso.api.actions import publish
-from kanso.core.settings import settings
 from kanso.db.models import AssistantConversation
 from kanso.db.session import get_session
 
@@ -18,9 +17,9 @@ DB = Annotated[AsyncSession, Depends(get_session)]
 HISTORY = 20  # conversations in the history list
 
 
-def _ai_on() -> None:
-    if not settings.ai_enabled:
-        raise HTTPException(status_code=409, detail="AI is off: set ANTHROPIC_API_KEY")
+async def _ai_on(db: DB) -> None:
+    if not (await keys.load(db)).ai:
+        raise HTTPException(status_code=409, detail=keys.AI_OFF)
 
 
 router = APIRouter(prefix="/assistant", dependencies=[Depends(_ai_on)])

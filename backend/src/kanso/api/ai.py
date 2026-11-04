@@ -5,12 +5,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kanso.ai import labeling, summaries, usage
-from kanso.core.settings import settings
+from kanso.ai import keys, labeling, summaries, usage
 from kanso.db.models import AiQueue, Thread
 from kanso.db.session import get_session
 
@@ -21,6 +20,18 @@ USAGE_DAYS = 30
 
 class ConfigOut(BaseModel):
     ai: bool  # an Anthropic API key is set: AI features show
+    labeling: bool  # an Anthropic or a TypeSafe API key is set: AI labeling shows
+
+
+class KeysOut(BaseModel):
+    """The last characters of each saved key, to recognize it; None: not set."""
+
+    anthropic: str | None
+    jev: str | None
+
+
+class KeyIn(BaseModel):
+    key: str = Field(min_length=1, max_length=500)
 
 
 class FeatureUsage(BaseModel):
@@ -61,8 +72,39 @@ class LabelInboxIn(BaseModel):
 
 
 @router.get("/config")
-async def config() -> ConfigOut:
-    return ConfigOut(ai=settings.ai_enabled)
+async def config(db: DB) -> ConfigOut:
+    found = await keys.load(db)
+    return ConfigOut(ai=found.ai, labeling=found.labeling)
+
+
+async def _keys_out(db: AsyncSession) -> KeysOut:
+    found = await keys.load(db)
+    return KeysOut(**{p: getattr(found, p)[-4:] or None for p in keys.PROVIDERS})
+
+
+@router.get("/ai/keys")
+async def get_keys(db: DB) -> KeysOut:
+    return await _keys_out(db)
+
+
+@router.put("/ai/keys/{provider}")
+async def put_key(provider: keys.Provider, body: KeyIn, db: DB) -> KeysOut:
+    """Checked with the provider first, so a typo never turns AI on."""
+    key = body.key.strip()
+    if problem := await keys.check(provider, key):
+        raise HTTPException(status_code=422, detail=problem)
+    await keys.put(db, provider, key)
+    await db.commit()
+    await labeling.wake()
+    return await _keys_out(db)
+
+
+@router.delete("/ai/keys/{provider}")
+async def delete_key(provider: keys.Provider, db: DB) -> KeysOut:
+    await keys.remove(db, provider)
+    await db.commit()
+    await labeling.wake()
+    return await _keys_out(db)
 
 
 @router.get("/ai/usage")
@@ -108,8 +150,8 @@ async def label_inbox_status(db: DB, account_id: int) -> LabelInboxOut:
 @router.post("/ai/label-inbox")
 async def label_inbox(body: LabelInboxIn, db: DB) -> LabelInboxOut:
     """Only the inbox: there is no AI pass over history."""
-    if not settings.ai_enabled:
-        raise HTTPException(status_code=409, detail="AI is off: set ANTHROPIC_API_KEY")
+    if not (await keys.load(db)).labeling:
+        raise HTTPException(status_code=409, detail=keys.LABELING_OFF)
     await labeling.enqueue_inbox(db, body.account_id)
     await db.commit()
     await labeling.wake()
@@ -128,8 +170,8 @@ class SummaryState(BaseModel):
 
 
 async def _summary_context(db: AsyncSession, thread_id: int) -> summaries.Context:
-    if not settings.ai_enabled:
-        raise HTTPException(status_code=409, detail="AI is off: set ANTHROPIC_API_KEY")
+    if not (await keys.load(db)).ai:
+        raise HTTPException(status_code=409, detail=keys.AI_OFF)
     context = await summaries.load(db, thread_id)
     if context is None:
         raise HTTPException(status_code=404, detail="Thread not found")

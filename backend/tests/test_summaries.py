@@ -8,7 +8,7 @@ from typing import Any
 import anthropic
 import httpx2 as httpx
 import pytest
-from conftest import TEST_DATABASE_URL, run
+from conftest import TEST_DATABASE_URL, run, set_key
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -39,8 +39,8 @@ def unpooled(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def ai_on(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "anthropic_api_key", "test-key")
+def ai_on(db: None) -> None:
+    set_key("anthropic", "test-key")
 
 
 class FakeClaude:
@@ -117,10 +117,11 @@ class FakeClaude:
         sse = "".join(f"event: {e['type']}\ndata: {json.dumps(e)}\n\n" for e in events)
         return httpx.Response(200, headers={"content-type": "text/event-stream"}, text=sse)
 
-    def client(self) -> anthropic.AsyncAnthropic:
+    def client(self, key: str) -> anthropic.AsyncAnthropic:
+        assert key == "test-key"  # the key saved in Settings
         transport = httpx.MockTransport(self.handle)
         return anthropic.AsyncAnthropic(
-            api_key="test-key", max_retries=0, http_client=httpx.AsyncClient(transport=transport)
+            api_key=key, max_retries=0, http_client=httpx.AsyncClient(transport=transport)
         )
 
 
@@ -411,10 +412,10 @@ def test_rejected_key_shows_a_notice_until_a_call_works(
     assert summarize(logged_in, thread)[-1] == {"type": "error", "message": usage.KEY_REJECTED}
     assert rejected()
     assert summarize(logged_in, thread)[-1]["message"] == usage.KEY_REJECTED
-    # A notice about one key doesn't outlive it (a new key in .env means a restart).
-    monkeypatch.setattr(settings, "anthropic_api_key", "another-key")
+    # A notice about one key doesn't outlive it.
+    set_key("anthropic", "another-key")
     assert not rejected()
-    monkeypatch.setattr(settings, "anthropic_api_key", "test-key")
+    set_key("anthropic", "test-key")
     assert rejected()
     assert summarize(logged_in, thread)[-1]["type"] == "done"
     assert not rejected()

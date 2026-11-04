@@ -152,14 +152,10 @@ else
   echo "Keeping the password already in .env."
 fi
 
-if [[ -z $(env_get ANTHROPIC_API_KEY) ]]; then
-  read -r -s -p "Anthropic API key for the AI features (hidden; Enter to skip): " AK; echo
-  [[ -n $AK ]] && env_set ANTHROPIC_API_KEY "$AK"
-fi
-
 say "Done. Start kanso and connect your Gmail accounts:"
 cat <<EOF
   docker compose up -d
   open $PUBLIC_URL, log in, then account menu -> Settings -> Connect a Gmail account.
+  For the AI features, add your API keys under Settings -> AI keys.
   Google warns that the app is unverified: Advanced -> Go to kanso. Keep the Gmail box ticked.
 EOF

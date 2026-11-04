@@ -4,7 +4,7 @@ import signal
 from pathlib import Path
 
 from kanso import demo_seed
-from kanso.ai import labeling
+from kanso.ai import keys, labeling
 from kanso.core.settings import settings
 from kanso.db.session import engine
 from kanso.gmail.client import http_client
@@ -42,12 +42,9 @@ async def run() -> None:
     writes = asyncio.create_task(outbox.run(http))
     housekeeping = asyncio.create_task(drafts.run(http))
     contact_photos = asyncio.create_task(photos.run(http))
-    if settings.ai_enabled:
-        classify = asyncio.create_task(labeling.run())
-        log.info("AI labeling on")
-    else:
-        classify = None
-        log.info("AI labeling off (no ANTHROPIC_API_KEY)")
+    classify = asyncio.create_task(labeling.run())  # idle until an API key is set in Settings
+    if ignored := keys.ignored_env():
+        log.warning("ignoring %s: AI API keys are set in Settings now", ", ".join(ignored))
     if settings.demo_mode:
         demo_reset = asyncio.create_task(demo_seed.reset_daily())
         log.info("demo instance: the mailbox resets every day at midnight UTC")
@@ -67,8 +64,7 @@ async def run() -> None:
     writes.cancel()
     housekeeping.cancel()
     contact_photos.cancel()
-    if classify:
-        classify.cancel()
+    classify.cancel()
     if demo_reset:
         demo_reset.cancel()
     if pull:

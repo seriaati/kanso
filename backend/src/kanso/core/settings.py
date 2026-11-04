@@ -34,8 +34,6 @@ class Settings(BaseSettings):
     google_pubsub_subscription: str = ""
     # The service account's JSON key, base64-encoded.
     google_pubsub_credentials: str = ""
-    # Without a key every AI feature is off.
-    anthropic_api_key: str = ""
     # A made-up mailbox, reset every day; no Gmail accounts can be connected.
     demo_mode: bool = False
 
@@ -72,10 +70,6 @@ class Settings(BaseSettings):
             and self.google_pubsub_subscription
             and self.google_pubsub_credentials
         )
-
-    @property
-    def ai_enabled(self) -> bool:
-        return bool(self.anthropic_api_key)
 
     @property
     def secure_cookies(self) -> bool:

@@ -2,7 +2,37 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, CSRF, queryClient } from './api'
 
 export function useConfig() {
-  return useQuery({ queryKey: ['config'], queryFn: () => api<{ ai: boolean }>('/config'), staleTime: Infinity })
+  return useQuery({ queryKey: ['config'], queryFn: () => api<{ ai: boolean; labeling: boolean }>('/config'), staleTime: Infinity })
+}
+
+export type KeyProvider = 'anthropic' | 'jev'
+/** The last characters of each saved key; null: not set. */
+export type ApiKeys = Record<KeyProvider, string | null>
+
+export function useApiKeys() {
+  return useQuery({ queryKey: ['ai-keys'], queryFn: () => api<ApiKeys>('/ai/keys') })
+}
+
+// A key turns AI features on or off everywhere, so everything is fetched again.
+const keysChanged = (keys: ApiKeys) => {
+  queryClient.setQueryData(['ai-keys'], keys)
+  void queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== 'ai-keys' })
+}
+
+/** The provider checks the key first; a rejected one fails with its reason. */
+export function useSaveApiKey() {
+  return useMutation({
+    mutationFn: ({ provider, key }: { provider: KeyProvider; key: string }) =>
+      api<ApiKeys>(`/ai/keys/${provider}`, { method: 'PUT', body: { key } }),
+    onSuccess: keysChanged,
+  })
+}
+
+export function useRemoveApiKey() {
+  return useMutation({
+    mutationFn: (provider: KeyProvider) => api<ApiKeys>(`/ai/keys/${provider}`, { method: 'DELETE' }),
+    onSuccess: keysChanged,
+  })
 }
 
 export type AiUsage = {

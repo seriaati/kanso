@@ -11,7 +11,6 @@ x-kanso: &kanso
     DATABASE_URL: postgresql+asyncpg://kanso:kanso@postgres:5432/kanso
     REDIS_URL: redis://redis:6379/0
     PUBLIC_URL: ${DEMO_PUBLIC_URL:-http://localhost:${DEMO_PORT:-8001}}
-    ANTHROPIC_API_KEY: ${DEMO_ANTHROPIC_API_KEY:-}
 
 services:
   app:

@@ -150,7 +150,6 @@ Open `.env` and fill it in:
 | `GOOGLE_PUBSUB_TOPIC` | `projects/<project-id>/topics/kanso-gmail` |
 | `GOOGLE_PUBSUB_SUBSCRIPTION` | `projects/<project-id>/subscriptions/kanso-gmail` |
 | `GOOGLE_PUBSUB_CREDENTIALS` | The service account key from step 5 on one line: `base64 -w0 key.json` (macOS: `base64 -i key.json`). |
-| `ANTHROPIC_API_KEY` | Optional. A Claude API key from [console.anthropic.com](https://console.anthropic.com), which turns on AI labeling and thread summaries. Without it kanso is a plain email client and shows no AI controls. The model for each AI feature is chosen in Settings → AI models. |
 
 Then set your login password. This downloads the kanso image the first time:
 
@@ -202,6 +201,20 @@ on), Claude's token use, whether the assistant asks before it changes mail, and 
 
 Connect accounts with kanso opened at `PUBLIC_URL` exactly: Google sends you back there, and you
 have to be logged in at that address.
+
+The AI features are optional. To turn them on, add your own API keys under **Settings → AI keys**;
+kanso checks each key with its provider, then stores it encrypted (with `SECRET_KEY`) in its
+database:
+
+- **Anthropic** ([console.anthropic.com](https://console.anthropic.com/settings/keys)): Claude for
+  thread summaries, the assistant and auto-labeling.
+- **TypeSafe** ([console.typesafe.ai](https://console.typesafe.ai)): Jev, a fast classification
+  model, for auto-labeling only. It works without an Anthropic key. Jev calls don't show under
+  **AI usage**.
+
+**Settings → AI models** picks the model for each feature, Jev included for auto-labeling. Without
+a key kanso is a plain email client and shows no AI controls. Changing `SECRET_KEY` makes saved
+keys unreadable: add them again.
 
 ## 8. Reaching kanso over HTTPS
 
@@ -322,6 +335,9 @@ kanso offers **Reload** to switch to the new version.
 If an upgrade ever needs something done by hand, such as a new setting in `.env`, this section
 and `.env.example` say so.
 
+- **AI keys in Settings** (November 2026): `ANTHROPIC_API_KEY` in `.env` is ignored now (the
+  worker logs a warning while it is set). Add the key again under **Settings → AI keys**, then
+  delete the line from `.env`.
 - **Account and sender photos** (November 2026): enable the **People API** (step 2), add the
   `userinfo.profile`, `contacts.readonly` and `contacts.other.readonly` scopes (step 3), then
   connect each account again (**Settings → Connect a Gmail account**, same Google account; it

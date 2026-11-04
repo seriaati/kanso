@@ -14,7 +14,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kanso import demo_seed
-from kanso.ai import trim, usage
+from kanso.ai import keys, trim, usage
 from kanso.core.settings import settings
 from kanso.db import prefs
 from kanso.db import redis as events
@@ -142,9 +142,9 @@ def text_of(response: Any) -> str:
     return text
 
 
-@cache
-def client() -> anthropic.AsyncAnthropic:
-    return anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key, timeout=30.0, max_retries=1)
+@cache  # one per key, so a changed key takes effect at once
+def client(key: str) -> anthropic.AsyncAnthropic:
+    return anthropic.AsyncAnthropic(api_key=key, timeout=30.0, max_retries=1)
 
 
 def public(row: Summary) -> dict[str, Any]:
@@ -182,7 +182,8 @@ async def _generate(context: Context, lock: str, queue: asyncio.Queue[dict[str, 
         else:
             async with Session() as db:
                 model = await prefs.model(db, FEATURE)
-            async with client().messages.stream(**request(context, model)) as stream:
+                key = await keys.get(db, "anthropic")
+            async with client(key).messages.stream(**request(context, model)) as stream:
                 async for delta in stream.text_stream:
                     first = first or time.monotonic()
                     await queue.put({"type": "delta", "text": delta})

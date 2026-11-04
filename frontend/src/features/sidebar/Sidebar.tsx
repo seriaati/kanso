@@ -21,6 +21,7 @@ type Props = {
   sync: SyncStatus[]
   notice: Notice | null
   ai: boolean
+  labeling: boolean
   update: boolean
   onSelectAccount: (id: number) => void
   onCompose: () => void
@@ -28,7 +29,7 @@ type Props = {
 }
 
 export function Sidebar(props: Props) {
-  const { accounts, route, labels, userLabels, sync, notice, ai, update, onSelectAccount, onCompose, onLabelChanged } = props
+  const { accounts, route, labels, userLabels, sync, notice, ai, labeling, update, onSelectAccount, onCompose, onLabelChanged } = props
   // `editing` is '' for a new label.
   const [menu, setMenu] = useState<{ name: string; anchor: HTMLElement } | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
@@ -139,7 +140,7 @@ export function Sidebar(props: Props) {
           <LabelEditor
             label={edited}
             accountId={route.accountId}
-            ai={ai}
+            ai={labeling}
             onDone={(change) => {
               setEditing(null)
               if (change && edited) onLabelChanged(edited.name, change)

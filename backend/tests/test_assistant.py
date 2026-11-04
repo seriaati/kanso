@@ -11,7 +11,7 @@ import anthropic
 import httpx2 as httpx
 import pytest
 import test_summaries as mail
-from conftest import TEST_DATABASE_URL, run
+from conftest import TEST_DATABASE_URL, run, set_key
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -48,8 +48,8 @@ def unpooled(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def ai_on(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "anthropic_api_key", "test-key")
+def ai_on(db: None) -> None:
+    set_key("anthropic", "test-key")
 
 
 def tool(name: str, **data: Any) -> dict[str, Any]:
@@ -145,10 +145,11 @@ class FakeClaude:
         sse = "".join(f"event: {e['type']}\ndata: {json.dumps(e)}\n\n" for e in events)
         return httpx.Response(200, headers={"content-type": "text/event-stream"}, text=sse)
 
-    def client(self) -> anthropic.AsyncAnthropic:
+    def client(self, key: str) -> anthropic.AsyncAnthropic:
+        assert key == "test-key"  # the key saved in Settings
         transport = httpx.MockTransport(self.handle)
         return anthropic.AsyncAnthropic(
-            api_key="test-key", max_retries=0, http_client=httpx.AsyncClient(transport=transport)
+            api_key=key, max_retries=0, http_client=httpx.AsyncClient(transport=transport)
         )
 
 
@@ -852,8 +853,8 @@ def test_ai_off_has_no_assistant(
     logged_in: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(settings, "anthropic_api_key", "")
-    assert logged_in.get("/api/config").json() == {"ai": False}
+    set_key("anthropic", None)
+    assert logged_in.get("/api/config").json() == {"ai": False, "labeling": False}
     body = {"account_id": 1, "text": "hi", "timezone": ZONE}
     assert logged_in.post("/api/assistant/messages", json=body).status_code == 409
     assert logged_in.get("/api/assistant/conversations?account_id=1").status_code == 409

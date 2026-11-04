@@ -8,14 +8,14 @@ from typing import Any
 import anthropic
 import httpx2 as httpx
 import pytest
-from conftest import TEST_DATABASE_URL, run
+from conftest import TEST_DATABASE_URL, run, set_key
 from fake_gmail import Crash, FakeGmail, make_raw
 from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from kanso.ai import labeling, trim
+from kanso.ai import keys, labeling, trim
 from kanso.core.settings import settings
 from kanso.db import session
 from kanso.db.models import Account, AiQueue, AiUsage, Label, Outbox, Thread
@@ -36,8 +36,8 @@ def unpooled(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def ai_on(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "anthropic_api_key", "test-key")
+def ai_on(db: None) -> None:
+    set_key("anthropic", "test-key")
 
 
 def _reply(subject: str, body: str, sender: str) -> bytes:
@@ -576,7 +576,7 @@ def test_a_demo_instance_sends_its_demo_mail_to_claude(
 def test_ai_off_hides_and_runs_nothing(
     synced: TestClient, gmail: FakeGmail, claude: FakeClaude
 ) -> None:
-    assert synced.get("/api/config").json() == {"ai": False}
+    assert synced.get("/api/config").json() == {"ai": False, "labeling": False}
     new_mail(gmail, "m6", "t6", "Bill", "x")
     assert rows(AiQueue) == []
     assert synced.post("/api/ai/label-inbox", json={"account_id": 1}).status_code == 409
@@ -584,7 +584,7 @@ def test_ai_off_hides_and_runs_nothing(
 
 
 def test_config_with_a_key(ai_on: None, logged_in: TestClient) -> None:
-    assert logged_in.get("/api/config").json() == {"ai": True}
+    assert logged_in.get("/api/config").json() == {"ai": True, "labeling": True}
 
 
 def _grouped(api: TestClient, query: str = "") -> dict[str, Any]:
@@ -708,3 +708,188 @@ def test_label_settings_are_local(synced: TestClient, gmail: FakeGmail) -> None:
         json={"name": "Receipts", "description": "orders", "is_bundle": True, "account_id": 1},
     ).json()
     assert created["is_bundle"] and created["description"] == "orders"
+
+
+# TypeSafe's Jev: the labeling model with only a TypeSafe key, or when picked in Settings.
+
+
+@pytest.fixture
+def jev_on(db: None) -> None:
+    set_key("jev", "jev-key")
+
+
+class FakeJev:
+    """POST /v1/systemone behind an httpx2 MockTransport."""
+
+    def __init__(self) -> None:
+        self.answers: list[Any] = []  # (choice, confidence), or an HTTP status to fail with
+        self.requests: list[httpx.Request] = []
+
+    def handle(self, request: httpx.Request) -> httpx.Response:
+        self.requests.append(request)
+        answer = self.answers.pop(0) if self.answers else ("none", 0.9)
+        if isinstance(answer, int):
+            return httpx.Response(answer, json={"detail": "injected"})
+        criteria = json.loads(request.content)["questions"]["label"]["criteria"]
+        choice, confidence = answer
+        probabilities = {name: 1.0 if name == choice else 0.0 for name in criteria}
+        label = {"type": "choice", "choice": choice, "confidence": confidence}
+        return httpx.Response(
+            200,
+            json={
+                "model": "jev-1.14.0",
+                "answers": {"label": label | {"probabilities": probabilities}},
+                "usage": {"input_tokens": 120, "output_tokens": 12},
+            },
+        )
+
+    def body(self, i: int = -1) -> dict[str, Any]:
+        return json.loads(self.requests[i].content)
+
+
+@pytest.fixture
+def jev() -> FakeJev:
+    return FakeJev()
+
+
+def process_jev(jev: FakeJev) -> int:
+    async def go() -> int:
+        count = 0
+        async with Session() as db:
+            chosen = await labeling.chosen(db, await keys.load(db))
+        assert chosen == ("jev-latest", "jev-key")  # the saved key, decrypted
+        real = labeling.client("jev-latest", "jev-key")
+        assert isinstance(real, httpx.AsyncClient)
+        # The real client's headers (the API key), over the fake endpoint.
+        transport = httpx.MockTransport(jev.handle)
+        async with real, httpx.AsyncClient(transport=transport, headers=real.headers) as ai:
+            while await labeling.process_one(ai):
+                count += 1
+        return count
+
+    return run(go())
+
+
+def test_jev_alone_turns_on_labeling_only(jev_on: None, logged_in: TestClient) -> None:
+    assert logged_in.get("/api/config").json() == {"ai": False, "labeling": True}
+
+
+def test_jev_request_sends_only_sender_subject_and_trimmed_body(
+    jev_on: None,
+    synced: TestClient,
+    gmail: FakeGmail,
+    jev: FakeJev,
+) -> None:
+    gmail.add(
+        "m7",
+        "t7",
+        ["INBOX"],
+        _reply("Your bill for October", BILL, "Harbor Electric <billing@harbor.example.com>"),
+    )
+    sync(gmail)
+    process_jev(jev)
+    [request] = jev.requests
+    assert str(request.url) == "https://api.typesafe.ai/v1/systemone"
+    assert request.headers["authorization"] == "Bearer jev-key"
+    body = jev.body()
+    assert body["model"] == "jev-latest"
+    assert body["state"] == {
+        "from": "Harbor Electric <billing@harbor.example.com>",
+        "subject": "Your bill for October",
+        "body": "Hi,\n\nYour October bill is $64.20, due by Nov 15.\n\nThanks,\nHarbor",
+    }
+    sent = json.dumps(body)
+    private = ["partner@example.com", "accountant@example.com", "statement-secret", "PDF"]
+    private += ["my private earlier question", "unsubscribe", "Q4 planning", "Hiring"]
+    assert [p for p in private if p in sent] == []
+    # "none" first, as Jev leans toward the first option; then the AI-managed labels only.
+    question = body["questions"]["label"]
+    assert question["type"] == "choice"
+    assert list(question["criteria"].items()) == [
+        ("none", "None of the other labels clearly fits"),
+        ("Finance", "bills, statements and payment reminders"),
+        ("Work", "work mail"),
+    ]
+
+
+def test_jev_parse() -> None:
+    names = ["Finance", "Work"]
+
+    def answer(choice: str, confidence: float) -> dict[str, Any]:
+        label = {"type": "choice", "choice": choice, "confidence": confidence}
+        return {"answers": {"label": label | {"probabilities": {}}}}
+
+    assert labeling.jev_parse(answer("Finance", 0.9), names) == ("Finance", 0.9)
+    assert labeling.jev_parse(answer("none", 0.8), names) == (None, 0.8)
+    assert labeling.jev_parse(answer("Travel", 0.99), names) == (None, 0.99)
+    assert labeling.jev_parse(answer("Work", 3), names) == ("Work", 1.0)
+    for bad in ({}, {"answers": {}}, {"answers": {"label": {"type": "noul", "noul": 1}}}, []):
+        with pytest.raises(labeling.AnswerError):
+            labeling.jev_parse(bad, names)
+
+
+def test_jev_labels_new_mail_through_the_outbox(
+    jev_on: None,
+    synced: TestClient,
+    gmail: FakeGmail,
+    jev: FakeJev,
+) -> None:
+    new_mail(gmail, "m6", "t6", "Your bill for November", "Due Dec 15")
+    new_mail(gmail, "m7", "t7", "Hello", "Maybe a bill?")
+    assert queued() == {"t6": "pending", "t7": "pending"}
+    jev.answers = [("Finance", 0.92), ("Finance", 0.5)]
+    assert process_jev(jev) == 2
+    assert queued() == {"t6": "labeled", "t7": "unlabeled"}  # 0.5: below the bar
+    state = threads()
+    assert label_names(state["t6"]) == {"INBOX", "UNREAD", "Finance"}
+    assert label_names(state["t7"]) == {"INBOX", "UNREAD"}
+    [entry] = rows(Outbox)
+    assert (entry.action, entry.message_ids, entry.add_labels) == ("label", ["m6"], ["Label_2"])
+    drain(gmail)
+    assert "Label_2" in gmail.messages["m6"]["labelIds"]
+    assert rows(AiUsage) == []  # AI usage tracks Anthropic only
+
+
+def test_jev_transient_errors_retry_later_and_permanent_ones_fail(
+    jev_on: None,
+    synced: TestClient,
+    gmail: FakeGmail,
+    jev: FakeJev,
+) -> None:
+    new_mail(gmail, "m6", "t6", "Bill", "x")
+    jev.answers = [529]  # overloaded
+    process_jev(jev)
+    [row] = rows(AiQueue)
+    assert (row.status, row.attempts) == ("pending", 1)
+    assert row.next_attempt_at > datetime.now(UTC) + timedelta(seconds=20)
+
+    run(_due_now())
+    jev.answers = [422]
+    process_jev(jev)
+    [row] = rows(AiQueue)
+    assert (row.status, row.attempts) == ("failed", 2)
+    assert row.last_error and "422" in row.last_error
+
+
+def test_jev_rejected_key_pauses_labeling(
+    jev_on: None,
+    synced: TestClient,
+    gmail: FakeGmail,
+    jev: FakeJev,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(labeling, "_paused_until", 0.0)
+    new_mail(gmail, "m6", "t6", "Bill", "x")
+    new_mail(gmail, "m7", "t7", "Bill", "y")
+    jev.answers = [401]
+    process_jev(jev)
+    assert len(jev.requests) == 1
+    assert queued() == {"t6": "pending", "t7": "pending"}
+    assert [r.attempts for r in rows(AiQueue)] == [0, 0]
+    # The rejected-key notice is about the Anthropic key, which is fine.
+    assert synced.get("/api/ai/usage").json()["key_rejected"] is False
+
+    monkeypatch.setattr(labeling, "_paused_until", 0.0)  # ten minutes later, the key works
+    jev.answers = [("Finance", 0.9)]
+    assert process_jev(jev) == 2
+    assert queued() == {"t6": "labeled", "t7": "unlabeled"}

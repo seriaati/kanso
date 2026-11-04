@@ -24,8 +24,10 @@ Check every change against these. If a change conflicts with one, stop and ask.
    container footprint stay small. Serve reads from the local mirror, not from round trips to Gmail.
 4. **Minimal, elegant, aesthetic.** A calm UI with plenty of whitespace, restrained color, clear
    typography and no clutter. Fewer buttons and more keyboard.
-5. **Easy to self-host.** One `docker compose up`, configured through a single `.env`. No external
-   services beyond Gmail, Google Cloud Pub/Sub (for instant mail notifications) and the Anthropic API.
+5. **Easy to self-host.** One `docker compose up`, configured through a single `.env` (AI API keys
+   are the exception: they are added in Settings). No external services beyond Gmail, Google Cloud
+   Pub/Sub (for instant mail notifications) and the Anthropic API (plus, optionally, TypeSafe's Jev
+   for AI labeling).
 6. **Personal scale.** One user. Don't build for multi-tenancy, horizontal scaling or enterprise needs.
 
 ## Product decisions (settled)
@@ -35,7 +37,7 @@ Check every change against these. If a change conflicts with one, stop and ask.
 | Email provider | **Gmail only**, via the Gmail API with OAuth. No IMAP/Outlook. |
 | Sync model | **Two-way sync.** Gmail is the source of truth. kanso mirrors *all* of it in Postgres and writes changes back to Gmail, so other Gmail clients stay consistent. |
 | Accounts | **One user, multiple Gmail accounts**, one in view at a time, with no combined view. |
-| AI provider | **Anthropic (Claude)** with the user's own API key. **Optional**: without a key, kanso is a plain email client and AI features are hidden. |
+| AI provider | **Anthropic (Claude)** with the user's own API key, added in Settings and stored encrypted (never in `.env`). **Optional**: without a key, kanso is a plain email client and AI features are hidden. AI labeling can instead use **TypeSafe's Jev** classification model, picked in Settings, which works without an Anthropic key. |
 | Search | **Postgres full-text search.** No vector search. |
 | Clients | **Web app plus an installable PWA**, desktop-first and usable on a phone. No native apps. |
 | Auth | A simple single-user password login. |

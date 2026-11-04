@@ -96,7 +96,7 @@ export function LabelEditor({ label, accountId, ai, onDone }: Props) {
         />
       )}
       {ai && (
-        <label className={styles.toggle} title="Claude puts new inbox mail that fits the description under this label">
+        <label className={styles.toggle} title="AI puts new inbox mail that fits the description under this label">
           <input type="checkbox" checked={aiManaged} onChange={(event) => setAiManaged(event.target.checked)} />
           Label new mail with AI
         </label>

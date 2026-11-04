@@ -62,7 +62,7 @@ export function LabelInbox({ accountId, onFinished }: Props) {
     )
   if (eligible === 0) return null
   return (
-    <button type="button" title="Claude sorts the inbox threads without a label into your AI-managed labels" onClick={() => setConfirming(true)}>
+    <button type="button" title="AI sorts the inbox threads without a label into your AI-managed labels" onClick={() => setConfirming(true)}>
       Label with AI
     </button>
   )

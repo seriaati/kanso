@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { useDisconnectAccount, type Account } from '../../app/accounts'
-import { useAiUsage } from '../../app/ai'
+import { useAiUsage, useApiKeys, useRemoveApiKey, useSaveApiKey, type KeyProvider } from '../../app/ai'
 import type { SyncStatus } from '../../app/mail'
 import { usePhone } from '../../app/media'
 import { usePush } from '../../app/notifications'
@@ -15,10 +15,12 @@ type Props = {
   accounts: Account[]
   sync: SyncStatus[]
   ai: boolean
+  /** Auto-labeling is on: an Anthropic or a TypeSafe key is set. */
+  labeling: boolean
   onMenu?: () => void
 }
 
-export function Settings({ accounts, sync, ai, onMenu }: Props) {
+export function Settings({ accounts, sync, ai, labeling, onMenu }: Props) {
   const phone = usePhone()
   const demo = useDemoPassword() !== null // true until known: no flash of Connect on a demo
   return (
@@ -41,8 +43,9 @@ export function Settings({ accounts, sync, ai, onMenu }: Props) {
             </Section>
           )}
           {!demo && <Notifications />}
+          <ApiKeys />
           {ai && <Assistant />}
-          {ai && <Models />}
+          {labeling && <Models ai={ai} />}
           {ai && <Usage />}
           {!demo && <Password />}
           <Sessions />
@@ -176,6 +179,96 @@ function Notifications() {
   )
 }
 
+const keyProviders: { id: KeyProvider; name: string; use: string; console: string }[] = [
+  { id: 'anthropic', name: 'Anthropic', use: 'Claude: summaries, the assistant and auto-labeling', console: 'https://console.anthropic.com/settings/keys' },
+  { id: 'jev', name: 'TypeSafe', use: 'Jev: auto-labeling', console: 'https://console.typesafe.ai' },
+]
+
+function ApiKeys() {
+  const keys = useApiKeys()
+  const [editing, setEditing] = useState<KeyProvider | null>(null)
+  const target = keyProviders.find((p) => p.id === editing)
+  return (
+    <Section title="AI keys">
+      <p className={styles.intro}>Your own API keys turn on the AI features. Each is checked with its provider, then stored encrypted.</p>
+      <ul className={styles.list}>
+        {keyProviders.map((provider) => {
+          const hint = keys.data?.[provider.id]
+          return (
+            <li key={provider.id} className={styles.row}>
+              <div className={styles.text}>
+                <span className={styles.name}>{provider.name}</span>
+                <span className={styles.muted}>{provider.use}</span>
+                <span className={styles.muted}>{hint ? `Key ending in ${hint}` : 'No key'}</span>
+              </div>
+              <button type="button" className={styles.disconnect} disabled={!keys.data} onClick={() => setEditing(provider.id)}>
+                {hint ? 'Change' : 'Add key'}
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+      {keys.isError && <p className={styles.note}>Couldn’t load the keys: {keys.error.message}</p>}
+      {target && (
+        <Dialog title={`${target.name} API key`} onClose={() => setEditing(null)}>
+          <KeyEditor provider={target} saved={Boolean(keys.data?.[target.id])} onDone={() => setEditing(null)} />
+        </Dialog>
+      )}
+    </Section>
+  )
+}
+
+function KeyEditor({ provider, saved, onDone }: { provider: (typeof keyProviders)[number]; saved: boolean; onDone: () => void }) {
+  const [key, setKey] = useState('')
+  const save = useSaveApiKey()
+  const remove = useRemoveApiKey()
+  const busy = save.isPending || remove.isPending
+  const error = save.error ?? remove.error
+  return (
+    <form
+      className={styles.confirm}
+      onSubmit={(event) => {
+        event.preventDefault()
+        save.mutate({ provider: provider.id, key }, { onSuccess: onDone })
+      }}
+    >
+      <p className={styles.note}>
+        Create one in the{' '}
+        <a href={provider.console} target="_blank" rel="noreferrer">
+          {provider.name} console
+        </a>
+        .{saved && ' A new key replaces the saved one.'}
+      </p>
+      <input
+        className={styles.input}
+        type="password"
+        aria-label={`${provider.name} API key`}
+        placeholder="Paste the key"
+        autoComplete="off"
+        spellCheck={false}
+        autoFocus
+        value={key}
+        onChange={(event) => setKey(event.target.value)}
+      />
+      {error && (
+        <p role="alert" className={styles.note}>
+          {error.message}
+        </p>
+      )}
+      <div className={styles.actions}>
+        {saved && (
+          <button type="button" className={styles.cancel} disabled={busy} onClick={() => remove.mutate(provider.id, { onSuccess: onDone })}>
+            Remove key
+          </button>
+        )}
+        <button type="submit" className={styles.primary} disabled={!key.trim() || busy}>
+          {save.isPending ? 'Checking…' : 'Save'}
+        </button>
+      </div>
+    </form>
+  )
+}
+
 function Assistant() {
   const settings = useSettings()
   const update = useUpdateSettings()
@@ -210,25 +303,29 @@ const modelFeatures = [
 
 // claude-sonnet-5-5 → Sonnet 5.5
 function modelName(id: string): string {
+  if (id === 'jev-latest') return 'Jev'
   const match = id.match(/^claude-([a-z]+)-(\d+)-(\d+)$/)
   return match ? `${match[1][0].toUpperCase()}${match[1].slice(1)} ${match[2]}.${match[3]}` : id
 }
 
-function Models() {
+function Models({ ai }: { ai: boolean }) {
   const settings = useSettings()
   const update = useUpdateSettings()
   const data = settings.data
+  // Without an Anthropic key only auto-labeling runs, and then on Jev.
+  const shown = ai ? modelFeatures : modelFeatures.filter((f) => f.key === 'labeling_model')
+  const choices = (key: (typeof modelFeatures)[number]['key']) => (key === 'labeling_model' ? data?.labeling_models : data?.models) ?? []
   return (
     <Section title="AI models">
       <div className={styles.models}>
-        {modelFeatures.map((feature) => (
+        {shown.map((feature) => (
           <div key={feature.key} className={styles.model}>
             <span>{feature.name}</span>
             <Select
               className={styles.picker}
               label={feature.name}
               value={data?.[feature.key] ?? ''}
-              options={(data?.models ?? []).map((model) => ({ value: model, label: modelName(model) }))}
+              options={choices(feature.key).map((model) => ({ value: model, label: modelName(model) }))}
               disabled={!data}
               onChange={(value) => update.mutate({ [feature.key]: value })}
             />
@@ -252,7 +349,7 @@ function Usage() {
       {usage.isError && <p className={styles.note}>Couldn’t load the usage: {usage.error.message}</p>}
       {data?.key_rejected && (
         <p className={`${styles.intro} ${styles.problem}`} role="status">
-          Anthropic API key was rejected; check ANTHROPIC_API_KEY.
+          Anthropic API key was rejected; replace it under AI keys.
         </p>
       )}
       {data && (

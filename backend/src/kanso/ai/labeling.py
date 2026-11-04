@@ -8,12 +8,13 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import anthropic
+import httpx2 as httpx
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import delete, exists, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kanso.ai import trim, usage
+from kanso.ai import keys, trim, usage
 from kanso.api.actions import apply_action
 from kanso.core.settings import settings
 from kanso.db import prefs
@@ -34,8 +35,16 @@ CONCURRENCY = 3
 MAX_ATTEMPTS = 5
 RETRY_BASE, RETRY_MAX = 30.0, 1800.0  # 30 s tripling, at most 30 min
 FALLBACK_SECONDS = 30.0
-KEY_PAUSE = 600.0  # while Anthropic rejects the key, one try every 10 minutes
+KEY_PAUSE = 600.0  # while a key is rejected, one try every 10 minutes (or until it changes)
 KEEP_FINISHED = timedelta(days=7)
+
+# TypeSafe's Jev, a choice in the labeling model picker. https://docs.typesafe.ai
+JEV_URL = "https://api.typesafe.ai/v1/systemone"
+JEV_MODEL = "jev-latest"
+JEV_KEY_REJECTED = "TypeSafe API key was rejected; replace it in Settings"
+JEV_INSTRUCTIONS = "Which of the user's labels does this email belong under?"
+
+Client = anthropic.AsyncAnthropic | httpx.AsyncClient
 
 INSTRUCTIONS = """You sort incoming email into the user's labels.
 
@@ -59,6 +68,11 @@ class Answer(BaseModel):
     confidence: float
 
 
+class JevAnswer(BaseModel):
+    choice: str
+    confidence: float  # Jev's own: 0 for an even split over the options, 1 for certain
+
+
 class AnswerError(Exception):
     """The model's answer couldn't be used (cut off, or not the requested JSON)."""
 
@@ -68,11 +82,14 @@ def system_prompt(labels: list[tuple[str, str]]) -> str:
     return INSTRUCTIONS.format(labels=lines)
 
 
-def user_prompt(email: Email) -> str:
-    sender = email.sender_email
+def _sender(email: Email) -> str:
     if email.sender_name:
-        sender = f"{email.sender_name} <{sender}>"
-    return f"<email>\nFrom: {sender}\nSubject: {email.subject}\n\n{email.body}\n</email>"
+        return f"{email.sender_name} <{email.sender_email}>"
+    return email.sender_email
+
+
+def user_prompt(email: Email) -> str:
+    return f"<email>\nFrom: {_sender(email)}\nSubject: {email.subject}\n\n{email.body}\n</email>"
 
 
 def request(labels: list[tuple[str, str]], email: Email, model: str, cache: bool) -> dict[str, Any]:
@@ -115,16 +132,65 @@ def parse(response: Any, names: list[str]) -> tuple[str | None, float]:
     return (answer.label if answer.label in names else None), confidence
 
 
-def client() -> anthropic.AsyncAnthropic:
-    return anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key, timeout=60.0)
+def jev_request(labels: list[tuple[str, str]], email: Email) -> dict[str, Any]:
+    # Jev leans toward the first option, so "none" goes first: when unsure, mail stays unlabeled.
+    criteria: dict[str, str | None] = {"none": "None of the other labels clearly fits"}
+    criteria |= {name: description.strip() or None for name, description in labels}
+    return {
+        "model": JEV_MODEL,
+        "state": {"from": _sender(email), "subject": email.subject, "body": email.body},
+        "questions": {
+            "label": {"type": "choice", "instructions": JEV_INSTRUCTIONS, "criteria": criteria}
+        },
+    }
+
+
+def jev_parse(data: Any, names: list[str]) -> tuple[str | None, float]:
+    try:
+        answer = JevAnswer.model_validate(data["answers"]["label"])
+    except (KeyError, TypeError, ValidationError) as error:
+        raise AnswerError(f"unexpected answer: {str(data)[:100]}") from error
+    confidence = min(max(answer.confidence, 0.0), 1.0)
+    return (answer.choice if answer.choice in names else None), confidence
+
+
+async def claude_model(db: AsyncSession) -> str:
+    model = await prefs.model(db, FEATURE)
+    return prefs.MODEL_DEFAULTS[FEATURE] if model == JEV_MODEL else model
+
+
+async def chosen(db: AsyncSession, found: keys.Keys) -> tuple[str, str] | None:
+    """The labeling model and its key: the picked one, or the one there is a key for.
+    None: no key, labeling is off."""
+    if found.jev and (not found.anthropic or await prefs.model(db, FEATURE) == JEV_MODEL):
+        return JEV_MODEL, found.jev
+    if found.anthropic:
+        return await claude_model(db), found.anthropic
+    return None
+
+
+def client(model: str, key: str) -> Client:
+    if model == JEV_MODEL:
+        return httpx.AsyncClient(headers={"Authorization": f"Bearer {key}"}, timeout=60.0)
+    return anthropic.AsyncAnthropic(api_key=key, timeout=60.0)
+
+
+def _transient_status(status: int) -> bool:
+    return status in (408, 409, 429) or status >= 500  # Jev's 529 "overloaded" too
 
 
 def transient(error: Exception) -> bool:
-    if isinstance(error, anthropic.APIConnectionError):  # includes timeouts
+    if isinstance(error, anthropic.APIConnectionError | httpx.TransportError):  # incl. timeouts
         return True
     if isinstance(error, anthropic.APIStatusError):
-        return error.status_code in (408, 409, 429) or error.status_code >= 500
+        return _transient_status(error.status_code)
+    if isinstance(error, httpx.HTTPStatusError):
+        return _transient_status(error.response.status_code)
     return False
+
+
+def jev_key_rejected(error: Exception) -> bool:
+    return isinstance(error, httpx.HTTPStatusError) and error.response.status_code in (401, 403)
 
 
 def _has_ai_labels(account_id: Any) -> Any:
@@ -157,7 +223,7 @@ async def _enqueue(db: AsyncSession, rows: list[dict[str, Any]]) -> int:
 
 async def enqueue_new(db: AsyncSession, account_id: int, gmail_ids: set[str]) -> int:
     """The caller commits, then calls wake()."""
-    if not settings.ai_enabled or not gmail_ids:
+    if not gmail_ids or not (await keys.load(db)).labeling:
         return 0
     if not await db.scalar(select(_has_ai_labels(account_id))):
         return 0
@@ -241,9 +307,7 @@ async def _email(db: AsyncSession, thread_id: int) -> Email | None:
     )
 
 
-async def classify(
-    db: AsyncSession, ai: anthropic.AsyncAnthropic, row: AiQueue
-) -> tuple[str, set[int]]:
+async def classify(db: AsyncSession, ai: Client, row: AiQueue) -> tuple[str, set[int]]:
     """Returns the row's new status and the threads changed."""
     thread = await db.get(Thread, row.thread_id)
     account = await db.get(Account, row.account_id)
@@ -268,20 +332,28 @@ async def classify(
     if not labels or email is None:
         row.last_error = "no AI-managed labels" if not labels else "no inbox message"
         return "skipped", set()
-    # Demo mail is made up: never sent to Claude, except on a demo instance, where all mail is.
+    # Demo mail is made up: never sent to the AI, except on a demo instance, where all mail is.
     if account.demo and not settings.demo_mode:
         row.last_error = "demo account"
         return "skipped", set()
 
-    backlog = await db.scalar(
-        select(func.count())
-        .select_from(AiQueue)
-        .where(AiQueue.account_id == row.account_id, AiQueue.status == "pending")
-    )
-    model = await prefs.model(db, FEATURE)
-    response = await ai.messages.create(**request(labels, email, model, cache=(backlog or 0) > 1))
-    await usage.record(db, FEATURE, model, response.usage)
-    label, confidence = parse(response, [name for name, _ in labels])
+    names = [name for name, _ in labels]
+    if isinstance(ai, httpx.AsyncClient):
+        # Not in AI usage: that tracks Anthropic tokens and prices.
+        response = await ai.post(JEV_URL, json=jev_request(labels, email))
+        response.raise_for_status()
+        label, confidence = jev_parse(response.json(), names)
+    else:
+        backlog = await db.scalar(
+            select(func.count())
+            .select_from(AiQueue)
+            .where(AiQueue.account_id == row.account_id, AiQueue.status == "pending")
+        )
+        model = await claude_model(db)
+        cache = (backlog or 0) > 1
+        response = await ai.messages.create(**request(labels, email, model, cache))
+        await usage.record(db, FEATURE, model, response.usage)
+        label, confidence = parse(response, names)
     row.label, row.confidence = label, confidence
     if label is None or confidence < CONFIDENCE:
         return "unlabeled", set()
@@ -296,11 +368,11 @@ async def classify(
     return "labeled", touched.get(row.account_id, set())
 
 
-# time.monotonic() until which a rejected key pauses the queue. A new key means a restart.
+# time.monotonic() until which a rejected key pauses the queue. A new key ends the pause.
 _paused_until = 0.0
 
 
-async def process_one(ai: anthropic.AsyncAnthropic) -> bool:
+async def process_one(ai: Client) -> bool:
     """Returns False when there is nothing to do. A row is claimed and finished in one
     transaction, so a crash in between leaves it pending."""
     global _paused_until
@@ -324,12 +396,15 @@ async def process_one(ai: anthropic.AsyncAnthropic) -> bool:
                 status, touched = await classify(db, ai, row)
         except Exception as error:
             row.last_error = (str(error) or type(error).__name__)[:500]
-            if usage.key_rejected(error):  # not this thread's fault: it stays pending
-                row.attempts -= 1
+            if usage.key_rejected(error) or jev_key_rejected(error):  # not this thread's fault
+                row.attempts -= 1  # it stays pending
                 _paused_until = time.monotonic() + KEY_PAUSE
-                await usage.reject_key(db, error)
+                reason = JEV_KEY_REJECTED
+                if usage.key_rejected(error):
+                    await usage.reject_key(db, error)
+                    reason = usage.KEY_REJECTED
                 await db.commit()
-                log.error("labeling paused: %s (%s)", usage.KEY_REJECTED, row.last_error)
+                log.error("labeling paused: %s (%s)", reason, row.last_error)
                 return False
             if transient(error) and row.attempts < MAX_ATTEMPTS:
                 delay = min(RETRY_BASE * 3 ** (row.attempts - 1), RETRY_MAX)
@@ -388,12 +463,19 @@ async def _listen(wake_up: asyncio.Event) -> None:
             await asyncio.sleep(FALLBACK_SECONDS)
 
 
+async def _close(ai: Client) -> None:
+    await (ai.aclose() if isinstance(ai, httpx.AsyncClient) else ai.close())
+
+
 async def run() -> None:
-    ai = client()
+    """Idle until an API key is set in Settings; a key or model change takes effect at once."""
+    global _paused_until
+    current: tuple[str, str] | None = None
+    ai: Client | None = None
     wake_up = asyncio.Event()
     listener = asyncio.create_task(_listen(wake_up))
 
-    async def drain() -> None:
+    async def drain(ai: Client) -> None:
         while await process_one(ai):
             pass
 
@@ -401,7 +483,17 @@ async def run() -> None:
         while True:
             wake_up.clear()
             try:
-                await asyncio.gather(*(drain() for _ in range(CONCURRENCY)))
+                async with Session() as db:
+                    wanted = await chosen(db, await keys.load(db))
+                if wanted != current:
+                    if ai is not None:
+                        await _close(ai)
+                    ai = client(*wanted) if wanted else None
+                    current = wanted
+                    _paused_until = 0.0
+                    log.info("labeling: %s", wanted[0] if wanted else "off, no API key")
+                if ai is not None:
+                    await asyncio.gather(*(drain(ai) for _ in range(CONCURRENCY)))
                 delay = await _seconds_until_due()
             except Exception:
                 log.exception("labeling: processing failed")
@@ -410,4 +502,5 @@ async def run() -> None:
                 await asyncio.wait_for(wake_up.wait(), timeout=delay)
     finally:
         listener.cancel()
-        await ai.close()
+        if ai is not None:
+            await _close(ai)

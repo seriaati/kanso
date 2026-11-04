@@ -7,6 +7,7 @@ export type Settings = {
   summary_model: string
   assistant_model: string
   models: string[] // the choices
+  labeling_models: string[] // auto-labeling's choices, by the API keys set
 }
 
 const key = ['settings']

@@ -16,8 +16,7 @@ os.environ |= {
     "PUBLIC_URL": "http://testserver",
     "GOOGLE_CLIENT_ID": "client-id",
     "GOOGLE_CLIENT_SECRET": "client-secret",
-    # Env vars win over the repo's .env, so a real key or Pub/Sub config there can't leak in.
-    "ANTHROPIC_API_KEY": "",
+    # Env vars win over the repo's .env, so a real Pub/Sub config there can't leak in.
     "GOOGLE_PUBSUB_TOPIC": "",
     "GOOGLE_PUBSUB_SUBSCRIPTION": "",
     "GOOGLE_PUBSUB_CREDENTIALS": "",
@@ -43,6 +42,7 @@ from sqlalchemy import text  # noqa: E402
 from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
 from sqlalchemy.pool import NullPool  # noqa: E402
 
+from kanso.ai import keys  # noqa: E402
 from kanso.api import accounts, auth  # noqa: E402
 from kanso.core import security  # noqa: E402
 from kanso.core.hardening import CSRF_HEADER, CSRF_VALUE  # noqa: E402
@@ -105,6 +105,20 @@ def client() -> Iterator[TestClient]:
 def logged_in(client: TestClient) -> TestClient:
     assert client.post("/api/auth/login", json={"password": PASSWORD}).status_code == 204
     return client
+
+
+def set_key(provider: keys.Provider, key: str | None) -> None:
+    """Saves an AI API key as Settings does, without the provider's check; None removes it."""
+
+    async def go() -> None:
+        async with session.Session() as db:
+            if key is None:
+                await keys.remove(db, provider)
+            else:
+                await keys.put(db, provider, key)
+            await db.commit()
+
+    run(go())
 
 
 async def _execute(*statements: str) -> None:

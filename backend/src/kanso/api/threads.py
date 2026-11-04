@@ -12,7 +12,7 @@ from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kanso import demo_seed, logos
-from kanso.core.settings import settings
+from kanso.ai import keys
 from kanso.db import search
 from kanso.db.models import (
     Account,
@@ -262,11 +262,11 @@ MAILBOXES: dict[str, Any] = {
 }
 
 
-# Each inbox thread goes under one user label, non-bundles first. Label sections only with AI on;
-# without it the inbox is one date-ordered list, but bundles still collapse.
+# Each inbox thread goes under one user label, non-bundles first. Label sections only with AI
+# labeling on; without it the inbox is one date-ordered list, but bundles still collapse.
 
 
-def _placed(account_id: int) -> Any:
+def _placed(account_id: int, labeling: bool) -> Any:
     first = (
         select(Label.name.label("name"), Label.is_bundle.label("is_bundle"))
         .where(Label.id == Thread.label_ids.any_(), Label.type == "user")
@@ -274,7 +274,7 @@ def _placed(account_id: int) -> Any:
         .limit(1)
         .lateral("first_label")
     )
-    section = case((first.c.is_bundle.is_(False), first.c.name)) if settings.ai_enabled else null()
+    section = case((first.c.is_bundle.is_(False), first.c.name)) if labeling else null()
     stmt = (
         select(
             Thread.id.label("id"),
@@ -294,7 +294,7 @@ def _placed(account_id: int) -> Any:
 async def section_thread_ids(
     db: AsyncSession, name: str | None, bundle: bool, account_id: int, until: datetime
 ) -> list[int]:
-    placed = _placed(account_id)
+    placed = _placed(account_id, (await keys.load(db)).labeling)
     if bundle:
         where = placed.c.bundle == name
     elif name is None:
@@ -305,7 +305,7 @@ async def section_thread_ids(
 
 
 async def _sections(db: AsyncSession, account_id: int) -> list[SectionOut]:
-    placed = _placed(account_id)
+    placed = _placed(account_id, (await keys.load(db)).labeling)
     rows = await db.execute(
         select(placed.c.section, placed.c.bundle, func.count(), func.max(placed.c.at)).group_by(
             placed.c.section, placed.c.bundle
@@ -338,7 +338,7 @@ async def _sections(db: AsyncSession, account_id: int) -> list[SectionOut]:
 
 async def _grouped(db: AsyncSession, account_id: int, cursor: str | None, limit: int) -> ThreadPage:
     """The inbox outside bundles, section by section."""
-    placed = _placed(account_id)
+    placed = _placed(account_id, (await keys.load(db)).labeling)
     ranked = (
         select(
             placed.c.id,
@@ -404,7 +404,7 @@ async def list_threads(
             return await _grouped(db, account_id, cursor, limit)
     stmt = select(Thread)
     if bundle is not None:
-        placed = _placed(account_id)
+        placed = _placed(account_id, (await keys.load(db)).labeling)
         stmt = stmt.join(placed, placed.c.id == Thread.id).where(placed.c.bundle == bundle)
     wants_trash_or_spam = mailbox in ("trash", "spam")
     stmt = stmt.where(Thread.account_id == account_id)

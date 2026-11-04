@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kanso.core.settings import settings
+from kanso.ai import keys
 from kanso.db import prefs
 from kanso.db.models import AiUsage
 
@@ -87,24 +87,27 @@ async def summary(db: AsyncSession, days: int) -> dict[str, Any]:
     }
 
 
-KEY_REJECTED = "Anthropic API key was rejected; check ANTHROPIC_API_KEY"
+KEY_REJECTED = "Anthropic API key was rejected; replace it in Settings"
 
 
 def key_rejected(error: BaseException) -> TypeIs[anthropic.APIStatusError]:
     return isinstance(error, anthropic.AuthenticationError | anthropic.PermissionDeniedError)
 
 
-def _key_id() -> str:
+def _key_id(key: str) -> str:
     """Tells keys apart without storing one."""
-    return hashlib.sha256(settings.anthropic_api_key.encode()).hexdigest()[:12]
+    return hashlib.sha256(key.encode()).hexdigest()[:12]
 
 
 async def reject_key(db: AsyncSession, error: anthropic.APIStatusError) -> None:
     """The caller commits."""
-    value = {"key": _key_id(), "status": error.status_code, "at": datetime.now(UTC).isoformat()}
+    key = _key_id(await keys.get(db, "anthropic"))
+    value = {"key": key, "status": error.status_code, "at": datetime.now(UTC).isoformat()}
     await prefs.put(db, prefs.AI_KEY_REJECTED, value)
 
 
 async def key_was_rejected(db: AsyncSession) -> bool:
+    """A new key, a different id, clears it."""
+    key = await keys.get(db, "anthropic")
     value = await prefs.get(db, prefs.AI_KEY_REJECTED)
-    return bool(settings.ai_enabled and value and value.get("key") == _key_id())
+    return bool(key and value and value.get("key") == _key_id(key))

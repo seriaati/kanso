@@ -2,14 +2,16 @@ from typing import Any
 
 import pytest
 from argon2 import PasswordHasher
-from conftest import run
+from conftest import run, set_key
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from sqlalchemy import select
 
 from kanso import demo_seed
+from kanso.ai import keys
 from kanso.core.security import verify_password
 from kanso.core.settings import DEMO_PASSWORD, Settings, settings
+from kanso.db import prefs
 from kanso.db.models import Account, Label, Thread
 from kanso.db.session import Session
 
@@ -95,3 +97,22 @@ def test_reset_never_touches_a_real_mailbox() -> None:
     with pytest.raises(RuntimeError, match="connected Gmail account"):
         run(demo_seed.reset())
     assert run(_state())["threads"] == []
+
+
+@pytest.mark.usefixtures("db", "demo_mode")
+def test_reset_keeps_the_api_keys_only() -> None:
+    run(demo_seed.reset())
+    set_key("jev", "jev-key")
+
+    async def pick() -> None:
+        async with Session() as db:
+            await prefs.put(db, "model_labeling", "jev-latest")
+            await db.commit()
+
+    async def state() -> tuple[keys.Keys, str]:
+        async with Session() as db:
+            return await keys.load(db), await prefs.model(db, "labeling")
+
+    run(pick())
+    run(demo_seed.reset())
+    assert run(state()) == (keys.Keys(jev="jev-key"), "claude-haiku-5-5")

@@ -18,9 +18,8 @@ from fastapi import HTTPException
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kanso.ai import tools, usage
+from kanso.ai import keys, tools, usage
 from kanso.api.actions import apply_action, publish
-from kanso.core.settings import settings
 from kanso.db import prefs
 from kanso.db import redis as events
 from kanso.db.models import Account, AssistantConversation, AssistantMessage, Thread
@@ -74,9 +73,9 @@ it as [its subject](thread:ID), with the id from the tools, so the user can open
 short paragraphs, "- " lists and **bold**: no headings, tables, code or other links."""
 
 
-@cache
-def client() -> anthropic.AsyncAnthropic:
-    return anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key, timeout=60.0, max_retries=2)
+@cache  # one per key, so a changed key takes effect at once
+def client(key: str) -> anthropic.AsyncAnthropic:
+    return anthropic.AsyncAnthropic(api_key=key, timeout=60.0, max_retries=2)
 
 
 def request(messages: list[dict[str, Any]], model: str) -> dict[str, Any]:
@@ -444,8 +443,9 @@ async def _step(conversation_id: int, queue: asyncio.Queue[dict[str, Any]], last
         account_id = found.account_id
         rows = await _rows(db, conversation_id)
         model = await prefs.model(db, FEATURE)
+        key = await keys.get(db, "anthropic")
     messages = [{"role": r.role, "content": r.content} for r in rows]
-    async with client().messages.stream(**request(messages, model)) as stream:
+    async with client(key).messages.stream(**request(messages, model)) as stream:
         async for event in stream:
             if event.type == "text":
                 await queue.put({"type": "text", "text": event.text})

@@ -17,7 +17,7 @@ from sqlalchemy import delete, exists, select, text, update
 from kanso.core.settings import settings
 from kanso.db import contacts
 from kanso.db import redis as events
-from kanso.db.models import Account, AiUsage, Base, Label
+from kanso.db.models import Account, AiUsage, Base, Label, Setting
 from kanso.db.session import Session, engine
 from kanso.gmail import mime
 from kanso.sync import store
@@ -293,12 +293,18 @@ async def seed() -> int:
 
 
 async def reset() -> int:
-    """Ids start over, so a browser left open finds the same threads under the same ids."""
+    """Ids start over, so a browser left open finds the same threads under the same ids.
+    The AI API keys set in Settings stay."""
     async with Session() as db:
         if await db.scalar(select(exists().where(Account.demo.is_(False)))):
             raise RuntimeError("Not resetting: this database has a connected Gmail account.")
-        tables = ", ".join(table.name for table in Base.metadata.sorted_tables)
+        tables = ", ".join(
+            t.name for t in Base.metadata.sorted_tables if t is not Setting.__table__
+        )
         await db.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
+        await db.execute(
+            delete(Setting).where(~Setting.key.startswith("api_key_", autoescape=True))
+        )
         await db.commit()
     return await seed()
 
