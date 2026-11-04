@@ -6,6 +6,7 @@ import { queryClient } from '../../app/api'
 import { inboxAction, suggestLabels, useInboxCount, useSenders, type InboxScope, type Sender, type Suggestion } from '../../app/cleanup'
 import type { NamedLabel } from '../../app/mail'
 import { modelName, useSettings } from '../../app/settings'
+import { DatePicker } from '../../components/DatePicker'
 import { Icon } from '../../components/Icon'
 import { Select } from '../../components/Select'
 import settings from '../settings/Settings.module.css'
@@ -82,7 +83,7 @@ const needsKey = (what: string) => (
   </p>
 )
 
-// Dates are the user's local days, as in <input type="date">.
+// Dates are the user's local days, yyyy-mm-dd, as DatePicker takes them.
 const pad = (n: number) => String(n).padStart(2, '0')
 const toDay = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 const today = () => toDay(new Date())
@@ -195,10 +196,10 @@ function ArchiveStep({ account, onNotice, onUndo }: ActionProps) {
     <Step title="2. Archive old mail">
       <p className={settings.note}>Mark done every inbox thread whose latest message is older than a day you pick.</p>
       <div className={styles.controls}>
-        <label className={styles.field}>
+        <span className={styles.field}>
           Older than
-          <input type="date" className={settings.input} value={day} max={today()} onChange={(event) => setDay(event.target.value)} />
-        </label>
+          <DatePicker label="Older than" value={day} max={today()} onChange={setDay} />
+        </span>
         <button
           type="button"
           className={settings.primary}
@@ -247,22 +248,14 @@ function LabelRange({ account, sorting, onNotice }: { account: Account; sorting:
         unlabeled.
       </p>
       <div className={styles.controls}>
-        <label className={styles.field}>
+        <span className={styles.field}>
           From
-          <input type="date" className={settings.input} value={from} max={to || today()} onChange={(event) => setFrom(event.target.value)} />
-        </label>
-        <label className={styles.field}>
+          <DatePicker label="From" value={from} max={to || today()} clearable placeholder="The start" onChange={setFrom} />
+        </span>
+        <span className={styles.field}>
           to
-          <input
-            type="date"
-            className={settings.input}
-            value={to}
-            min={from}
-            max={today()}
-            aria-label="to (empty: today)"
-            onChange={(event) => setTo(event.target.value)}
-          />
-        </label>
+          <DatePicker label="To" value={to} min={from || undefined} max={today()} clearable placeholder="Today" onChange={setTo} />
+        </span>
         {running ? (
           <span className={settings.muted} role="status">
             Labeling… {running.total - running.pending} of {running.total}
