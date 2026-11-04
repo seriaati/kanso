@@ -495,8 +495,8 @@ async def get_thread(thread_id: int, db: DB) -> ThreadDetail:
 
 
 # Types safe to show inline; everything else downloads, so a hostile attachment (HTML, SVG…)
-# never renders on kanso's origin.
-INLINE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
+# never renders on kanso's origin. A PDF opens in the browser's own viewer, not as a page.
+INLINE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp", "application/pdf"}
 
 
 @router.get("/attachments/{attachment_id}")
@@ -525,16 +525,17 @@ async def download_attachment(attachment_id: int, db: DB) -> Response:
     if content is None:
         raise HTTPException(status_code=404, detail="Attachment not found in the message")
     disposition = "inline" if attachment.mime_type in INLINE_TYPES else "attachment"
-    return Response(
-        content,
-        media_type=attachment.mime_type,
-        headers={
-            "Content-Disposition": f"{disposition}; filename*=UTF-8''{quote(attachment.filename)}",
-            "X-Content-Type-Options": "nosniff",
-            # An attachment never changes (a new message gets new ids): no repeat Gmail fetch.
-            "Cache-Control": "private, max-age=31536000, immutable",
-        },
-    )
+    headers = {
+        "Content-Disposition": f"{disposition}; filename*=UTF-8''{quote(attachment.filename)}",
+        "X-Content-Type-Options": "nosniff",
+        # An attachment never changes (a new message gets new ids): no repeat Gmail fetch.
+        "Cache-Control": "private, max-age=31536000, immutable",
+    }
+    if attachment.mime_type == "application/pdf":
+        # The reader's attachment viewer frames it; kanso's own pages can't be framed at all.
+        headers["X-Frame-Options"] = "SAMEORIGIN"
+        headers["Content-Security-Policy"] = "frame-ancestors 'self'"
+    return Response(content, media_type=attachment.mime_type, headers=headers)
 
 
 @router.get("/photos/{photo_id}")

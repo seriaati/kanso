@@ -371,26 +371,6 @@
   text-underline-offset: 2px;
 }
 
-.attachments {
-  margin: 12px 0 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.attachment {
-  display: inline-block;
-  padding: 6px 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-}
-
-.attachment:hover {
-  background: var(--hover);
-}
-
 /* Where a reply starts: it opens into the composer (Composer.module.css, .docked). */
 .replyBar {
   flex: none;
@@ -494,9 +474,5 @@
 
   .imagesBar button {
     min-height: 32px;
-  }
-
-  .attachment {
-    padding: 10px 12px;
   }
 }

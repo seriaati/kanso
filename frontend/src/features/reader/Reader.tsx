@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Account } from '../../app/accounts'
 import { openDraft, useOpenDraft, type ComposeMode } from '../../app/compose'
-import { fileSize, longDateTime } from '../../app/format'
+import { longDateTime } from '../../app/format'
 import { quickAction, redundant, type Quick } from '../../app/actions'
 import { useThread, type Address, type Message, type ThreadDetail, type ThreadSummary } from '../../app/mail'
 import { Avatar } from '../../components/Avatar'
@@ -10,6 +10,7 @@ import { Composer, type Focus } from '../compose/Composer'
 import bar from '../phone/BottomBar.module.css'
 import { Avatar as AccountAvatar } from '../sidebar/AccountSwitcher'
 import { useConfig } from '../../app/ai'
+import { Attachments } from './Attachments'
 import { EmailFrame } from './EmailFrame'
 import { Summary } from './Summary'
 import styles from './Reader.module.css'
@@ -552,17 +553,7 @@ function MessageView({ message, me, onCollapse, expanding }: MessageViewProps) {
             )}
           </div>
 
-          {attachments.length > 0 && (
-            <ul className={styles.attachments} aria-label="Attachments">
-              {attachments.map((a) => (
-                <li key={a.id}>
-                  <a className={styles.attachment} href={`/api/attachments/${a.id}`} download={a.filename} title={`Download ${a.filename}`}>
-                    <b>{a.filename}</b> <span className={styles.meta}>{fileSize(a.size)}</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
+          {attachments.length > 0 && <Attachments attachments={attachments} />}
         </div>
       </div>
     </section>

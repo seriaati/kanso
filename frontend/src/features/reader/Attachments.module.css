@@ -1,0 +1,267 @@
+.list {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.card {
+  position: relative;
+  width: 168px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.open {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+
+button.open {
+  scale: none;
+}
+
+button.open:hover {
+  background: var(--hover);
+}
+
+.thumbBox {
+  position: relative;
+  display: block;
+}
+
+.thumb,
+.tile {
+  display: block;
+  width: 100%;
+  height: 96px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--paper);
+}
+
+.thumb {
+  object-fit: cover;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: var(--text-small);
+  letter-spacing: 0.06em;
+}
+
+.play {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink);
+  opacity: 0.9;
+  box-shadow: var(--float-shadow);
+}
+
+.label {
+  display: grid;
+  min-width: 0;
+  padding: 6px 38px 7px 10px;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.size {
+  font-size: var(--text-small);
+  color: var(--muted);
+}
+
+.download {
+  position: absolute;
+  right: 5px;
+  bottom: 6px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius);
+  color: var(--muted);
+}
+
+.download:hover {
+  background: var(--selected);
+  color: var(--ink);
+}
+
+/* The viewer: the file fills the window, with its name and controls above. */
+.viewer {
+  width: min(1200px, calc(100vw - 48px));
+  height: calc(100dvh - 48px);
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  color: var(--ink);
+  opacity: 1;
+  translate: 0 0;
+  transition:
+    opacity var(--medium) var(--ease),
+    translate var(--medium) var(--ease);
+}
+
+.viewer[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.viewer::backdrop {
+  background: var(--scrim);
+  transition: opacity var(--medium) ease;
+}
+
+@starting-style {
+  .viewer[open] {
+    opacity: 0;
+    translate: 0 8px;
+  }
+
+  .viewer[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+.bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 8px 8px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.barButton {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--muted);
+}
+
+.barButton:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: var(--paper);
+}
+
+.media {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.audio {
+  width: min(480px, 100%);
+}
+
+/* A PDF and text use the whole stage. */
+.stage:has(.frame, .text) {
+  padding: 0;
+}
+
+.frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.text {
+  align-self: stretch;
+  flex: 1;
+  margin: 0;
+  padding: 16px 20px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-ui);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.note {
+  color: var(--muted);
+}
+
+@media (max-width: 767px) {
+  .card {
+    width: calc(50% - 4px);
+  }
+
+  .download {
+    width: 34px;
+    height: 34px;
+    bottom: 3px;
+  }
+
+  /* Full screen, with the controls at the bottom within thumb reach. */
+  .viewer {
+    width: 100vw;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .bar {
+    order: 1;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    border-bottom: 0;
+  }
+
+  .barButton {
+    width: 44px;
+    height: 44px;
+  }
+}

@@ -311,7 +311,10 @@ def test_attachments_are_metadata_only_and_downloadable(
     response = logged_in.get(f"/api/attachments/{attachment.id}")
     assert response.status_code == 200
     assert response.content == b"%PDF-1.4 contract"
-    assert response.headers["content-disposition"] == "attachment; filename*=UTF-8''contract.pdf"
+    # Inline and frameable by kanso alone, for the reader's attachment viewer.
+    assert response.headers["content-disposition"] == "inline; filename*=UTF-8''contract.pdf"
+    assert response.headers["x-frame-options"] == "SAMEORIGIN"
+    assert response.headers["content-security-policy"] == "frame-ancestors 'self'"
     assert logged_in.get("/api/attachments/999").status_code == 404
 
 

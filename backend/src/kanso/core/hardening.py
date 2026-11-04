@@ -21,6 +21,7 @@ CSP = "; ".join(
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: https: http:",
         "font-src 'self' data:",
+        "media-src 'self' blob:",  # the attachment viewer plays audio and video from a blob
         "connect-src 'self'",
         "frame-src 'self'",
         "worker-src 'self'",
