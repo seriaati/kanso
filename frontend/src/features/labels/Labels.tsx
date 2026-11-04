@@ -52,8 +52,14 @@ export function Labels({ account, labels, ai, onMenu }: Props) {
                         </span>
                         {ai && label.description && <span className={styles.muted}>{label.description}</span>}
                       </div>
-                      <button type="button" className={styles.edit} onClick={() => setEditing(label.name)}>
-                        Edit
+                      <button
+                        type="button"
+                        className={styles.iconButton}
+                        aria-label={`Edit ${label.name}`}
+                        title="Edit"
+                        onClick={() => setEditing(label.name)}
+                      >
+                        <Icon name="compose" size={15} />
                       </button>
                     </li>
                   ))}

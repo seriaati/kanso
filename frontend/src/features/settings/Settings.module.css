@@ -154,7 +154,20 @@
   padding: 0 10px 0 0;
 }
 
+.iconButton {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+}
+
 .disconnect:hover,
+.iconButton:hover,
 .add:hover,
 .cancel:hover {
   background: var(--hover);
