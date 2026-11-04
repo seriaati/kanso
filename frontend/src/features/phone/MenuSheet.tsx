@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router'
 import { logout, type Account } from '../../app/accounts'
 import type { Label, NamedLabel, SyncStatus } from '../../app/mail'
@@ -10,9 +10,7 @@ import { Avatar } from '../sidebar/AccountSwitcher'
 import { LabelEditor } from '../sidebar/LabelEditor'
 import { SyncNote } from '../sidebar/Sidebar'
 import styles from './MenuSheet.module.css'
-
-const FAR_ENOUGH = 80 // px pulled down to close on release
-const FLICK = 0.5 // px/ms: a quicker pull closes from any distance
+import { Sheet } from './Sheet'
 
 type Props = {
   accounts: Account[]
@@ -25,71 +23,16 @@ type Props = {
   onClose: () => void
 }
 
-// The phone's sidebar: a sheet from the bottom, within thumb reach. Any link in it closes it
-// (App closes it when the page changes). Pulled down from its top, it follows the finger and
-// closes on release.
+// The phone's sidebar, in a bottom sheet. Any link in it closes it (App closes it when the page
+// changes).
 export function MenuSheet({ accounts, route, labels, userLabels, sync, ai, onSelectAccount, onClose }: Props) {
   const [creating, setCreating] = useState(false)
-  const sheetRef = useRef<HTMLElement>(null)
-  const scrimRef = useRef<HTMLDivElement>(null)
-  const close = useEffectEvent(onClose)
-
-  // Native listeners: React's touchmove is passive, and the pull has to stop the sheet scrolling.
-  useEffect(() => {
-    const sheet = sheetRef.current
-    const scrim = scrimRef.current
-    if (!sheet || !scrim) return
-    let pull: { y: number; at: number; offset: number; active: boolean } | null = null
-    const move = (offset: number) => {
-      sheet.style.translate = offset ? `0 ${offset}px` : ''
-      scrim.style.opacity = offset ? String(1 - offset / sheet.offsetHeight) : ''
-    }
-    const onStart = (event: TouchEvent) => {
-      pull = event.touches.length === 1 ? { y: event.touches[0].clientY, at: event.timeStamp, offset: 0, active: false } : null
-    }
-    const onMove = (event: TouchEvent) => {
-      if (!pull) return
-      const dy = event.touches[0].clientY - pull.y
-      if (!pull.active) {
-        if (sheet.scrollTop > 0 || dy <= 0) return void (pull = null) // scrolling the sheet
-        pull.active = true
-        sheet.dataset.dragging = scrim.dataset.dragging = ''
-      }
-      event.preventDefault()
-      pull.offset = Math.max(0, dy)
-      move(pull.offset)
-    }
-    const onEnd = (event: TouchEvent) => {
-      const p = pull
-      pull = null
-      if (!p?.active) return
-      delete sheet.dataset.dragging
-      delete scrim.dataset.dragging
-      const speed = p.offset / (event.timeStamp - p.at)
-      if (p.offset < FAR_ENOUGH && speed < FLICK) return move(0)
-      if (p.offset >= sheet.offsetHeight) return close() // already off-screen: nothing to animate
-      sheet.addEventListener('transitionend', () => close(), { once: true })
-      move(sheet.offsetHeight)
-    }
-    sheet.addEventListener('touchstart', onStart, { passive: true })
-    sheet.addEventListener('touchmove', onMove, { passive: false })
-    sheet.addEventListener('touchend', onEnd)
-    sheet.addEventListener('touchcancel', onEnd)
-    return () => {
-      sheet.removeEventListener('touchstart', onStart)
-      sheet.removeEventListener('touchmove', onMove)
-      sheet.removeEventListener('touchend', onEnd)
-      sheet.removeEventListener('touchcancel', onEnd)
-    }
-  }, [])
   const to = (view: View) => href({ view, threadId: null, accountId: route.accountId })
   const inboxTotal = labels.filter((l) => l.gmail_id === 'INBOX').reduce((sum, l) => sum + l.threads_total, 0)
 
   return (
     <>
-      <div ref={scrimRef} className={styles.scrim} onClick={onClose} aria-hidden="true" />
-      <nav ref={sheetRef} className={styles.sheet} aria-label="Menu">
-        <button type="button" className={styles.handle} aria-label="Close menu" onClick={onClose} />
+      <Sheet label="Menu" role="navigation" className={styles.sheet} onClose={onClose}>
 
         <h2 className={styles.heading}>Accounts</h2>
         {accounts.map((account) => (
@@ -192,7 +135,7 @@ export function MenuSheet({ accounts, route, labels, userLabels, sync, ai, onSel
           </button>
         </div>
         <SyncNote sync={sync.filter((s) => s.account_id === route.accountId)} />
-      </nav>
+      </Sheet>
       {creating && route.accountId !== null && (
         <Dialog title="New label" onClose={() => setCreating(false)}>
           <LabelEditor accountId={route.accountId} ai={ai} onDone={() => setCreating(false)} />
