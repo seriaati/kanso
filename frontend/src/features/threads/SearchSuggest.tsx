@@ -31,6 +31,11 @@ const SYNTAX: Suggestion[] = [
   { label: '( )', detail: 'Group terms', insert: '(' },
   { label: '" "', detail: 'Exact phrase', insert: '"' },
 ]
+/** Whether the text uses search syntax, e.g. from:, so it is a search rather than a command. */
+export function hasOperator(text: string) {
+  return [...text.matchAll(/(?:^|[\s(])-?(\w+):/g)].some(([, name]) => OPERATORS.some(([op]) => op === `${name.toLowerCase()}:`))
+}
+
 const PEOPLE = new Set(['from', 'to', 'cc', 'bcc', 'with'])
 const VALUES: Record<string, [string, string][]> = {
   is: [

@@ -5,18 +5,20 @@ const shortcuts = [
   ['Enter / o', 'Open thread'],
   ['Esc', 'Back to the list'],
   ['e', 'Done (or move back to the inbox)'],
-  ['#', 'Delete (or restore from Trash)'],
+  ['d / Del', 'Delete (or restore from Trash)'],
   ['s', 'Star'],
   ['=', 'Important'],
   ['!', 'Report spam and block the sender (or not spam)'],
   ['l', 'Label'],
   ['u', 'Mark unread / read'],
   ['x', 'Select (or Ctrl/⌘-click; Shift-click for a range); actions apply to all selected'],
+  ['Ctrl+A', 'Select every thread in the list'],
   ['z', 'Undo Done, Delete, Restore or Not spam'],
   ['c', 'Compose'],
   ['r / a / f', 'Reply / reply all / forward'],
   ['Ctrl+Enter', 'Send (⌘+Enter on a Mac)'],
-  ['/', 'Search'],
+  ['/ / Ctrl+F', 'Search'],
+  ['Ctrl+K', 'Go to a mailbox, label or page, or search'],
   ['q', 'Ask the assistant'],
   ['[', 'Collapse / expand the sidebar'],
   ['?', 'This help'],
@@ -42,7 +44,7 @@ export function ShortcutHelp({ ai, onClose }: { ai: boolean; onClose: () => void
             </div>
           ))}
         </dl>
-        <p className={styles.note}>Every button’s tooltip names its shortcut.</p>
+        <p className={styles.note}>Every button’s tooltip names its shortcut. On a Mac, ⌘ stands in for Ctrl.</p>
       </div>
     </div>
   )

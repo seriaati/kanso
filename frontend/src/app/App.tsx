@@ -16,6 +16,7 @@ import { Assistant, type AssistantHandle } from '../features/assistant/Assistant
 import { BottomBar } from '../features/phone/BottomBar'
 import { MenuSheet } from '../features/phone/MenuSheet'
 import { Composer } from '../features/compose/Composer'
+import { CommandBar } from '../features/command/CommandBar'
 import { ShortcutHelp } from '../features/help/ShortcutHelp'
 import { LabelPicker, type LabelOption } from '../features/labels/LabelPicker'
 import { Login } from '../features/login/Login'
@@ -284,6 +285,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const [reply, setReply] = useState<ThreadDraft | null>(null)
   const starting = useRef(false)
   const [help, setHelp] = useState(false)
+  const [commanding, setCommanding] = useState(false)
   // The assistant, beside the mail (on a phone, a screen of its own). Questions go with the open
   // thread, if any.
   const [asking, setAsking] = useState(false)
@@ -567,11 +569,38 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   else if (view.kind === 'mailbox' && view.mailbox === 'inbox') empty = <InboxZero />
   const missingLabel = view.kind === 'label' && labels.isSuccess && !label
 
+  const focusSearch = () => {
+    searchRef.current?.focus()
+    searchRef.current?.select()
+  }
   const onKey = useEffectEvent((event: KeyboardEvent) => {
-    if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return
-    if (route.page) return
+    if (event.defaultPrevented || event.altKey) return
     const target = event.target instanceof Element ? event.target : null
-    if (target?.closest('input, textarea, select, [contenteditable]')) return
+    const typing = !!target?.closest('input, textarea, select, [contenteditable]')
+    // Ctrl/⌘ shortcuts; the browser's own where they don't apply (Ctrl+A in a text box).
+    if (event.ctrlKey || event.metaKey) {
+      if (event.shiftKey) return
+      const listed = !route.page && !typing && !help
+      switch (event.key.toLowerCase()) {
+        case 'k':
+          setHelp(false)
+          setCommanding((open) => !open)
+          break
+        case 'f':
+          if (!listed || !searchRef.current) return
+          focusSearch()
+          break
+        case 'a':
+          if (!listed || phone || threads.length === 0) return
+          select(new Set(threads.map((t) => t.id)), null)
+          break
+        default:
+          return
+      }
+      event.preventDefault()
+      return
+    }
+    if (route.page || typing) return
     if (help) {
       if (event.key === 'Escape' || event.key === '?') {
         setHelp(false)
@@ -599,7 +628,8 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
       case 'e':
         quick('done')
         break
-      case '#':
+      case 'd':
+      case 'Delete':
         quick('delete')
         break
       case 's':
@@ -644,8 +674,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
         else return
         break
       case '/':
-        searchRef.current?.focus()
-        searchRef.current?.select()
+        focusSearch()
         break
       case '?':
         setHelp(true)
@@ -937,6 +966,18 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
         <Toast notice={notice} update={update} place={screen === 'list' || (screen === 'thread' && !reply) ? 'bar' : screen === 'assistant' ? 'sheet' : 'bottom'} />
       )}
       {help && <ShortcutHelp ai={ai} onClose={() => setHelp(false)} />}
+      {commanding && (
+        <CommandBar
+          route={route}
+          accounts={accounts}
+          labels={named}
+          onNavigate={(to) => {
+            setCommanding(false)
+            void navigate(to)
+          }}
+          onClose={() => setCommanding(false)}
+        />
+      )}
     </div>
   )
 }

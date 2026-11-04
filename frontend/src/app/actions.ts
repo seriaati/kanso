@@ -89,12 +89,12 @@ export const redundant = (quick: Quick, threads: ThreadSummary[]) => quick === '
 
 export function quickAction(quick: Quick, threads: ThreadSummary[]): { icon: IconName; title: string; pressed?: boolean } {
   const all = (test: (t: ThreadSummary) => boolean) => threads.length > 0 && threads.every(test)
-  if ((quick === 'done' || quick === 'delete') && inTrash(threads)) return { icon: 'restore', title: 'Restore to inbox (#)' }
+  if ((quick === 'done' || quick === 'delete') && inTrash(threads)) return { icon: 'restore', title: 'Restore to inbox (d)' }
   switch (quick) {
     case 'done':
       return all((t) => !t.in_inbox) ? { icon: 'inbox', title: 'Move to inbox (e)' } : { icon: 'done', title: 'Done (e)' }
     case 'delete':
-      return { icon: 'delete', title: 'Delete (#)' }
+      return { icon: 'delete', title: 'Delete (d)' }
     case 'star':
       return { icon: 'star', title: all((t) => t.starred) ? 'Unstar (s)' : 'Star (s)', pressed: all((t) => t.starred) }
     case 'important': {
