@@ -15,7 +15,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from kanso.ai import keys, labeling, trim
+from kanso.ai import keys, labeling, suggestions, trim
 from kanso.core.settings import settings
 from kanso.db import session
 from kanso.db.models import Account, AiQueue, AiUsage, BlockedSender, Label, Outbox, Thread
@@ -796,6 +796,103 @@ def test_blocking_a_sender_blocks_only_that_sender(synced: TestClient) -> None:
     state = threads()
     assert state["t4"].in_spam and state["t9"].in_spam and not state["t1"].in_spam
     assert [b.email for b in rows(BlockedSender)] == ["daniel@example.com"]
+
+
+SUGGESTED = {
+    "labels": [
+        {
+            "name": "finance",  # already a label: left out
+            "description": "bills",
+            "color": "plum",
+            "bundle": False,
+            "examples": [],
+        },
+        {
+            "name": "  Home   bills ",
+            "description": " Utility bills and household services. ",
+            "color": "ochre",
+            "bundle": False,
+            "examples": ["Your bill for October", "a", "b", "c"],
+        },
+        {
+            "name": "Friends",
+            "description": "Plans with friends",
+            "color": "moss",
+            "bundle": True,
+            "examples": ["Dinner?"],
+        },
+    ]
+}
+
+
+@pytest.fixture
+def suggesting(claude: FakeClaude, monkeypatch: pytest.MonkeyPatch) -> FakeClaude:
+    monkeypatch.setattr(suggestions, "client", lambda _key: claude.client())
+    return claude
+
+
+def test_label_suggestions_from_unlabeled_inbox_mail(
+    ai_on: None, synced: TestClient, suggesting: FakeClaude
+) -> None:
+    suggesting.answers = [SUGGESTED]
+    body = {"account_id": 1, "model": "claude-sonnet-5-5"}
+    response = synced.post("/api/ai/label-suggestions", json=body)
+    assert response.status_code == 200, response.text
+    assert response.json() == [
+        {
+            "name": "Home bills",
+            "description": "Utility bills and household services.",
+            "color": "#A07338",
+            "bundle": False,
+            "examples": ["Your bill for October", "a", "b"],
+        },
+        {
+            "name": "Friends",
+            "description": "Plans with friends",
+            "color": "#556B3F",
+            "bundle": True,
+            "examples": ["Dinner?"],
+        },
+    ]
+    [request] = suggesting.requests
+    assert request["model"] == "claude-sonnet-5-5"
+    prompt = request["messages"][0]["content"]
+    assert "Existing labels: Finance, Newsletters, Work" in prompt
+    # Unlabeled inbox mail only: not labeled (Q4 planning, Weekly brief) or archived threads.
+    assert "Subject: Your bill for October" in prompt and "Subject: Dinner?" in prompt
+    for left_out in ("Q4 planning", "Weekly brief", "September statement", "statement-secret"):
+        assert left_out not in prompt
+    assert [(u.feature, u.model) for u in rows(AiUsage)] == [("suggestions", "claude-sonnet-5-5")]
+
+
+def test_label_suggestions_need_claude_and_a_known_model(
+    synced: TestClient, suggesting: FakeClaude
+) -> None:
+    body = {"account_id": 1, "model": "claude-haiku-5-5"}
+    assert synced.post("/api/ai/label-suggestions", json=body).status_code == 409
+    set_key("jev", "jev-key")  # Jev can't make labels up
+    assert synced.post("/api/ai/label-suggestions", json=body).status_code == 409
+    set_key("anthropic", "test-key")
+    bad = {"account_id": 1, "model": "jev-latest"}
+    assert synced.post("/api/ai/label-suggestions", json=bad).status_code == 422
+    assert suggesting.requests == []
+
+
+def test_label_suggestions_report_an_unusable_answer(
+    ai_on: None, synced: TestClient, suggesting: FakeClaude
+) -> None:
+    suggesting.answers = [{"no": "labels"}]
+    body = {"account_id": 1, "model": "claude-haiku-5-5"}
+    response = synced.post("/api/ai/label-suggestions", json=body)
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Claude’s answer couldn’t be read. Try again."
+    assert len(rows(AiUsage)) == 1  # the call still counts
+
+
+def test_suggested_colors_are_gmail_colors() -> None:
+    from kanso.api.labels import GMAIL_COLORS
+
+    assert set(suggestions.COLORS.values()) == set(GMAIL_COLORS)
 
 
 # TypeSafe's Jev: the labeling model with only a TypeSafe key, or when picked in Settings.

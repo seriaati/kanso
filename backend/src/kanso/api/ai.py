@@ -9,8 +9,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kanso.ai import keys, labeling, summaries, usage
-from kanso.db.models import AiQueue, Thread
+from kanso.ai import keys, labeling, suggestions, summaries, usage
+from kanso.core.settings import settings
+from kanso.db.models import Account, AiQueue, Thread
 from kanso.db.session import get_session
 
 router = APIRouter()
@@ -167,6 +168,33 @@ async def label_inbox(body: LabelInboxIn, db: DB) -> LabelInboxOut:
     await labeling.wake()
     run = await _latest_run(db, body.account_id)
     return LabelInboxOut(eligible=0, estimate_usd=None, run=run)
+
+
+class SuggestIn(BaseModel):
+    account_id: int
+    model: str
+
+
+@router.post("/ai/label-suggestions")
+async def suggest_labels(body: SuggestIn, db: DB) -> list[suggestions.Suggestion]:
+    """Claude only, with the model picked for this one call."""
+    if not (await keys.load(db)).ai:
+        raise HTTPException(status_code=409, detail=keys.AI_OFF)
+    if body.model not in usage.PRICES:
+        raise HTTPException(status_code=422, detail=f"Unknown model: {body.model}")
+    account = await db.get(Account, body.account_id)
+    if account is None:
+        raise HTTPException(status_code=404, detail="Account not found")
+    # Demo mail is made up: never sent to the AI, except on a demo instance, where all mail is.
+    if account.demo and not settings.demo_mode:
+        raise HTTPException(status_code=400, detail="The demo mailbox isn’t sent to the AI.")
+    try:
+        result = await suggestions.suggest(db, account, body.model)
+    except suggestions.Failed as error:
+        await db.commit()  # the usage, if Claude answered
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    await db.commit()
+    return result
 
 
 class SummaryOut(BaseModel):
