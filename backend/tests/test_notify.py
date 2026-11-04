@@ -206,7 +206,7 @@ def test_new_unread_inbox_mail_is_pushed(mail: tuple[FakeGmail, Browser]) -> Non
         {
             "title": "Daniel",
             "body": "Re: Old news\nA reply",
-            "url": "/inbox/1",
+            "url": "/inbox/1?account=1",
             "tag": "thread-1",
             "thread_id": 1,
             "sender": "Daniel",

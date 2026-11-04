@@ -193,7 +193,7 @@ async def new_mail(
                 {
                     "title": f"{len(rows)} new messages",
                     "body": "",
-                    "url": "/inbox",
+                    "url": f"/inbox?account={account_id}",
                     "tag": "kanso-new-mail",
                 }
             ]
@@ -209,7 +209,7 @@ async def new_mail(
                             None, [_clip(r.subject or "(no subject)", 200), _clip(r.snippet, 200)]
                         )
                     ),
-                    "url": f"/inbox/{r.thread_id}",
+                    "url": f"/inbox/{r.thread_id}?account={account_id}",
                     "tag": f"thread-{r.thread_id}",  # a newer message replaces its thread's
                     # For the Done and Delete buttons, and the sender's picture (push-sw.js).
                     "thread_id": r.thread_id,
