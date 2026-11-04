@@ -183,7 +183,7 @@ export function Sidebar(props: Props) {
             <span>{notice.text}</span>
             {notice.undo && (
               <button type="button" onClick={notice.undo} title="Undo (z)">
-                Undo
+                Undo <kbd>z</kbd>
               </button>
             )}
           </div>
