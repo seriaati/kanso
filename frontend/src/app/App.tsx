@@ -259,7 +259,8 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
 
   const [cursor, setCursor] = useState<number | null>(null)
   const cursorId = threadId ?? cursor
-  const [composing, setComposing] = useState<{ draftId: number; minimized: boolean } | null>(null)
+  // `seen`: on a phone, its history entry (below) is in place.
+  const [composing, setComposing] = useState<{ draftId: number; minimized: boolean; seen?: boolean } | null>(null)
   const [reply, setReply] = useState<ThreadDraft | null>(null)
   const starting = useRef(false)
   const [help, setHelp] = useState(false)
@@ -459,8 +460,20 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     if (composing) return setComposing({ ...composing, minimized: false })
     startDraft(
       () => createDraft('new', { accountId: accountId ?? undefined }).then((d) => d.id),
-      (draftId) => setComposing({ draftId, minimized: false }),
+      (draftId) => {
+        setComposing({ draftId, minimized: false })
+        if (phone) void navigate({ pathname: location.pathname, search: location.search }, { state: { compose: draftId } })
+      },
     )
+  }
+  // On a phone the window covers the app, so it has a history entry of its own: Back closes it
+  // (as Close does), and closing it leaves the entry.
+  const composeEntry = (location.state as { compose?: number } | null)?.compose
+  if (composing && !composing.seen && composeEntry === composing.draftId) setComposing({ ...composing, seen: true })
+  const composeBacked = !!composing?.seen && composeEntry !== composing.draftId
+  const closeCompose = () => {
+    setComposing(null)
+    if (composing && composeEntry === composing.draftId) navigate(-1)
   }
   const startReply = (mode: Exclude<ComposeMode, 'new'>) => {
     const thread = detail.data
@@ -861,10 +874,11 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
             title="New message"
             focus="to"
             minimized={composing.minimized}
+            closing={composeBacked}
             onToggleMinimize={() => setComposing({ ...composing, minimized: !composing.minimized })}
-            onClose={() => setComposing(null)}
+            onClose={closeCompose}
             onFinished={(text) => {
-              setComposing(null)
+              closeCompose()
               say(text)
             }}
           />

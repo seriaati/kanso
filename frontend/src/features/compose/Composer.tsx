@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useEffectEvent, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { ApiError } from '../../app/api'
 import {
   ATTACHMENTS_LIMIT,
@@ -38,6 +38,8 @@ type Props = {
   minimized?: boolean
   onToggleMinimize?: () => void
   focus?: Focus | null
+  /** Set when it should close as Close does (Back on a phone, App.tsx). */
+  closing?: boolean
   onClose?: () => void
   onFinished: (notice: string, threadId?: number | null) => void
 }
@@ -53,7 +55,7 @@ type Status = { kind: 'idle' | 'saving' | 'saved' | 'error'; text?: string }
 
 const isImage = (file: File) => IMAGE_TYPES.includes(file.type)
 
-function Form({ initial: latest, docked, title, minimized, onToggleMinimize, focus, onClose, onFinished }: Props & { initial: Draft }) {
+function Form({ initial: latest, docked, title, minimized, onToggleMinimize, focus, closing, onClose, onFinished }: Props & { initial: Draft }) {
   // Autosaves update the cached draft, not what is on screen.
   const [initial] = useState(latest)
   const id = initial.id
@@ -153,6 +155,10 @@ function Form({ initial: latest, docked, title, minimized, onToggleMinimize, foc
     else void save()
     onClose?.()
   }
+  const closeNow = useEffectEvent(close)
+  useEffect(() => {
+    if (closing) closeNow()
+  }, [closing])
 
   const send = async () => {
     if (sending) return
