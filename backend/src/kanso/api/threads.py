@@ -64,6 +64,11 @@ class ThreadOut(BaseModel):
     sender_photo: str | None = None
 
 
+class BundleSender(BaseModel):
+    name: str
+    photo: str | None  # as ThreadOut.sender_photo
+
+
 class SectionOut(BaseModel):
     """A section of the grouped inbox, or a bundle."""
 
@@ -71,7 +76,7 @@ class SectionOut(BaseModel):
     bundle: bool
     count: int
     newest_at: datetime
-    senders: list[str]  # bundles: the senders of their newest threads
+    senders: list[BundleSender]  # bundles: the senders of their newest threads, newest first
 
 
 class ThreadPage(BaseModel):
@@ -313,23 +318,29 @@ async def _sections(db: AsyncSession, account_id: int) -> list[SectionOut]:
     )
     sections = []
     for section, bundle, count, newest in rows:
-        senders: list[str] = []
+        senders: dict[str, str | None] = {}
         if bundle is not None:
-            for names in await db.scalars(
-                select(Thread.senders)
-                .join(placed, placed.c.id == Thread.id)
-                .where(placed.c.bundle == bundle)
-                .order_by(Thread.last_message_at.desc())
-                .limit(10)
-            ):
-                senders += [n for n in names if n not in senders]
+            ids = list(
+                await db.scalars(
+                    select(Thread.id)
+                    .join(placed, placed.c.id == Thread.id)
+                    .where(placed.c.bundle == bundle)
+                    .order_by(Thread.last_message_at.desc())
+                    .limit(20)
+                )
+            )
+            latest = await _senders(db, ids)
+            for thread_id in ids:
+                if thread_id in latest:
+                    name, photo = latest[thread_id]
+                    senders.setdefault(name, photo)
         sections.append(
             SectionOut(
                 name=bundle if bundle is not None else section,
                 bundle=bundle is not None,
                 count=count,
                 newest_at=newest,
-                senders=senders[:3],
+                senders=[BundleSender(name=n, photo=p) for n, p in list(senders.items())[:8]],
             )
         )
     sections.sort(key=lambda s: (s.name is None and not s.bundle, s.newest_at), reverse=True)

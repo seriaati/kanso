@@ -619,7 +619,9 @@ def test_grouped_inbox_sections_and_bundles(ai_on: None, synced: TestClient) -> 
         (None, False): 2,
         ("Newsletters", True): 1,
     }
-    assert sections[("Newsletters", True)]["senders"] == ["Brief"]
+    assert sections[("Newsletters", True)]["senders"] == [
+        {"name": "Brief", "photo": "/api/logos/x.io"}
+    ]
     bundle = synced.get("/api/threads?account_id=1&mailbox=inbox&bundle=Newsletters").json()
     assert [t["subject"] for t in bundle["threads"]] == ["Weekly brief"]
 

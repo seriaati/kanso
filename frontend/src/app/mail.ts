@@ -32,7 +32,8 @@ export type ThreadSummary = {
   sender_photo: string | null
 }
 
-export type Section = { name: string | null; bundle: boolean; count: number; newest_at: string; senders: string[] }
+export type BundleSender = { name: string; photo: string | null }
+export type Section = { name: string | null; bundle: boolean; count: number; newest_at: string; senders: BundleSender[] }
 
 export type Address = { name: string; email: string }
 
@@ -128,7 +129,7 @@ async function threadPage(params: URLSearchParams, cursor: string) {
       { text: [...t.senders, ...(t.recipients ?? []), t.subject].join(''), lang: t.lang, bold: t.unread },
       { text: t.snippet, lang: t.lang },
     ]),
-    ...(page.sections ?? []).flatMap((s) => [{ text: s.name ?? '', bold: true }, { text: s.senders.join('') }]),
+    ...(page.sections ?? []).flatMap((s) => [{ text: s.name ?? '', bold: true }, { text: s.senders.map((sender) => sender.name).join('') }]),
   ])
   return page
 }

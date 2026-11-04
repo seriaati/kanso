@@ -506,10 +506,9 @@
 }
 
 .bundle {
-  left: 16px;
-  right: 16px;
+  left: 8px;
+  right: 8px;
   height: 32px;
-  gap: 2px;
 }
 
 /* The mockup's 10px gap, hairline and 6px padding above the bundles. */
@@ -520,45 +519,74 @@
   border-top: 1px solid var(--line);
 }
 
-.bundleToggle {
+/* A thread row inside the bundle's slot; any density keeps the slot's height. */
+.bundle > .row {
+  position: relative;
+  left: auto;
+  right: auto;
+  height: 100%;
   flex: 1;
-  min-width: 0;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 8px 0 0;
+}
+
+.bundleToggle {
   border: 0;
-  border-radius: var(--radius);
   background: transparent;
+  font: inherit;
+  color: inherit;
   text-align: left;
 }
 
-.bundleToggle svg {
+/* Where a thread row has its unread dot and avatar, so the columns line up. */
+.bundleChevron {
+  width: 34px;
   flex-shrink: 0;
+  display: grid;
+  place-items: center;
   color: var(--muted);
+}
+
+.bundleChevron svg {
   transition: rotate var(--medium) var(--ease);
 }
 
-.bundleToggle[aria-expanded='true'] svg {
+.bundleToggle[aria-expanded='true'] .bundleChevron svg {
   rotate: 90deg;
 }
 
-.bundleToggle {
-  scale: none;
-}
-
-.bundleToggle:hover {
-  background: var(--hover);
-}
-
 .bundleSenders {
-  flex: 1;
-  min-width: 0;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bundleSender {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.named + .bundleSender::before {
+  content: '';
+  width: 1px;
+  height: 12px;
+  margin-right: 3px;
+  background: var(--line);
+}
+
+.senderAvatar {
+  width: 14px;
+  height: 14px;
+  font-size: 8px;
+}
+
+/* Keyboard: the actions come into view with focus, as they do on hover. */
+.bundleRow:has(:focus-visible) .time {
+  display: none;
+}
+
+.bundleRow:has(:focus-visible) .actions {
+  display: flex;
 }
 
 /* Opens the sidebar drawer; phones only. */
@@ -726,8 +754,8 @@
   }
 
   .bundle {
-    left: 8px;
-    right: 8px;
+    left: 0;
+    right: 0;
     height: 48px;
   }
 
@@ -735,8 +763,9 @@
     height: 55px;
   }
 
-  .bundleToggle {
-    height: 48px;
-    padding-left: 8px;
+  /* One line, not a thread row's two. */
+  .bundle .bundleToggle {
+    display: flex;
+    padding: 0 16px 0 8px;
   }
 }

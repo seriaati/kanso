@@ -8,7 +8,7 @@ import type { Account } from '../../app/accounts'
 import { useDensity } from '../../app/density'
 import type { Section, ThreadSummary } from '../../app/mail'
 import { Avatar } from '../../components/Avatar'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName } from '../../components/Icon'
 import { Menu } from '../../components/Menu'
 import { InstallButton } from '../install/InstallButton'
 import { Avatar as AccountAvatar } from '../sidebar/AccountSwitcher'
@@ -309,17 +309,66 @@ type BundleProps = {
   onToggle: (name: string) => void
 }
 
+const bundleActions: { action: SectionAction; icon: IconName; label: string }[] = [
+  { action: 'done', icon: 'done', label: 'Done all' },
+  { action: 'delete', icon: 'delete', label: 'Delete all' },
+  { action: 'read', icon: 'mailOpen', label: 'Mark all read' },
+]
+const NAMED_SENDERS = 3 // the rest show only their icon
+
+// Like a thread row: the senders and the newest time, the actions on hover (on phones, a swipe).
 function BundleRow({ row, top, onAction, onToggle }: BundleProps) {
-  const name = row.section.name ?? ''
+  const { section } = row
+  const name = section.name ?? ''
+  const swipe = useSwipe((direction) => onAction(direction === 'right' ? 'done' : 'delete', section))
+  const swiped = bundleActions[swipe.offset > 0 ? 0 : 1]
   return (
     <div className={`${styles.bundle} ${row.first ? styles.firstBundle : ''}`} style={{ transform: `translateY(${top}px)` }}>
-      <button type="button" className={styles.bundleToggle} aria-expanded={row.open} onClick={() => onToggle(name)}>
-        <Icon name="chevronRight" size={12} strokeWidth={2.2} />
-        <span className={styles.groupName}>{name}</span>
-        {count(row.section)}
-        <span className={styles.bundleSenders}>{row.section.senders.join(', ')}</span>
-      </button>
-      <SectionActions section={row.section} name={name} onAction={onAction} />
+      <div className={`${styles.row} ${styles.bundleRow}`} {...swipe.handlers}>
+        {swipe.offset !== 0 && (
+          <span className={`${styles.swipe} ${swipe.offset > 0 ? styles.swipeDone : styles.swipeDelete}`} aria-hidden="true">
+            <Icon name={swiped.icon} size={17} />
+            {swiped.label}
+          </span>
+        )}
+        <button
+          type="button"
+          className={[styles.main, styles.bundleToggle, swipe.dragging && styles.dragging, swipe.offset !== 0 && styles.moving].filter(Boolean).join(' ')}
+          style={swipe.offset ? { transform: `translateX(${swipe.offset}px)` } : undefined}
+          aria-expanded={row.open}
+          onClick={() => onToggle(name)}
+        >
+          <span className={styles.bundleChevron}>
+            <Icon name="chevronRight" size={12} strokeWidth={2.2} />
+          </span>
+          <span className={styles.from}>
+            <span className={styles.groupName}>{name}</span> {count(section)}
+          </span>
+          <span className={`${styles.summary} ${styles.bundleSenders}`}>
+            {section.senders.map((sender, i) => (
+              <span key={sender.name} className={`${styles.bundleSender} ${i < NAMED_SENDERS ? styles.named : ''}`} title={sender.name}>
+                <Avatar className={styles.senderAvatar} name={sender.name} src={sender.photo} />
+                {i < NAMED_SENDERS && sender.name}
+              </span>
+            ))}
+          </span>
+          <span className={styles.time}>{shortDate(section.newest_at)}</span>
+        </button>
+        <span className={styles.actions}>
+          {bundleActions.map(({ action, icon, label }) => (
+            <button
+              key={action}
+              type="button"
+              className={styles.action}
+              aria-label={label}
+              title={`${label} in ${name}`}
+              onClick={() => onAction(action, section)}
+            >
+              <Icon name={icon} size={15} />
+            </button>
+          ))}
+        </span>
+      </div>
     </div>
   )
 }
