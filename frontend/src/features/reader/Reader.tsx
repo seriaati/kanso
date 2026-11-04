@@ -280,13 +280,13 @@ function PhoneActions({ targets, onQuick, onLabel, picker, onReply, canReply }: 
   const none = targets.length === 0
   const item = (q: Quick, short: (on: boolean) => string) => {
     const { icon, title, pressed } = quickAction(q, targets)
-    // Done and Delete turn into Move to inbox and Restore: their icon says which.
-    const on = q === 'star' ? !!pressed : icon === 'inbox' || icon === 'restore'
+    // Star and Done show when they're on; Delete turns into Restore, its icon says so.
+    const on = q === 'delete' ? icon === 'restore' : !!pressed
     return (
       <button
         type="button"
         className={bar.item}
-        aria-pressed={q === 'star' ? pressed : undefined}
+        aria-pressed={pressed}
         aria-disabled={none || undefined}
         title={name(title)}
         onClick={none ? undefined : () => onQuick(q)}
@@ -298,7 +298,7 @@ function PhoneActions({ targets, onQuick, onLabel, picker, onReply, canReply }: 
   }
   return (
     <nav className={`${bar.bar} ${styles.actions}`} aria-label="Email actions">
-      {!redundant('done', targets) && item('done', (back) => (back ? 'Inbox' : 'Done'))}
+      {!redundant('done', targets) && item('done', () => 'Done')}
       {item('delete', (back) => (back ? 'Restore' : 'Delete'))}
       <span className={styles.slot}>
         <button type="button" className={bar.item} aria-disabled={none || undefined} onClick={none ? undefined : onLabel}>

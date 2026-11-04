@@ -91,7 +91,8 @@ export function quickAction(quick: Quick, threads: ThreadSummary[]): { icon: Ico
   if ((quick === 'done' || quick === 'delete') && inTrash(threads)) return { icon: 'restore', title: 'Restore to inbox (d)' }
   switch (quick) {
     case 'done':
-      return all((t) => !t.in_inbox) ? { icon: 'inbox', title: 'Move to inbox (e)' } : { icon: 'done', title: 'Done (e)' }
+      // Pressed: already done, and pressing it moves the threads back to the inbox.
+      return all((t) => !t.in_inbox) ? { icon: 'done', title: 'Move to inbox (e)', pressed: true } : { icon: 'done', title: 'Done (e)' }
     case 'delete':
       return { icon: 'delete', title: 'Delete (d)' }
     case 'star':

@@ -359,7 +359,8 @@ function ThreadRow(props: RowProps) {
     >
       {swipe.offset !== 0 && (
         <span className={`${styles.swipe} ${swipe.offset > 0 ? styles.swipeDone : styles.swipeDelete}`} aria-hidden="true">
-          <Icon name={swipe.offset > 0 ? done.icon : remove.icon} size={17} />
+          {/* What the swipe does: a done thread goes back to the inbox. */}
+          <Icon name={swipe.offset > 0 ? (done.pressed ? 'inbox' : done.icon) : remove.icon} size={17} />
           {(swipe.offset > 0 ? done : remove).title.replace(/ \(.*\)$/, '')}
         </span>
       )}

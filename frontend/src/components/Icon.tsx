@@ -160,15 +160,17 @@ type Props = {
 }
 
 export function Icon({ name, size = 17, strokeWidth = 1.8, filled = false }: Props) {
+  // Done's check is only a line: filled, it is drawn bolder instead.
+  const bolder = filled && name === 'done'
   return (
     <svg
       aria-hidden="true"
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill={filled ? 'currentColor' : 'none'}
+      fill={filled && !bolder ? 'currentColor' : 'none'}
       stroke="currentColor"
-      strokeWidth={strokeWidth}
+      strokeWidth={bolder ? strokeWidth + 0.8 : strokeWidth}
       strokeLinejoin="round"
     >
       {paths[name]}
