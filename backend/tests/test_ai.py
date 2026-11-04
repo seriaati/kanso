@@ -18,7 +18,7 @@ from sqlalchemy.pool import NullPool
 from kanso.ai import keys, labeling, trim
 from kanso.core.settings import settings
 from kanso.db import session
-from kanso.db.models import Account, AiQueue, AiUsage, Label, Outbox, Thread
+from kanso.db.models import Account, AiQueue, AiUsage, BlockedSender, Label, Outbox, Thread
 from kanso.db.session import Session
 from kanso.gmail import client, oauth
 from kanso.sync import engine, outbox
@@ -708,6 +708,51 @@ def test_label_settings_are_local(synced: TestClient, gmail: FakeGmail) -> None:
         json={"name": "Receipts", "description": "orders", "is_bundle": True, "account_id": 1},
     ).json()
     assert created["is_bundle"] and created["description"] == "orders"
+
+
+# The Clean up page. The fixture's inbox, oldest first: t1 (Harbor, unlabeled), t2 (Daniel,
+# Work), t4 (Daniel, unlabeled), t5 (Brief, the Newsletters bundle). t3 is archived.
+BETWEEN_T2_AND_T4 = "2023-11-14T22:15:00Z"
+
+
+def test_archive_inbox_threads_older_than_a_date_then_undo(
+    synced: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from kanso.api import actions
+
+    monkeypatch.setattr(actions, "CHUNK", 1)  # one outbox entry per thread
+    count = synced.get(f"/api/cleanup/inbox?account_id=1&before={BETWEEN_T2_AND_T4}").json()
+    assert count == {"threads": 2}
+    scope = {"account_id": 1, "before": BETWEEN_T2_AND_T4}
+    entries = synced.post("/api/threads/actions", json={"action": "done", "inbox": scope}).json()
+    assert len(entries["entries"]) == 2
+    inbox = {g for g, t in threads().items() if t.in_inbox}
+    assert inbox == {"t4", "t5"}
+    synced.post("/api/threads/undo", json=entries)
+    assert {g for g, t in threads().items() if t.in_inbox} == {"t1", "t2", "t4", "t5"}
+
+
+def test_senders_and_clearing_one(synced: TestClient) -> None:
+    listed = synced.get("/api/cleanup/senders?account_id=1").json()
+    ids = threads()
+    # Only Daniel has two inbox threads; his newest is t4.
+    assert listed["senders"] == [
+        {"email": "daniel@example.com", "name": "Daniel", "threads": 2, "thread_id": ids["t4"].id}
+    ]
+    run(_add_threads({"t9": ["INBOX"]}))  # Daniel again, after the list was loaded: left alone
+    scope = {"account_id": 1, "sender": "Daniel@Example.com", "before": listed["as_of"]}
+    synced.post("/api/threads/actions", json={"action": "done", "inbox": scope})
+    assert {g for g, t in threads().items() if t.in_inbox} == {"t1", "t5", "t9"}
+
+
+def test_blocking_a_sender_blocks_only_that_sender(synced: TestClient) -> None:
+    gmail_threads = {"t9": ["INBOX"]}
+    run(_add_threads(gmail_threads))
+    scope = {"account_id": 1, "sender": "daniel@example.com"}
+    synced.post("/api/threads/actions", json={"action": "spam", "inbox": scope})
+    state = threads()
+    assert state["t4"].in_spam and state["t9"].in_spam and not state["t1"].in_spam
+    assert [b.email for b in rows(BlockedSender)] == ["daniel@example.com"]
 
 
 # TypeSafe's Jev: the labeling model with only a TypeSafe key, or when picked in Settings.

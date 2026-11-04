@@ -3,6 +3,7 @@ transaction."""
 
 import logging
 from datetime import datetime
+from itertools import batched
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -11,6 +12,7 @@ from sqlalchemy import delete, func, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kanso.api.cleanup import InboxScope, inbox_thread_ids
 from kanso.api.threads import section_thread_ids
 from kanso.db import redis as events
 from kanso.db.models import Account, BlockedSender, Label, Message, MessageLabel, Outbox, Thread
@@ -20,6 +22,9 @@ from kanso.sync import outbox, store
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/threads")
 DB = Annotated[AsyncSession, Depends(get_session)]
+# A section or an InboxScope can hold thousands of threads: they go in chunks, each an outbox
+# entry, so no query outgrows Postgres's limit on parameters.
+CHUNK = 1000
 
 Action = Literal[
     "done",
@@ -74,12 +79,13 @@ class ActionIn(BaseModel):
     action: Action
     thread_ids: list[int] = Field(default=[], max_length=1000)
     section: Section | None = None  # instead of thread_ids
+    inbox: InboxScope | None = None  # instead of thread_ids (the Clean up page)
     label: str | None = None  # the user label's name, for "label" and "unlabel"
 
     @model_validator(mode="after")
     def _targets(self) -> "ActionIn":
-        if not self.thread_ids and self.section is None:
-            raise ValueError("thread_ids or section is required")
+        if not self.thread_ids and self.section is None and self.inbox is None:
+            raise ValueError("thread_ids, section or inbox is required")
         return self
 
 
@@ -225,12 +231,24 @@ async def thread_action(body: ActionIn, db: DB) -> ActionOut:
     if body.section is not None:
         s = body.section
         thread_ids = await section_thread_ids(db, s.name, s.bundle, s.account_id, s.until)
-        if not thread_ids:
-            return ActionOut(entries=[])
-    entries, touched = await apply_action(db, body.action, thread_ids, body.label)
+    elif body.inbox is not None:
+        thread_ids = await inbox_thread_ids(db, body.inbox)
+    if not thread_ids:
+        return ActionOut(entries=[])
+    entries: list[int] = []
+    touched: dict[int, set[int]] = {}
+    for chunk in batched(thread_ids, CHUNK, strict=False):
+        more, more_touched = await apply_action(db, body.action, list(chunk), body.label)
+        entries += more
+        for account_id, changed in more_touched.items():
+            touched.setdefault(account_id, set()).update(changed)
     if body.action in ("label", "unlabel"):
         await store.mark_manual(db, thread_ids)  # AI labeling never overrides the user
-    if body.action in ("spam", "unspam"):
+    if body.action == "spam" and body.inbox is not None and body.inbox.sender:
+        # Blocking one sender's threads blocks that sender, not the others in the threads.
+        row = {"account_id": body.inbox.account_id, "email": body.inbox.sender.lower()}
+        await db.execute(insert(BlockedSender).values(row).on_conflict_do_nothing())
+    elif body.action in ("spam", "unspam"):
         await block_senders(db, thread_ids, block=body.action == "spam")
     await db.commit()
     await publish(touched, wake=bool(entries))
