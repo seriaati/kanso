@@ -38,6 +38,13 @@
   color: var(--muted);
 }
 
+.rowActions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  margin-right: -10px;
+}
+
 .done {
   flex: none;
   padding: 0 10px;

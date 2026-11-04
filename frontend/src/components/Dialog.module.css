@@ -12,6 +12,10 @@
     translate var(--medium) var(--ease);
 }
 
+.wide {
+  width: min(520px, calc(100vw - 32px));
+}
+
 .dialog::backdrop {
   background: var(--scrim);
   transition: opacity var(--medium) ease;

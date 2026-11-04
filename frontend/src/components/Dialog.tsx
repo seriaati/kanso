@@ -1,10 +1,10 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import styles from './Dialog.module.css'
 
-type Props = { title: string; onClose: () => void; children: ReactNode }
+type Props = { title: string; onClose: () => void; children: ReactNode; /** For a list, not a form. */ wide?: boolean }
 
 // A native modal <dialog>, so focus stays inside.
-export function Dialog({ title, onClose, children }: Props) {
+export function Dialog({ title, onClose, children, wide }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
   useEffect(() => {
     const dialog = ref.current
@@ -14,7 +14,7 @@ export function Dialog({ title, onClose, children }: Props) {
   return (
     <dialog
       ref={ref}
-      className={styles.dialog}
+      className={`${styles.dialog} ${wide ? styles.wide : ''}`}
       aria-label={title}
       onCancel={(event) => {
         event.preventDefault() // closed by unmounting, so the closing is the caller's
