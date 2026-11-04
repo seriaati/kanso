@@ -483,6 +483,14 @@
   color: var(--muted);
 }
 
+.groupActions .sectionMore,
+.sectionMore {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  padding: 0;
+}
+
 .doneAll:hover,
 .groupActions button:hover {
   background: var(--hover);

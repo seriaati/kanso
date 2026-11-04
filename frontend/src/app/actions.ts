@@ -25,7 +25,7 @@ export type ActionInput = {
   action: ThreadAction
   threads: ThreadSummary[]
   label?: { name: string; id: number }
-  /** "Done all": the server finds the section's threads; `threads` are only the loaded ones. */
+  /** A whole section ("Done all"): the server finds its threads; `threads` are only the loaded ones. */
   section?: SectionScope
 }
 
@@ -151,7 +151,9 @@ function patchCaches(input: ActionInput): Snapshot {
   }
   const fewer = new Map<string, number>()
   for (const key of left.values()) fewer.set(key, (fewer.get(key) ?? 0) + 1)
-  const cleared = input.section && sectionKey(input.section.name, input.section.bundle)
+  // Only an action that takes the threads out of the inbox empties the section.
+  const emptied = input.action === 'done' || input.action === 'delete' || input.action === 'spam'
+  const cleared = emptied && input.section && sectionKey(input.section.name, input.section.bundle)
   const recount = (section: Section) => {
     const key = sectionKey(section.name, section.bundle)
     return { ...section, count: key === cleared ? 0 : Math.max(section.count - (fewer.get(key) ?? 0), 0) }

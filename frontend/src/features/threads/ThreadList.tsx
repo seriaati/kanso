@@ -1,5 +1,6 @@
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useEffect, useEffectEvent, useRef, type ReactNode, type RefObject } from 'react'
+import { useEffect, useEffectEvent, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router'
 import { shortDate } from '../../app/format'
 import { quickAction, redundant, type Quick } from '../../app/actions'
@@ -8,6 +9,7 @@ import { useDensity } from '../../app/density'
 import type { Section, ThreadSummary } from '../../app/mail'
 import { Avatar } from '../../components/Avatar'
 import { Icon } from '../../components/Icon'
+import { Menu } from '../../components/Menu'
 import { InstallButton } from '../install/InstallButton'
 import { Avatar as AccountAvatar } from '../sidebar/AccountSwitcher'
 import { useSwipe } from './swipe'
@@ -16,6 +18,9 @@ import styles from './ThreadList.module.css'
 const quicks: Quick[] = ['done', 'delete', 'star', 'important']
 
 export type LabelChip = { name: string; color: string }
+
+/** What a section or bundle header can do to all its threads. */
+export type SectionAction = 'done' | 'read' | 'delete'
 
 export type ListRow =
   | { kind: 'thread'; thread: ThreadSummary }
@@ -55,7 +60,7 @@ type Props = {
   hideChips?: boolean
   /** Shown in the unlabeled section's header. */
   labelInbox?: ReactNode
-  onDoneAll: (section: Section) => void
+  onSectionAction: (action: SectionAction, section: Section) => void
   onToggleBundle: (name: string) => void
   threadHref: (id: number) => string
   onOpen: (id: number) => void
@@ -79,7 +84,7 @@ type Props = {
 
 export function ThreadList(props: Props) {
   const { title, query, rows, status, error, empty, cursorId, openId, selected, labelsById, hideLabel, hideChips } = props
-  const { labelInbox, onDoneAll, onToggleBundle, threadHref, onOpen, onQuick, onSearch, searchRef, phone, account, onMenu, footer, onAsk } = props
+  const { labelInbox, onSectionAction, onToggleBundle, threadHref, onOpen, onQuick, onSearch, searchRef, phone, account, onMenu, footer, onAsk } = props
   const { onRowMenu, menuId, onSelectClick, selectionBar } = props
   const scrollRef = useRef<HTMLDivElement>(null)
   const comfortable = useDensity() === 'comfortable'
@@ -188,12 +193,12 @@ export function ThreadList(props: Props) {
             const row = rows[item.index]
             if (row.kind === 'section')
               return (
-                <SectionHeader key={item.key} row={row} top={item.start} onDoneAll={onDoneAll}>
+                <SectionHeader key={item.key} row={row} top={item.start} onAction={onSectionAction}>
                   {row.section.name === null && labelInbox}
                 </SectionHeader>
               )
             if (row.kind === 'bundle')
-              return <BundleRow key={item.key} row={row} top={item.start} onDoneAll={onDoneAll} onToggle={onToggleBundle} />
+              return <BundleRow key={item.key} row={row} top={item.start} onAction={onSectionAction} onToggle={onToggleBundle} />
             const thread = row.thread
             const chips = hideChips
               ? []
@@ -233,17 +238,52 @@ const count = (section: Section) => (
   </span>
 )
 
-function doneAllButton(section: Section, onDoneAll: (section: Section) => void, name: string) {
+type ActionsProps = { section: Section; name: string; onAction: (action: SectionAction, section: Section) => void }
+
+// "Done all" in view; the rarer actions behind "More".
+function SectionActions({ section, name, onAction }: ActionsProps) {
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null)
   return (
-    <button type="button" className={styles.doneAll} title={`Mark every thread in ${name} done`} onClick={() => onDoneAll(section)}>
-      Done all
-    </button>
+    <>
+      <button type="button" className={styles.doneAll} title={`Mark every thread in ${name} done`} onClick={() => onAction('done', section)}>
+        Done all
+      </button>
+      <button
+        type="button"
+        className={`${styles.doneAll} ${styles.sectionMore}`}
+        aria-label={`More actions for ${name}`}
+        aria-haspopup="menu"
+        aria-expanded={anchor !== null}
+        onClick={(event) => setAnchor(anchor ? null : event.currentTarget)}
+      >
+        <Icon name="more" size={14} />
+      </button>
+      {/* Out of the row: its transform would make the menu's fixed position relative to it. */}
+      {anchor &&
+        createPortal(
+          <Menu
+            anchor={anchor}
+            label={`Actions for ${name}`}
+            items={[
+              { icon: 'mailOpen', label: 'Mark all read', onSelect: () => onAction('read', section) },
+              { icon: 'delete', label: 'Delete all', onSelect: () => onAction('delete', section) },
+            ]}
+            onClose={() => setAnchor(null)}
+          />,
+          document.body,
+        )}
+    </>
   )
 }
 
-type SectionProps = { row: Extract<ListRow, { kind: 'section' }>; top: number; onDoneAll: (section: Section) => void; children: ReactNode }
+type SectionProps = {
+  row: Extract<ListRow, { kind: 'section' }>
+  top: number
+  onAction: (action: SectionAction, section: Section) => void
+  children: ReactNode
+}
 
-function SectionHeader({ row, top, onDoneAll, children }: SectionProps) {
+function SectionHeader({ row, top, onAction, children }: SectionProps) {
   const name = row.section.name ?? 'Other'
   return (
     <div className={styles.section} style={{ transform: `translateY(${top}px)` }} role="heading" aria-level={2}>
@@ -256,7 +296,7 @@ function SectionHeader({ row, top, onDoneAll, children }: SectionProps) {
       {count(row.section)}
       <span className={styles.groupActions}>
         {children}
-        {doneAllButton(row.section, onDoneAll, name)}
+        <SectionActions section={row.section} name={name} onAction={onAction} />
       </span>
     </div>
   )
@@ -265,11 +305,11 @@ function SectionHeader({ row, top, onDoneAll, children }: SectionProps) {
 type BundleProps = {
   row: Extract<ListRow, { kind: 'bundle' }>
   top: number
-  onDoneAll: (section: Section) => void
+  onAction: (action: SectionAction, section: Section) => void
   onToggle: (name: string) => void
 }
 
-function BundleRow({ row, top, onDoneAll, onToggle }: BundleProps) {
+function BundleRow({ row, top, onAction, onToggle }: BundleProps) {
   const name = row.section.name ?? ''
   return (
     <div className={`${styles.bundle} ${row.first ? styles.firstBundle : ''}`} style={{ transform: `translateY(${top}px)` }}>
@@ -279,7 +319,7 @@ function BundleRow({ row, top, onDoneAll, onToggle }: BundleProps) {
         {count(row.section)}
         <span className={styles.bundleSenders}>{row.section.senders.join(', ')}</span>
       </button>
-      {doneAllButton(row.section, onDoneAll, name)}
+      <SectionActions section={row.section} name={name} onAction={onAction} />
     </div>
   )
 }

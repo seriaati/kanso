@@ -26,7 +26,7 @@ import { Labels } from '../features/labels/Labels'
 import { Settings } from '../features/settings/Settings'
 import { Sidebar, type Notice } from '../features/sidebar/Sidebar'
 import { LabelInbox } from '../features/threads/LabelInbox'
-import { InboxZero, ThreadList, type LabelChip, type ListRow } from '../features/threads/ThreadList'
+import { InboxZero, ThreadList, type LabelChip, type ListRow, type SectionAction } from '../features/threads/ThreadList'
 import { pickAccount, rememberAccount, useAccounts, type Account } from './accounts'
 import { applied, inList, quickAction, quickTarget, redundant, unsubscribe, useThreadAction, useUndo, type Quick, type SectionScope, type ThreadAction } from './actions'
 import { useConfig } from './ai'
@@ -357,7 +357,8 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     }
     const sent = threadAction.mutateAsync({ action, threads: on, label, section: scope?.section })
     sent.catch(() => undefined) // shown by the mutation's onError
-    const what = told[action]
+    // Marking one thread read says nothing; a whole section says how many.
+    const what = told[action] ?? (scope && action === 'read' ? 'marked read' : undefined)
     if (what) {
       const count = scope?.count ?? on.length
       const after = action === 'spam' ? ' Sender blocked.' : action === 'unspam' ? ' Sender unblocked.' : ''
@@ -384,7 +385,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
       .catch((error: Error) => say(`Couldn’t unsubscribe: ${error.message}`))
   const quick = (q: Quick, on = targets) => run(quickTarget(q, on), on)
   // Every thread the user has seen (newer arrivals stay), loaded here or not.
-  const doneAll = (section: Section) => {
+  const sectionAction = (action: SectionAction, section: Section) => {
     if (accountId === null) return
     const loaded = section.bundle
       ? section.name === openBundle
@@ -392,7 +393,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
         : []
       : listThreads.filter((t) => (t.section ?? null) === section.name)
     const scope = { name: section.name, bundle: section.bundle, account_id: accountId, until: section.newest_at }
-    run('done', loaded, undefined, { section: scope, count: section.count })
+    run(action, loaded, undefined, { section: scope, count: section.count })
   }
   const setUnread = (on: ThreadSummary[], unread: boolean) => {
     if (on.length === 0) return
@@ -793,7 +794,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
             hideLabel={label?.name}
             hideChips={grouped && labeling}
             labelInbox={labeling && grouped && accountId !== null ? <LabelInbox accountId={accountId} onFinished={say} /> : undefined}
-            onDoneAll={doneAll}
+            onSectionAction={sectionAction}
             onToggleBundle={(name) => setBundle(openBundle === name ? null : { viewKey, name })}
             threadHref={(id) => href({ ...route, threadId: id })}
             onOpen={(id) => {
