@@ -21,6 +21,7 @@ import { LabelPicker, type LabelOption } from '../features/labels/LabelPicker'
 import { Login } from '../features/login/Login'
 import { Reader, type ThreadDraft } from '../features/reader/Reader'
 import { Selection } from '../features/reader/Selection'
+import { Cleanup } from '../features/cleanup/Cleanup'
 import { Labels } from '../features/labels/Labels'
 import { Settings } from '../features/settings/Settings'
 import { Sidebar, type Notice } from '../features/sidebar/Sidebar'
@@ -29,7 +30,7 @@ import { InboxZero, ThreadList, type LabelChip, type ListRow } from '../features
 import { pickAccount, rememberAccount, useAccounts, type Account } from './accounts'
 import { applied, inList, quickAction, quickTarget, redundant, unsubscribe, useThreadAction, useUndo, type Quick, type SectionScope, type ThreadAction } from './actions'
 import { useConfig } from './ai'
-import { ApiError, Unauthorized } from './api'
+import { ApiError, queryClient, Unauthorized } from './api'
 import { createDraft, openDraft, type ComposeMode } from './compose'
 import styles from './App.module.css'
 import { useCreateLabel } from './labels'
@@ -284,8 +285,8 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     if (threadId !== null) setCursor(threadId)
     go({ threadId: null })
   }
-  // Labels belong to the account in view, so its page stays open; Settings closes.
-  const selectAccount = (id: number) => go({ accountId: id, threadId: null, page: route.page === 'labels' ? 'labels' : undefined })
+  // Labels and Clean up belong to the account in view, so their page stays open; Settings closes.
+  const selectAccount = (id: number) => go({ accountId: id, threadId: null, page: route.page === 'settings' ? undefined : route.page })
   const search = (q: string) => go({ view: q ? { kind: 'search', q } : { kind: 'mailbox', mailbox: 'inbox' }, threadId: null })
 
   // For this view only. `anchor` is where a Shift-click range starts.
@@ -514,7 +515,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
 
 
   const title = view.kind === 'mailbox' ? mailboxTitles[view.mailbox] : view.kind === 'label' ? view.name : 'Search'
-  const pageTitle = route.page === 'settings' ? 'Settings' : route.page === 'labels' ? 'Labels' : title
+  const pageTitle = route.page === 'settings' ? 'Settings' : route.page === 'labels' ? 'Labels' : route.page === 'cleanup' ? 'Clean up' : title
   useEffect(() => {
     document.title = `${pageTitle} · kanso`
   }, [pageTitle])
@@ -730,6 +731,21 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
         <Settings accounts={accounts} sync={sync.data ?? []} ai={ai} labeling={labeling} onMenu={openMenu} />
       ) : route.page === 'labels' ? (
         <Labels key={accountId} account={accounts.find((a) => a.id === accountId)} labels={labels.data ?? []} ai={labeling} onMenu={openMenu} />
+      ) : route.page === 'cleanup' ? (
+        <Cleanup
+          key={accountId}
+          account={accounts.find((a) => a.id === accountId)}
+          labels={named}
+          ai={ai}
+          labeling={labeling}
+          onMenu={openMenu}
+          onNotice={say}
+          onUndo={(entries) => {
+            setNotice(null)
+            undoAction.mutate(entries, { onSettled: () => void queryClient.invalidateQueries({ queryKey: ['label-inbox'] }) })
+          }}
+          onUnsubscribe={unsubscribeFrom}
+        />
       ) : (
         <>
           <ThreadList

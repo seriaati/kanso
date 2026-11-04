@@ -1,0 +1,50 @@
+.lead {
+  margin-top: 20px;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 12px 0 8px;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.sender {
+  flex-wrap: wrap;
+}
+
+.senderActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-right: -10px;
+}
+
+.suggestions {
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+}
+
+.examples {
+  font-size: var(--text-small);
+  color: var(--muted);
+}
+
+.done {
+  flex: none;
+  padding: 0 10px;
+  color: var(--muted);
+}
+
+.footer {
+  justify-content: flex-end;
+  margin-top: 12px;
+}

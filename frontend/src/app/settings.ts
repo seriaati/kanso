@@ -12,6 +12,13 @@ export type Settings = {
 
 const key = ['settings']
 
+// claude-sonnet-5-5 → Sonnet 5.5
+export function modelName(id: string): string {
+  if (id === 'jev-latest') return 'Jev'
+  const match = id.match(/^claude-([a-z]+)-(\d+)-(\d+)$/)
+  return match ? `${match[1][0].toUpperCase()}${match[1].slice(1)} ${match[2]}.${match[3]}` : id
+}
+
 export function useSettings() {
   return useQuery({ queryKey: key, queryFn: () => api<Settings>('/settings') })
 }

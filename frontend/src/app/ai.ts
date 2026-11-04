@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
+import { useEffect, useRef } from 'react'
 import { api, CSRF, queryClient } from './api'
 
 export function useConfig() {
@@ -49,12 +50,20 @@ export function useAiUsage(enabled: boolean) {
 }
 
 export type LabelRun = { id: number; total: number; pending: number; labeled: number; failed: number; error: string | null }
-export type LabelInbox = { eligible: number; run: LabelRun | null }
+/** `estimate_usd`: what labeling the eligible threads costs, roughly; null: unknown (Jev). */
+export type LabelInbox = { eligible: number; estimate_usd: number | null; run: LabelRun | null }
+/** Threads whose latest message is in this range (ISO times); empty: the whole inbox. */
+export type DateRange = { after?: string; before?: string }
 
-export function useLabelInbox(accountId: number, enabled: boolean) {
+const labelInboxKey = (accountId: number, range: DateRange) => ['label-inbox', accountId, range.after ?? null, range.before ?? null]
+
+export function useLabelInbox(accountId: number, enabled: boolean, range: DateRange = {}) {
+  const params = new URLSearchParams({ account_id: String(accountId) })
+  if (range.after) params.set('after', range.after)
+  if (range.before) params.set('before', range.before)
   return useQuery({
-    queryKey: ['label-inbox', accountId],
-    queryFn: () => api<LabelInbox>(`/ai/label-inbox?account_id=${accountId}`),
+    queryKey: labelInboxKey(accountId, range),
+    queryFn: () => api<LabelInbox>(`/ai/label-inbox?${params}`),
     enabled,
     refetchInterval: (query) => (query.state.data?.run?.pending ? 1500 : false),
   })
@@ -62,9 +71,48 @@ export function useLabelInbox(accountId: number, enabled: boolean) {
 
 export function useStartLabelInbox() {
   return useMutation({
-    mutationFn: (accountId: number) => api<LabelInbox>('/ai/label-inbox', { method: 'POST', body: { account_id: accountId } }),
-    onSuccess: (data, accountId) => queryClient.setQueryData(['label-inbox', accountId], data),
+    mutationFn: ({ accountId, range }: { accountId: number; range: DateRange }) =>
+      api<LabelInbox>('/ai/label-inbox', { method: 'POST', body: { account_id: accountId, ...range } }),
+    onSuccess: (data, { accountId, range }) => queryClient.setQueryData(labelInboxKey(accountId, range), data),
   })
+}
+
+/** A "Label existing inbox" run: its status, and start(), which says when the run ends. */
+export function useLabelRun(accountId: number, range: DateRange, onFinished: (text: string) => void) {
+  const status = useLabelInbox(accountId, true, range)
+  const start = useStartLabelInbox()
+  const started = useRef<number | null>(null) // the run started here, to report when it ends
+  const run = status.data?.run
+
+  useEffect(() => {
+    if (!run || run.id !== started.current || run.pending > 0) return
+    started.current = null
+    const failed = run.failed ? ` ${run.failed} couldn’t be labeled${run.error ? `: ${run.error}` : '.'}` : ''
+    onFinished(`Labeled ${run.labeled} of ${run.total} threads.${failed}`)
+    void queryClient.invalidateQueries({ queryKey: ['threads'] })
+    void queryClient.invalidateQueries({ queryKey: ['labels'] })
+  }, [run, onFinished])
+
+  return {
+    status: status.data,
+    running: run && run.pending > 0 ? run : null,
+    starting: start.isPending,
+    /** `then` runs once the request is answered, either way. */
+    start: (then?: () => void) =>
+      start.mutate(
+        { accountId, range },
+        {
+          onSuccess: (data) => {
+            started.current = data.run?.id ?? null
+            then?.()
+          },
+          onError: (error) => {
+            then?.()
+            onFinished(`Couldn’t start labeling: ${error.message}`)
+          },
+        },
+      ),
+  }
 }
 
 export type Summary = { text: string; model: string; created_at: string }

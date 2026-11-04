@@ -4,7 +4,7 @@ import { useAiUsage, useApiKeys, useRemoveApiKey, useSaveApiKey, type KeyProvide
 import type { SyncStatus } from '../../app/mail'
 import { usePhone } from '../../app/media'
 import { usePush } from '../../app/notifications'
-import { useChangePassword, useDemoPassword, useLogoutEverywhere, useSettings, useUpdateSettings } from '../../app/settings'
+import { modelName, useChangePassword, useDemoPassword, useLogoutEverywhere, useSettings, useUpdateSettings } from '../../app/settings'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
 import { Select } from '../../components/Select'
@@ -301,13 +301,6 @@ const modelFeatures = [
   { key: 'labeling_model', name: 'Auto-labeling' },
 ] as const
 
-// claude-sonnet-5-5 → Sonnet 5.5
-function modelName(id: string): string {
-  if (id === 'jev-latest') return 'Jev'
-  const match = id.match(/^claude-([a-z]+)-(\d+)-(\d+)$/)
-  return match ? `${match[1][0].toUpperCase()}${match[1].slice(1)} ${match[2]}.${match[3]}` : id
-}
-
 function Models({ ai }: { ai: boolean }) {
   const settings = useSettings()
   const update = useUpdateSettings()
@@ -338,7 +331,7 @@ function Models({ ai }: { ai: boolean }) {
 }
 
 const tokens = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 })
-const features: Record<string, string> = { labeling: 'Labeling', summary: 'Summaries', assistant: 'Assistant' }
+const features: Record<string, string> = { labeling: 'Labeling', summary: 'Summaries', assistant: 'Assistant', suggestions: 'Label suggestions' }
 const dollars = (cost: number) => (cost > 0 && cost < 0.01 ? '< $0.01' : `$${cost.toFixed(2)}`)
 
 function Usage() {

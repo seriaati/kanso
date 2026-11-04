@@ -68,6 +68,16 @@ export function Sidebar(props: Props) {
           </Link>
         )
       })}
+      {route.accountId !== null && (
+        <Link
+          to={href({ ...route, threadId: null, page: 'cleanup' })}
+          className={`${styles.nav} ${styles.quiet} ${route.page === 'cleanup' ? styles.active : ''}`}
+          aria-current={route.page === 'cleanup' ? 'page' : undefined}
+        >
+          <Icon name="sparkle" size={15} />
+          <span className={styles.name}>Clean up</span>
+        </Link>
+      )}
 
       <div className={styles.headingRow}>
         <p className={styles.heading}>Labels</p>

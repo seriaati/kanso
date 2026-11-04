@@ -71,6 +71,16 @@ export function MenuSheet({ accounts, route, labels, userLabels, sync, ai, onSel
               </Link>
             )
           })}
+          {route.accountId !== null && (
+            <Link
+              to={href({ ...route, threadId: null, page: 'cleanup' })}
+              className={`${styles.item} ${styles.quiet} ${route.page === 'cleanup' ? styles.active : ''}`}
+              aria-current={route.page === 'cleanup' ? 'page' : undefined}
+            >
+              <Icon name="sparkle" size={17} />
+              <span className={styles.name}>Clean up</span>
+            </Link>
+          )}
         </div>
 
         {route.accountId !== null && (

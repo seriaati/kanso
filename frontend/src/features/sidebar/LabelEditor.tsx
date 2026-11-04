@@ -5,18 +5,21 @@ import styles from './LabelEditor.module.css'
 
 type Props = {
   label?: NamedLabel
+  /** A new label's starting values, e.g. a suggested label. */
+  draft?: Pick<NamedLabel, 'name' | 'color' | 'description' | 'aiManaged' | 'isBundle'>
   accountId: number
   ai: boolean
-  onDone: (change?: { renamed?: string; deleted?: boolean }) => void
+  onDone: (change?: { renamed?: string; deleted?: boolean; created?: string }) => void
 }
 
 // Shown in a Dialog. Name and color go to Gmail; the other settings are kanso's own.
-export function LabelEditor({ label, accountId, ai, onDone }: Props) {
-  const [name, setName] = useState(label?.name ?? '')
-  const [color, setColor] = useState(label?.color ?? labelColors[0].value)
-  const [description, setDescription] = useState(label?.description ?? '')
-  const [aiManaged, setAiManaged] = useState(label?.aiManaged ?? false)
-  const [isBundle, setIsBundle] = useState(label?.isBundle ?? false)
+export function LabelEditor({ label, draft, accountId, ai, onDone }: Props) {
+  const start = label ?? draft
+  const [name, setName] = useState(start?.name ?? '')
+  const [color, setColor] = useState(start?.color ?? labelColors[0].value)
+  const [description, setDescription] = useState(start?.description ?? '')
+  const [aiManaged, setAiManaged] = useState(start?.aiManaged ?? false)
+  const [isBundle, setIsBundle] = useState(start?.isBundle ?? false)
   const [confirming, setConfirming] = useState(false)
   const create = useCreateLabel()
   const update = useUpdateLabel()
@@ -28,7 +31,7 @@ export function LabelEditor({ label, accountId, ai, onDone }: Props) {
   const save = () => {
     const settings = { description: description.trim(), ai_managed: aiManaged, is_bundle: isBundle }
     if (!label) {
-      create.mutate({ name: trimmed, color, account_id: accountId, ...settings }, { onSuccess: () => onDone() })
+      create.mutate({ name: trimmed, color, account_id: accountId, ...settings }, { onSuccess: () => onDone({ created: trimmed }) })
       return
     }
     const patch = {
