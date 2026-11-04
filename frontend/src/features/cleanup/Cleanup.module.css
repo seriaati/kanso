@@ -28,12 +28,22 @@
   margin-right: -10px;
 }
 
+/* A thin, quiet scrollbar in the dialog's padding, clear of the text. */
 .suggestions {
   max-height: min(60vh, 520px);
+  margin-right: -14px;
+  padding-right: 14px;
+  overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
 }
 
+/* One line; the rest on hover. */
 .examples {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-size: var(--text-small);
   color: var(--muted);
 }
@@ -42,7 +52,6 @@
   flex: none;
   display: flex;
   align-items: center;
-  margin-right: -10px;
 }
 
 .done {

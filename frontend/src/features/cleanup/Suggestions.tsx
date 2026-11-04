@@ -83,7 +83,11 @@ export function Suggestions({ accountId, suggestions, labels, onClose }: Props) 
                   {s.bundle && <span className={settings.flags}> · Bundled</span>}
                 </span>
                 <span className={settings.muted}>{s.description}</span>
-                {s.examples.length > 0 && <span className={styles.examples}>e.g. {s.examples.join(' · ')}</span>}
+                {s.examples.length > 0 && (
+                  <span className={styles.examples} title={s.examples.join('\n')}>
+                    e.g. {s.examples.join(' · ')}
+                  </span>
+                )}
               </div>
               {isAdded(i) ? (
                 <span className={styles.done}>Added</span>
