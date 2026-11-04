@@ -533,6 +533,7 @@
 }
 
 .bundleToggle {
+  scale: none; /* a row: no press shrink */
   border: 0;
   background: transparent;
   font: inherit;
