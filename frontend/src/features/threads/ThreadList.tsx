@@ -1,5 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useEffect, useEffectEvent, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useEffect, useEffectEvent, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { Link } from 'react-router'
 import { shortDate } from '../../app/format'
 import { quickAction, redundant, type Quick } from '../../app/actions'
@@ -102,6 +102,21 @@ export function ThreadList(props: Props) {
   })
   const items = virtualizer.getVirtualItems()
   const lastIndex = items.at(-1)?.index ?? -1
+
+  // Threads a bundle just revealed fade in under it, in order; rows mounted by scrolling don't.
+  const [prevRows, setPrevRows] = useState(rows)
+  const [revealed, setRevealed] = useState<ReadonlyMap<number, number>>(new Map()) // id -> order
+  if (rows !== prevRows) {
+    setPrevRows(rows)
+    const before = new Set(prevRows.flatMap((row) => (row.kind === 'thread' ? [row.thread.id] : [])))
+    const added = inOpenBundles(rows).filter((id) => !before.has(id))
+    if (added.length) setRevealed(new Map(added.map((id, order) => [id, order])))
+  }
+  useEffect(() => {
+    if (!revealed.size) return
+    const timer = setTimeout(() => setRevealed(new Map()), 800)
+    return () => clearTimeout(timer)
+  }, [revealed])
 
   const rangeEnd = useEffectEvent(props.onRangeEnd)
   useEffect(() => rangeEnd(lastIndex), [lastIndex, rows.length])
@@ -209,6 +224,7 @@ export function ThreadList(props: Props) {
                 thread={thread}
                 chips={chips}
                 top={item.start}
+                reveal={revealed.get(thread.id)}
                 cursor={thread.id === cursorId}
                 open={thread.id === openId}
                 menu={thread.id === menuId}
@@ -327,6 +343,8 @@ type RowProps = {
   thread: ThreadSummary
   chips: LabelChip[]
   top: number
+  /** Just revealed by opening its bundle: its place in the bundle, for the fade-in. */
+  reveal?: number
   cursor: boolean
   open: boolean
   menu: boolean
@@ -339,9 +357,9 @@ type RowProps = {
 }
 
 function ThreadRow(props: RowProps) {
-  const { thread, chips, top, cursor, open, menu, checked, href, onOpen, onQuick, onMenu, onSelectClick } = props
+  const { thread, chips, top, reveal, cursor, open, menu, checked, href, onOpen, onQuick, onMenu, onSelectClick } = props
   const swipe = useSwipe((direction) => onQuick(direction === 'right' ? 'done' : 'delete', thread))
-  const rowClass = [styles.row, thread.unread && styles.unread, (cursor || open) && styles.selected, checked && styles.checked, menu && styles.menuOpen]
+  const rowClass = [styles.row, thread.unread && styles.unread, (cursor || open) && styles.selected, checked && styles.checked, menu && styles.menuOpen, reveal !== undefined && styles.revealed]
     .filter(Boolean)
     .join(' ')
   const lang = thread.lang ?? undefined
@@ -350,7 +368,7 @@ function ThreadRow(props: RowProps) {
   return (
     <div
       className={rowClass}
-      style={{ transform: `translateY(${top}px)` }}
+      style={{ transform: `translateY(${top}px)`, '--reveal': reveal } as CSSProperties}
       aria-current={open || undefined}
       onContextMenu={
         onMenu &&
@@ -453,6 +471,15 @@ function ThreadRow(props: RowProps) {
       </span>
     </div>
   )
+}
+
+/** The ids of the threads shown inside open bundles. */
+function inOpenBundles(rows: ListRow[]) {
+  let open = false
+  return rows.flatMap((row) => {
+    if (row.kind !== 'thread') open = row.kind === 'bundle' && row.open
+    return open && row.kind === 'thread' ? [row.thread.id] : []
+  })
 }
 
 /** A verification mail's code: a click copies it, without opening the thread. */

@@ -232,6 +232,12 @@
   background: var(--hover);
 }
 
+/* Threads a bundle just opened fade in under it, one after another. */
+.row.revealed {
+  animation: rise var(--medium) var(--ease) both;
+  animation-delay: calc(min(var(--reveal), 10) * 20ms);
+}
+
 .row.selected {
   background: var(--selected);
 }
