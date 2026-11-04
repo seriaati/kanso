@@ -3,11 +3,13 @@ import { useEffect, useEffectEvent, useRef, type ReactNode, type RefObject } fro
 import { Link } from 'react-router'
 import { shortDate } from '../../app/format'
 import { quickAction, redundant, type Quick } from '../../app/actions'
+import type { Account } from '../../app/accounts'
 import { useDensity } from '../../app/density'
 import type { Section, ThreadSummary } from '../../app/mail'
 import { Avatar } from '../../components/Avatar'
 import { Icon } from '../../components/Icon'
 import { InstallButton } from '../install/InstallButton'
+import { Avatar as AccountAvatar } from '../sidebar/AccountSwitcher'
 import { useSwipe } from './swipe'
 import styles from './ThreadList.module.css'
 
@@ -61,8 +63,10 @@ type Props = {
   onSearch: (query: string) => void
   searchRef: RefObject<HTMLInputElement | null>
   phone: boolean
-  /** Phones: the account's address, under the title. */
-  subtitle?: string
+  /** Phones: the account in view, its avatar beside the title and its address under it. */
+  account?: Account
+  /** Phones: tapping the avatar opens the menu, which starts with the accounts. */
+  onMenu?: () => void
   /** Phones: the bottom bar. */
   footer?: ReactNode
   onAsk?: () => void
@@ -75,7 +79,7 @@ type Props = {
 
 export function ThreadList(props: Props) {
   const { title, query, rows, status, error, empty, cursorId, openId, selected, labelsById, hideLabel, hideChips } = props
-  const { labelInbox, onDoneAll, onToggleBundle, threadHref, onOpen, onQuick, onSearch, searchRef, phone, subtitle, footer, onAsk } = props
+  const { labelInbox, onDoneAll, onToggleBundle, threadHref, onOpen, onQuick, onSearch, searchRef, phone, account, onMenu, footer, onAsk } = props
   const { onRowMenu, menuId, onSelectClick, selectionBar } = props
   const scrollRef = useRef<HTMLDivElement>(null)
   const comfortable = useDensity() === 'comfortable'
@@ -110,10 +114,17 @@ export function ThreadList(props: Props) {
     <section className={`${styles.list} ${comfortable ? styles.comfortable : ''}`} aria-label={title}>
       <header className={styles.header}>
         {phone ? (
-          <div className={styles.titles}>
-            <h1 className={styles.title}>{title}</h1>
-            {subtitle && <span className={styles.subtitle}>{subtitle}</span>}
-          </div>
+          <>
+            {account && (
+              <button type="button" className={styles.account} aria-label="Switch account" onClick={onMenu}>
+                <AccountAvatar account={account} className={styles.accountAvatar} />
+              </button>
+            )}
+            <div className={styles.titles}>
+              <h1 className={styles.title}>{title}</h1>
+              {account && <span className={styles.subtitle}>{account.email}</span>}
+            </div>
+          </>
         ) : (
           <h1 className={styles.title}>{title}</h1>
         )}

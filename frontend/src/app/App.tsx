@@ -807,7 +807,8 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
             onSearch={search}
             searchRef={searchRef}
             phone={phone}
-            subtitle={accounts.find((a) => a.id === accountId)?.email}
+            account={accounts.find((a) => a.id === accountId)}
+            onMenu={() => setMenu({ open: true, at: location.key })}
             footer={
               phone && (
                 <BottomBar

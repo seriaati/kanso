@@ -610,6 +610,23 @@
     padding: 8px 16px;
   }
 
+  .account {
+    flex: none;
+    display: grid;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    cursor: pointer;
+  }
+
+  /* Sizes up the shared sidebar Avatar; the extra class wins regardless of stylesheet order. */
+  .account .accountAvatar {
+    width: 34px;
+    height: 34px;
+    font-size: 14px;
+  }
+
   .titles {
     flex: 1;
     min-width: 0;
