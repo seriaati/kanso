@@ -189,6 +189,15 @@
   font-weight: 700;
 }
 
+/* One change of a batch. */
+.part {
+  margin-top: 8px;
+}
+
+.partTitle {
+  margin: 0;
+}
+
 .targets {
   margin: 4px 0 0;
   padding-left: 18px;

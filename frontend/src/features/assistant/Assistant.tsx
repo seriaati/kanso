@@ -11,6 +11,7 @@ import {
   useConversations,
   readFile,
   type AssistantAction,
+  type AssistantChange,
   type ChatEvent,
   type ChatItem,
 } from '../../app/ai'
@@ -372,16 +373,30 @@ function Item({ item, busy, threadHref, onOpenThread, onDecide, onUndo }: ItemPr
 const count = (n: number) => (n === 1 ? '1 thread' : `${n} threads`)
 
 function describe(action: AssistantAction, done: boolean): string {
-  const n = count(action.threads.length)
-  switch (action.tool) {
+  if (action.tool !== 'change_batch') return describeChange({ ...action, tool: action.tool }, done)
+  const n = action.parts?.length ?? 0
+  return done ? `Made ${n} changes.` : `Make these ${n} changes?`
+}
+
+function describeChange(change: AssistantChange, done: boolean): string {
+  const n = count(change.threads.length) + (change.query ? ` matching “${change.query}”` : '')
+  switch (change.tool) {
     case 'archive':
       return done ? `Archived ${n}.` : `Archive ${n}?`
+    case 'delete':
+      return done ? `Moved ${n} to Trash.` : `Move ${n} to Trash?`
     case 'apply_label':
-      return done ? `Labeled ${n} “${action.label}”.` : `Add the label “${action.label}” to ${n}?`
+      return done ? `Labeled ${n} “${change.label}”.` : `Add the label “${change.label}” to ${n}?`
+    case 'remove_label':
+      return done ? `Removed the label “${change.label}” from ${n}.` : `Remove the label “${change.label}” from ${n}?`
     case 'star':
       return done ? `Starred ${n}.` : `Star ${n}?`
+    case 'unstar':
+      return done ? `Unstarred ${n}.` : `Unstar ${n}?`
     case 'mark_read':
       return done ? `Marked ${n} as read.` : `Mark ${n} as read?`
+    case 'mark_unread':
+      return done ? `Marked ${n} as unread.` : `Mark ${n} as unread?`
   }
 }
 
@@ -430,24 +445,42 @@ function Proposal({ action, busy, threadHref, onOpenThread, onDecide, onUndo }: 
   return (
     <div className={`${styles.proposal} ${action.status === 'pending' ? styles.waiting : ''}`} role="group" aria-label="Proposed change">
       <p className={styles.proposalTitle}>{describe(action, auto)}</p>
-      <ul className={styles.targets}>
-        {action.threads.map((t) => (
-          <li key={t.id}>
-            <a
-              href={threadHref(t.id)}
-              onClick={(event) => {
-                if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
-                event.preventDefault()
-                onOpenThread(t.id)
-              }}
-            >
-              {t.subject || '(no subject)'}
-            </a>
-          </li>
-        ))}
-      </ul>
+      {action.parts ? (
+        action.parts.map((part, i) => (
+          <div key={i} className={styles.part}>
+            {/* The batch asks once, in its title. */}
+            <p className={styles.partTitle}>{describeChange(part, auto).replace(/\?$/, '.')}</p>
+            <Targets threads={part.threads} threadHref={threadHref} onOpenThread={onOpenThread} />
+          </div>
+        ))
+      ) : (
+        <Targets threads={action.threads} threadHref={threadHref} onOpenThread={onOpenThread} />
+      )}
       {footer}
     </div>
+  )
+}
+
+type TargetsProps = Pick<ItemProps, 'threadHref' | 'onOpenThread'> & { threads: AssistantChange['threads'] }
+
+function Targets({ threads, threadHref, onOpenThread }: TargetsProps) {
+  return (
+    <ul className={styles.targets}>
+      {threads.map((t) => (
+        <li key={t.id}>
+          <a
+            href={threadHref(t.id)}
+            onClick={(event) => {
+              if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
+              event.preventDefault()
+              onOpenThread(t.id)
+            }}
+          >
+            {t.subject || '(no subject)'}
+          </a>
+        </li>
+      ))}
+    </ul>
   )
 }
 

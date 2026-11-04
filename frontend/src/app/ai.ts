@@ -161,11 +161,19 @@ export async function summarize(threadId: number, onText: (text: string) => void
   })
 }
 
-export type AssistantAction = {
-  id: string
-  tool: 'archive' | 'apply_label' | 'star' | 'mark_read'
+/** One change the assistant proposes, to threads it picked by id or by a search (`query`). */
+export type AssistantChange = {
+  tool: 'archive' | 'delete' | 'apply_label' | 'remove_label' | 'star' | 'unstar' | 'mark_read' | 'mark_unread'
   label: string | null
+  query?: string | null
   threads: { id: number; subject: string }[]
+}
+
+/** A proposal: one change, or a batch of them (`parts`) confirmed together. */
+export type AssistantAction = Omit<AssistantChange, 'tool'> & {
+  id: string
+  tool: AssistantChange['tool'] | 'change_batch'
+  parts?: AssistantChange[] | null
   status: 'pending' | 'confirmed' | 'declined' | 'skipped' | 'failed' | 'undone'
   entries: number[]
   error: string | null

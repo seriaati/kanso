@@ -5,7 +5,7 @@ import re
 import sys
 from datetime import UTC, datetime
 from itertools import count
-from typing import Any
+from typing import Any, get_args
 
 import anthropic
 import httpx2 as httpx
@@ -27,6 +27,7 @@ from kanso.db.models import (
     AssistantConversation,
     AssistantMessage,
     Draft,
+    Label,
     Outbox,
     Thread,
 )
@@ -555,7 +556,9 @@ def test_change_waits_for_confirm_then_goes_through_the_outbox(
         "id": "toolu_2",
         "tool": "archive",
         "label": None,
+        "query": None,
         "threads": [{"id": news, "subject": "Tea weekly"}],
+        "parts": None,
         "status": "pending",
         "entries": [],
         "error": None,
@@ -707,6 +710,137 @@ def test_invalid_proposals_go_back_as_errors(
     assert rows(Outbox) == []
 
 
+async def _label_id(name: str) -> int:
+    async with Session() as db:
+        found = await db.scalar(select(Label.id).where(Label.name == name))
+        assert found is not None
+        return found
+
+
+def test_delete_unstar_mark_unread_and_remove_label(
+    mailbox: dict[str, int], claude: FakeClaude, logged_in: TestClient
+) -> None:
+    news, lease = mailbox["news"], mailbox["lease"]
+    logged_in.patch("/api/settings", json={"assistant_confirm": False})
+    claude.answers = [
+        [tool("apply_label", thread_ids=[lease], label="home"), tool("star", thread_ids=[news])],
+        [
+            tool("delete", thread_ids=[news]),
+            tool("unstar", thread_ids=[news]),
+            tool("mark_unread", thread_ids=[news]),
+            tool("remove_label", thread_ids=[lease], label="Home"),
+            tool("remove_label", thread_ids=[lease]),  # which label?
+        ],
+        ["Done."],
+    ]
+    got = ask(logged_in, "tidy up")
+    home = run(_label_id("Home"))
+    *_, missing = results_in(claude.requests[-1])
+    assert missing["is_error"] and "need `label`" in missing["content"]
+    outcomes = [r["content"] for r in results_in(claude.requests[-1])[:4]]
+    assert [o.split(". ", 1)[1] for o in outcomes] == [
+        "Moved to Trash: 1 thread.",
+        "Unstarred: 1 thread.",
+        "Marked as unread: 1 thread.",
+        "Removed the label “Home”: 1 thread.",
+    ]
+    t = thread(news)
+    assert (t.in_trash, t.starred, t.unread) == (True, False, True)
+    assert home not in thread(lease).label_ids
+    assert {"delete", "unstar", "unread", "unlabel"} <= {e.action for e in rows(Outbox)}
+    assert got[-1] == {"type": "done", "pending": False}
+
+
+def test_change_matching_acts_on_a_whole_search(
+    mailbox: dict[str, int],
+    claude: FakeClaude,
+    logged_in: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    news, lease = mailbox["news"], mailbox["lease"]
+    claude.answers = [
+        [
+            tool("change_matching", change="archive", query="in:inbox"),
+            tool("change_matching", change="star", query="nothing-matches-this"),
+            tool("change_matching", change="archive", query="in:inbox", label="Home"),
+        ]
+    ]
+    got = ask(logged_in, "archive my whole inbox")
+    [proposal] = [e["action"] for e in got if e["type"] == "action"]
+    assert (proposal["tool"], proposal["query"]) == ("archive", "in:inbox")
+    assert [t["id"] for t in proposal["threads"]] == [news, lease]  # newest first
+    claude.answers = [["Done."]]
+    decide(logged_in, got[0]["id"], proposal["id"], True)
+    assert not thread(news).in_inbox and not thread(lease).in_inbox
+    confirmed, none, labeled = results_in(claude.requests[-1])
+    assert confirmed["content"] == "The user confirmed. Archived (marked done): 2 threads."
+    assert none["is_error"] and "No threads match" in none["content"]
+    assert labeled["is_error"] and "don't take it" in labeled["content"]
+    # Too many matches: Claude is told to narrow the query, nothing is proposed.
+    monkeypatch.setattr(tools, "MAX_MATCHING", 1)
+    claude.answers = [[tool("change_matching", change="mark_read", query="")], ["OK."]]
+    ask(logged_in, "mark everything read", conversation=got[0]["id"])
+    [empty] = results_in(claude.requests[-1])
+    assert empty["is_error"]  # an empty query is no search
+    claude.answers = [[tool("change_matching", change="mark_read", query="in:anywhere")], ["OK."]]
+    ask(logged_in, "mark everything read", conversation=got[0]["id"])
+    [many] = results_in(claude.requests[-1])
+    assert many["is_error"] and "narrow the query" in many["content"]
+
+
+def test_change_batch_is_confirmed_and_undone_together(
+    mailbox: dict[str, int], claude: FakeClaude, logged_in: TestClient
+) -> None:
+    news, lease = mailbox["news"], mailbox["lease"]
+    claude.answers = [
+        [
+            tool(
+                "change_batch",
+                changes=[
+                    {"change": "archive", "thread_ids": [news]},
+                    {"change": "apply_label", "query": "from:mika", "label": "home"},
+                    {"change": "star", "thread_ids": [lease]},
+                ],
+            ),
+            tool("change_batch", changes=[{"change": "star", "thread_ids": [lease]}]),
+            tool(
+                "change_batch",
+                changes=[
+                    {"change": "star", "thread_ids": [lease], "query": "lease"},
+                    {"change": "archive", "thread_ids": [news]},
+                ],
+            ),
+        ]
+    ]
+    got = ask(logged_in, "archive the newsletter, label and star the lease")
+    [batch] = [e["action"] for e in got if e["type"] == "action"]
+    assert batch["tool"] == "change_batch" and batch["threads"] == []
+    assert [
+        (p["tool"], p["label"], p["query"], [t["id"] for t in p["threads"]]) for p in batch["parts"]
+    ] == [
+        ("archive", None, None, [news]),
+        ("apply_label", "Home", "from:mika", [lease]),
+        ("star", None, None, [lease]),
+    ]
+    assert thread(news).in_inbox and rows(Outbox) == []  # waits for one confirm
+    claude.answers = [["All done."]]
+    confirmed = decide(logged_in, got[0]["id"], batch["id"], True)
+    action = confirmed[0]["action"]
+    assert action["status"] == "confirmed" and len(action["entries"]) == 3
+    assert not thread(news).in_inbox and thread(lease).starred and thread(lease).labels_manual
+    done, one, both = results_in(claude.requests[-1])
+    assert done["content"] == (
+        "The user confirmed. Archived (marked done): 1 thread; Labeled “Home”: 1 thread; "
+        "Starred: 1 thread."
+    )
+    assert one["is_error"] and both["is_error"]
+    assert "either `thread_ids` or `query`" in both["content"]
+    # One undo restores every change.
+    url = f"/api/assistant/conversations/{got[0]['id']}/actions/{batch['id']}/undo"
+    assert logged_in.post(url).status_code == 200
+    assert thread(news).in_inbox and not thread(lease).starred
+
+
 def test_a_new_message_instead_of_a_decision_changes_nothing(
     mailbox: dict[str, int], claude: FakeClaude, logged_in: TestClient
 ) -> None:
@@ -770,27 +904,32 @@ def test_there_is_no_way_to_send_mail(
     mailbox: dict[str, int], claude: FakeClaude, logged_in: TestClient
 ) -> None:
     names = {t["name"] for t in tools.TOOLS}
-    assert names == {
-        "search_threads",
-        "get_thread",
-        "list_labels",
+    assert names == tools.READS | tools.PROPOSALS
+    assert set(tools.CHANGES) == {
         "archive",
+        "delete",
         "apply_label",
+        "remove_label",
         "star",
+        "unstar",
         "mark_read",
+        "mark_unread",
     }
-    assert set(tools.CHANGES) == {"archive", "apply_label", "star", "mark_read"}
-    for word in ("send", "draft", "reply", "forward", "delete", "trash"):
+    assert set(get_args(tools.Change.__value__)) == set(tools.CHANGES)
+    for word in ("send", "draft", "reply", "forward"):
         assert not any(word in name for name in names)
     claude.answers = [
-        [tool("send_email", to="boss@example.com", body="I quit"), tool("delete", thread_ids=[1])],
+        [
+            tool("send_email", to="boss@example.com", body="I quit"),
+            tool("create_draft", to="boss@example.com", body="I quit"),
+        ],
         ["I can't send email."],
     ]
     got = ask(logged_in, "email my boss")
     assert got[-1]["type"] == "done"
-    sent, deleted = results_in(claude.requests[-1])
+    sent, drafted = results_in(claude.requests[-1])
     assert sent["is_error"] and sent["content"] == "There is no tool named send_email"
-    assert deleted["is_error"]
+    assert drafted["is_error"]
     assert rows(Draft) == [] and rows(Outbox) == []
 
 

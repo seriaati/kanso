@@ -3,7 +3,7 @@ until the user confirms it in the browser (kanso.api.assistant)."""
 
 import json
 from datetime import datetime, tzinfo
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import false, func, select
@@ -18,10 +18,37 @@ SEARCH_DEFAULT, SEARCH_MAX = 10, 20  # threads per search
 SNIPPET_LIMIT = 160
 BODY_LIMIT = 1500
 THREAD_LIMIT = 10000  # per thread, newest messages first
-MAX_TARGETS = 50  # threads one proposed change may touch
+MAX_TARGETS = 50  # threads a change by thread ids may touch
+MAX_MATCHING = 1000  # threads a change by search, or a batch, may touch (actions.CHUNK)
+MAX_PARTS = 10  # changes in one batch
 
-# Tool name -> the triage action it proposes (kanso.api.actions.ACTIONS).
-CHANGES = {"archive": "done", "apply_label": "label", "star": "star", "mark_read": "read"}
+# Tool name -> the triage action it proposes (kanso.api.actions.ACTIONS), and what it does.
+CHANGES = {
+    "archive": "done",
+    "delete": "delete",
+    "apply_label": "label",
+    "remove_label": "unlabel",
+    "star": "star",
+    "unstar": "unstar",
+    "mark_read": "read",
+    "mark_unread": "unread",
+}
+type Change = Literal[
+    "archive", "delete", "apply_label", "remove_label", "star", "unstar", "mark_read", "mark_unread"
+]
+_DOES = {
+    "archive": "marking threads done: they leave the inbox",
+    "delete": "moving threads to Trash, as Gmail's Delete does",
+    "apply_label": "adding one of the user's labels to threads",
+    "remove_label": "removing one of the user's labels from threads",
+    "star": "starring threads",
+    "unstar": "removing the star from threads",
+    "mark_read": "marking threads as read",
+    "mark_unread": "marking threads as unread",
+}
+LABELED = {"apply_label", "remove_label"}  # the changes that name a label
+BATCHES = {"change_matching", "change_batch"}
+PROPOSALS = set(CHANGES) | BATCHES
 READS = {"search_threads", "get_thread", "list_labels"}
 
 _TARGETS = {
@@ -35,6 +62,14 @@ _CONFIRMED = (
     " Nothing changes until the user confirms it in kanso; the result says whether they did. "
     "Only use it when the user asked for this change."
 )
+
+_LABEL = {
+    "label": {
+        "type": "string",
+        "description": "A label name from list_labels: for apply_label and remove_label only.",
+    }
+}
+_CHANGE = {"type": "string", "enum": list(CHANGES), "description": "What to do to the threads."}
 
 TOOLS: list[dict[str, Any]] = [
     {
@@ -89,46 +124,71 @@ TOOLS: list[dict[str, Any]] = [
         "description": "The user's labels, with the description of what belongs under each.",
         "input_schema": {"type": "object", "properties": {}, "additionalProperties": False},
     },
+    *(
+        {
+            "name": name,
+            "description": f"Propose {does}." + _CONFIRMED,
+            "input_schema": {
+                "type": "object",
+                "properties": {"thread_ids": _TARGETS} | (_LABEL if name in LABELED else {}),
+                "required": ["thread_ids", *(["label"] if name in LABELED else [])],
+                "additionalProperties": False,
+            },
+        }
+        for name, does in _DOES.items()
+    ),
     {
-        "name": "archive",
-        "description": "Propose marking threads done: they leave the inbox." + _CONFIRMED,
-        "input_schema": {
-            "type": "object",
-            "properties": {"thread_ids": _TARGETS},
-            "required": ["thread_ids"],
-            "additionalProperties": False,
-        },
-    },
-    {
-        "name": "apply_label",
-        "description": "Propose adding one of the user's labels to threads." + _CONFIRMED,
+        "name": "change_matching",
+        "description": (
+            "Propose one change to every thread a search matches, up to "
+            f"{MAX_MATCHING}: for more threads than thread ids can list. The query works as in "
+            "search_threads (the full history; Trash and Spam only with in:trash, in:spam or "
+            "in:anywhere); check what it finds with search_threads first." + _CONFIRMED
+        ),
         "input_schema": {
             "type": "object",
             "properties": {
-                "thread_ids": _TARGETS,
-                "label": {"type": "string", "description": "A label name from list_labels."},
+                "change": _CHANGE,
+                "query": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Search words and operators.",
+                },
+            }
+            | _LABEL,
+            "required": ["change", "query"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "change_batch",
+        "description": (
+            "Propose several different changes at once, which the user confirms or cancels "
+            "together: e.g. archive some threads, label others and star one. Each change "
+            "takes thread_ids or a query (as change_matching), not both; at most "
+            f"{MAX_MATCHING} threads in all." + _CONFIRMED
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "changes": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": MAX_PARTS,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "change": _CHANGE,
+                            "thread_ids": _TARGETS,
+                            "query": {"type": "string", "minLength": 1},
+                        }
+                        | _LABEL,
+                        "required": ["change"],
+                        "additionalProperties": False,
+                    },
+                }
             },
-            "required": ["thread_ids", "label"],
-            "additionalProperties": False,
-        },
-    },
-    {
-        "name": "star",
-        "description": "Propose starring threads." + _CONFIRMED,
-        "input_schema": {
-            "type": "object",
-            "properties": {"thread_ids": _TARGETS},
-            "required": ["thread_ids"],
-            "additionalProperties": False,
-        },
-    },
-    {
-        "name": "mark_read",
-        "description": "Propose marking threads as read." + _CONFIRMED,
-        "input_schema": {
-            "type": "object",
-            "properties": {"thread_ids": _TARGETS},
-            "required": ["thread_ids"],
+            "required": ["changes"],
             "additionalProperties": False,
         },
     },
@@ -156,6 +216,23 @@ class ThreadIn(_Input):
 class ChangeIn(_Input):
     thread_ids: list[int] = Field(min_length=1, max_length=MAX_TARGETS)
     label: str | None = None
+
+
+class MatchingIn(_Input):
+    change: Change
+    query: str = Field(min_length=1)
+    label: str | None = None
+
+
+class PartIn(_Input):
+    change: Change
+    thread_ids: list[int] | None = Field(None, min_length=1, max_length=MAX_TARGETS)
+    query: str | None = Field(None, min_length=1)
+    label: str | None = None
+
+
+class BatchIn(_Input):
+    changes: list[PartIn] = Field(min_length=2, max_length=MAX_PARTS)
 
 
 def _parse[T: BaseModel](model: type[T], data: Any) -> T:
@@ -305,13 +382,28 @@ async def read(
     return await READERS[name](db, data, zone, account_id)
 
 
-async def propose(
-    db: AsyncSession, tool_use_id: str, name: str, data: Any, account_id: int
-) -> dict[str, Any]:
-    args = _parse(ChangeIn, data)
-    if (name == "apply_label") != (args.label is not None):
-        raise ToolError("apply_label needs `label`; the other tools take only `thread_ids`")
-    ids = list(dict.fromkeys(args.thread_ids))
+async def _label(db: AsyncSession, account_id: int, change: str, label: str | None) -> str | None:
+    """The label as the user named it in Gmail, for the changes that name one."""
+    if (change in LABELED) != (label is not None):
+        raise ToolError(
+            "apply_label and remove_label need `label`; the other changes don't take it"
+        )
+    if label is None:
+        return None
+    found = await db.scalar(
+        select(Label.name).where(
+            Label.type == "user",
+            Label.account_id == account_id,
+            func.lower(Label.name) == label.strip().lower(),
+        )
+    )
+    if found is None:
+        raise ToolError(f"There is no label named “{label}”")
+    return found
+
+
+async def _by_ids(db: AsyncSession, account_id: int, thread_ids: list[int]) -> list[Thread]:
+    ids = list(dict.fromkeys(thread_ids))
     threads = list(
         await db.scalars(
             select(Thread).where(Thread.id.in_(ids), real(account_id), ~Thread.drafts_only)
@@ -320,24 +412,83 @@ async def propose(
     found = {t.id: t for t in threads}
     if missing := [i for i in ids if i not in found]:
         raise ToolError(f"There are no threads {', '.join(map(str, missing))}")
-    label = None
-    if args.label is not None:
-        # The label as the user named it in Gmail.
-        label = await db.scalar(
-            select(Label.name).where(
-                Label.type == "user",
-                Label.account_id == account_id,
-                func.lower(Label.name) == args.label.strip().lower(),
-            )
+    return [found[i] for i in ids]
+
+
+async def _by_query(db: AsyncSession, account_id: int, query: str) -> list[Thread]:
+    """Every thread the search finds, as search_threads finds them, newest first."""
+    conditions, trash_or_spam = search.conditions(query)
+    stmt = select(Thread).where(real(account_id), ~Thread.drafts_only, *conditions)
+    if not trash_or_spam:
+        stmt = stmt.where(~Thread.in_trash, ~Thread.in_spam)
+    stmt = stmt.order_by(Thread.last_message_at.desc(), Thread.id.desc()).limit(MAX_MATCHING + 1)
+    threads = list(await db.scalars(stmt))
+    if not threads:
+        raise ToolError(f"No threads match “{query}”")
+    if len(threads) > MAX_MATCHING:
+        raise ToolError(
+            f"More than {MAX_MATCHING} threads match “{query}”: narrow the query, e.g. with "
+            "before: or after:, and change them in parts"
         )
-        if label is None:
-            raise ToolError(f"There is no label named “{args.label}”")
+    return threads
+
+
+async def _part(
+    db: AsyncSession,
+    account_id: int,
+    change: str,
+    label: str | None,
+    thread_ids: list[int] | None = None,
+    query: str | None = None,
+) -> dict[str, Any]:
+    """One change of a proposal, on threads picked by id or by a search."""
+    if (thread_ids is None) == (query is None):
+        raise ToolError("Give each change either `thread_ids` or `query`")
+    name = await _label(db, account_id, change, label)
+    if thread_ids is not None:
+        threads = await _by_ids(db, account_id, thread_ids)
+    else:
+        assert query is not None
+        threads = await _by_query(db, account_id, query)
+    return {
+        "tool": change,
+        "action": CHANGES[change],
+        "label": name,
+        "query": query,
+        "threads": [{"id": t.id, "subject": t.subject} for t in threads],
+    }
+
+
+def parts(action: dict[str, Any]) -> list[dict[str, Any]]:
+    """A batch's changes, or the one change of any other proposal."""
+    return action.get("parts") or [action]
+
+
+async def propose(
+    db: AsyncSession, tool_use_id: str, name: str, data: Any, account_id: int
+) -> dict[str, Any]:
+    proposal: dict[str, Any]
+    if name == "change_batch":
+        batch = _parse(BatchIn, data)
+        changes = [
+            await _part(db, account_id, p.change, p.label, p.thread_ids, p.query)
+            for p in batch.changes
+        ]
+        if sum(len(c["threads"]) for c in changes) > MAX_MATCHING:
+            raise ToolError(f"A batch may change at most {MAX_MATCHING} threads in all")
+        proposal = {"tool": name, "action": None, "label": None, "query": None, "threads": []}
+        proposal["parts"] = changes
+    elif name == "change_matching":
+        matching = _parse(MatchingIn, data)
+        proposal = await _part(
+            db, account_id, matching.change, matching.label, query=matching.query
+        )
+    else:
+        args = _parse(ChangeIn, data)
+        proposal = await _part(db, account_id, name, args.label, thread_ids=args.thread_ids)
     return {
         "id": tool_use_id,
-        "tool": name,
-        "action": CHANGES[name],
-        "label": label,
-        "threads": [{"id": i, "subject": found[i].subject} for i in ids],
+        **proposal,
         "status": "pending",  # then "confirmed", "declined", "skipped", "failed" or "undone"
         "entries": [],  # outbox entries of a confirmed change, for undo
     }
@@ -345,25 +496,32 @@ async def propose(
 
 DONE = {
     "archive": "Archived (marked done)",
+    "delete": "Moved to Trash",
     "apply_label": "Labeled",
+    "remove_label": "Removed the label",
     "star": "Starred",
+    "unstar": "Unstarred",
     "mark_read": "Marked as read",
+    "mark_unread": "Marked as unread",
 }
+
+
+def _done(part: dict[str, Any]) -> str:
+    count = len(part["threads"])
+    label = f" “{part['label']}”" if part["label"] else ""
+    return f"{DONE[part['tool']]}{label}: {count} thread{'s' if count != 1 else ''}"
 
 
 def outcome(action: dict[str, Any]) -> tuple[str, bool]:
     """What Claude hears about a proposal once it is decided: text, and whether it's an error."""
-    count = len(action["threads"])
-    threads = f"{count} thread{'s' if count != 1 else ''}"
     match action["status"]:
         case "confirmed":
-            label = f" “{action['label']}”" if action["label"] else ""
             how = (
                 "Done without asking (confirmation is off)"
                 if action.get("auto")
                 else ("The user confirmed")
             )
-            return f"{how}. {DONE[action['tool']]}{label}: {threads}.", False
+            return f"{how}. {'; '.join(_done(p) for p in parts(action))}.", False
         case "declined":
             return (
                 "The user declined: nothing changed. Don't propose it again unless they ask.",
