@@ -262,8 +262,8 @@ MAILBOXES: dict[str, Any] = {
 }
 
 
-# The grouped inbox: unlabeled threads, then each label's threads collapsed into a bundle. A
-# thread with several labels goes in one bundle only, its first label's by name.
+# The grouped inbox: each label's threads collapsed into a bundle, then the unlabeled threads.
+# A thread with several labels goes in one bundle only, its first label's by name.
 
 
 def _placed(account_id: int) -> Any:

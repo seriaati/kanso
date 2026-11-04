@@ -455,11 +455,12 @@
   height: 32px;
 }
 
-/* The mockup's 10px gap, hairline and 6px padding above the bundles. */
-.firstBundle {
+/* The mockup's 10px gap, hairline and 6px padding between the bundles and the other threads. */
+.divider {
+  position: absolute;
   top: 10px;
-  height: 39px;
-  padding-top: 6px;
+  left: 8px;
+  right: 8px;
   border-top: 1px solid var(--line);
 }
 
@@ -699,8 +700,9 @@
     height: 48px;
   }
 
-  .firstBundle {
-    height: 55px;
+  .divider {
+    left: 0;
+    right: 0;
   }
 
   /* One line, not a thread row's two. */

@@ -24,19 +24,22 @@ export type BundleAction = 'done' | 'read' | 'delete'
 
 export type ListRow =
   | { kind: 'thread'; thread: ThreadSummary }
-  | { kind: 'bundle'; bundle: Bundle; open: boolean; first: boolean }
+  | { kind: 'bundle'; bundle: Bundle; open: boolean }
+  /** Between the bundles and the unlabeled threads. */
+  | { kind: 'divider' }
 
 const ROW = 31
 const COMFORTABLE_ROW = 40
 const BUNDLE = 32
-const BUNDLES_GAP = 17 // above the first bundle: a margin, a hairline and padding
+const DIVIDER = 17 // a margin, a hairline and padding
 // Phone sizes match ThreadList.module.css (max-width: 767px): two-line rows, 44px+ tap targets.
 const PHONE_ROW = 64
 const PHONE_BUNDLE = 48
 
 function rowHeight(row: ListRow, phone: boolean, comfortable: boolean) {
   if (row.kind === 'thread') return phone ? PHONE_ROW : comfortable ? COMFORTABLE_ROW : ROW
-  return (phone ? PHONE_BUNDLE : BUNDLE) + (row.first ? BUNDLES_GAP : 0)
+  if (row.kind === 'divider') return DIVIDER
+  return phone ? PHONE_BUNDLE : BUNDLE
 }
 
 type Props = {
@@ -91,7 +94,7 @@ export function ThreadList(props: Props) {
     estimateSize: (index) => rowHeight(rows[index], phone, comfortable),
     getItemKey: (index) => {
       const row = rows[index]
-      return row.kind === 'thread' ? row.thread.id : `bundle:${row.bundle.name}`
+      return row.kind === 'thread' ? row.thread.id : row.kind === 'bundle' ? `bundle:${row.bundle.name}` : 'divider'
     },
     overscan: 12,
     paddingStart: 6,
@@ -192,6 +195,7 @@ export function ThreadList(props: Props) {
             const row = rows[item.index]
             if (row.kind === 'bundle')
               return <BundleRow key={item.key} row={row} top={item.start} onAction={onBundleAction} onToggle={onToggleBundle} />
+            if (row.kind === 'divider') return <div key={item.key} className={styles.divider} style={{ transform: `translateY(${item.start}px)` }} aria-hidden="true" />
             const thread = row.thread
             const chips = hideChips
               ? []
@@ -252,7 +256,7 @@ function BundleRow({ row, top, onAction, onToggle }: BundleProps) {
   const swipe = useSwipe((direction) => onAction(direction === 'right' ? 'done' : 'delete', bundle))
   const swiped = bundleActions[swipe.offset > 0 ? 0 : 1]
   return (
-    <div className={`${styles.bundle} ${row.first ? styles.firstBundle : ''}`} style={{ transform: `translateY(${top}px)` }}>
+    <div className={styles.bundle} style={{ transform: `translateY(${top}px)` }}>
       <div className={`${styles.row} ${styles.bundleRow}`} {...swipe.handlers}>
         {swipe.offset !== 0 && (
           <span className={`${styles.swipe} ${swipe.offset > 0 ? styles.swipeDone : styles.swipeDelete}`} aria-hidden="true">

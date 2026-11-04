@@ -242,21 +242,23 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const bundleThreads = useMemo(() => unique(bundleList.data?.pages), [bundleList.data])
   const bundles = useMemo(() => (grouped ? (list.data?.pages[0]?.bundles ?? []).filter((b) => b.count > 0) : []), [grouped, list.data])
 
-  // In the inbox: its unlabeled threads, then a row per label, the open bundle's threads under it.
-  const { rows, threads, mainEnd } = useMemo(() => {
-    const rows: ListRow[] = listThreads.map((thread) => ({ kind: 'thread', thread }))
-    const mainEnd = rows.length - 1
-    bundles.forEach((bundle, i) => {
+  // In the inbox: a row per label, the open bundle's threads under it, then the unlabeled threads.
+  const { rows, threads, bundlesEnd } = useMemo(() => {
+    const rows: ListRow[] = []
+    for (const bundle of bundles) {
       const open = bundle.name === openBundle
-      rows.push({ kind: 'bundle', bundle, open, first: i === 0 && mainEnd >= 0 })
+      rows.push({ kind: 'bundle', bundle, open })
       if (open) for (const thread of bundleThreads) rows.push({ kind: 'thread', thread })
-    })
+    }
+    const bundlesEnd = rows.length - 1
+    if (rows.length && listThreads.length) rows.push({ kind: 'divider' })
+    for (const thread of listThreads) rows.push({ kind: 'thread', thread })
     const opened = bundles.some((b) => b.name === openBundle)
-    return { rows, threads: opened ? [...listThreads, ...bundleThreads] : listThreads, mainEnd }
+    return { rows, threads: opened ? [...bundleThreads, ...listThreads] : listThreads, bundlesEnd }
   }, [listThreads, bundleThreads, bundles, openBundle])
   const onRangeEnd = (last: number) => {
-    if (hasNextPage && last >= mainEnd - 10) loadMore()
-    if (bundleList.hasNextPage && !bundleList.isFetching && last >= rows.length - 10) void bundleList.fetchNextPage()
+    if (hasNextPage && last >= rows.length - 10) loadMore()
+    if (bundleList.hasNextPage && !bundleList.isFetching && last >= bundlesEnd - 10) void bundleList.fetchNextPage()
   }
 
   const [cursor, setCursor] = useState<number | null>(null)
