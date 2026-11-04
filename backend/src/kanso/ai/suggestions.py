@@ -37,9 +37,10 @@ the inbox mail that has no label yet, suggest labels to sort it into.
 
 Each label has:
 - name: short, like "Finance" or "Travel".
-- description: one plain sentence on what belongs under it. Another AI later sorts each new \
-email into a label by reading these descriptions alone, so be concrete, e.g. "Bills, bank \
-statements, receipts and payment reminders".
+- description: one short sentence, at most 15 words, on the kind of mail that belongs under \
+it, e.g. "Bills, bank statements, receipts and payment reminders". Another AI later sorts each \
+new email by reading these descriptions alone, so describe the category, not who sends it: no \
+sender, company, product or people names, which would narrow the label to them.
 - color: one of {", ".join(COLORS)}.
 - bundle: true for mail read in bulk or not at all, such as newsletters, promotions and \
 notifications. Its inbox mail then collapses into one row.
