@@ -27,7 +27,7 @@ export type Route = { view: View; threadId: number | null; accountId: number | n
 
 const isMailbox = (value: string | undefined): value is Mailbox => mailboxes.includes(value as Mailbox)
 
-function parse(pathname: string, params: URLSearchParams): Route | null {
+export function parse(pathname: string, params: URLSearchParams): Route | null {
   let segments: string[]
   try {
     segments = pathname.split('/').filter(Boolean).map(decodeURIComponent)

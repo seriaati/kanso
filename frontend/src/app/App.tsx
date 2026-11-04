@@ -50,7 +50,7 @@ import {
   type ThreadSummary,
 } from './mail'
 import { usePhone } from './media'
-import { href, useRoute, type Mailbox, type Route } from './nav'
+import { href, parse, useRoute, type Mailbox, type Route } from './nav'
 import { applyUpdate, useUpdateReady } from './update'
 
 export function App() {
@@ -144,16 +144,37 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   )
   const navigate = useNavigate()
   const location = useLocation()
+  // A thread opened from outside (a notification, a link) gets its list under it, so Back goes
+  // there. `starting`: the app opened on it, so the list takes its place in the history.
+  const openLink = useEffectEvent((url: string, starting = false) => {
+    const target = new URL(url, window.location.origin)
+    const linked = parse(target.pathname, target.searchParams)
+    if (linked?.threadId == null) {
+      if (!starting) void navigate(url)
+      return
+    }
+    const list = href({ ...linked, threadId: null })
+    if (starting) void navigate(list, { replace: true })
+    else if (list !== location.pathname + location.search) void navigate(list)
+    void navigate(url)
+  })
+  const opened = useRef(false)
+  useEffect(() => {
+    if (opened.current) return
+    opened.current = true
+    if (location.key === 'default') openLink(location.pathname + location.search, true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, for the page the app opened on
+  }, [])
   // A tapped new-mail notification opens its thread here (public/push-sw.js).
   useEffect(() => {
     const container = navigator.serviceWorker
     if (!container) return
     const onMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'kanso:open' && typeof event.data.url === 'string') void navigate(event.data.url)
+      if (event.data?.type === 'kanso:open' && typeof event.data.url === 'string') openLink(event.data.url)
     }
     container.addEventListener('message', onMessage)
     return () => container.removeEventListener('message', onMessage)
-  }, [navigate])
+  }, [])
   // null only while no account is connected.
   const accountId = pickAccount(accounts, urlRoute.accountId)?.id ?? null
   useEffect(() => {
