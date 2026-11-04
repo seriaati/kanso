@@ -24,6 +24,12 @@
   transition: translate var(--slow) var(--ease);
 }
 
+/* Follows the finger while pulled down. */
+.sheet[data-dragging],
+.scrim[data-dragging] {
+  transition: none;
+}
+
 @starting-style {
   .scrim {
     opacity: 0;
