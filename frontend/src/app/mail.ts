@@ -29,6 +29,8 @@ export type ThreadSummary = {
   /** The newest sender who isn't the user, and their photo or their domain's logo. */
   sender_name: string | null
   sender_photo: string | null
+  /** The one-time code of a recent verification mail, offered for copying. */
+  code: string | null
 }
 
 export type BundleSender = { name: string; photo: string | null }

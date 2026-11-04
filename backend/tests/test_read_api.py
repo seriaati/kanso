@@ -4,7 +4,7 @@ from typing import Any
 import pytest
 from conftest import run
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from kanso import demo_seed
 from kanso.api import events
@@ -105,8 +105,29 @@ def test_thread_list_item_shape(demo: TestClient) -> None:
     assert set(thread) == {
         "id", "account_id", "subject", "snippet", "senders", "last_message_at", "message_count",
         "label_ids", "unread", "starred", "important", "in_inbox", "in_trash", "in_spam",
-        "has_attachments", "lang", "me", "recipients", "sender_name", "sender_photo",
+        "has_attachments", "lang", "me", "recipients", "sender_name", "sender_photo", "code",
     }  # fmt: skip
+
+
+def test_verification_codes_in_the_list(demo: TestClient) -> None:
+    """A recent verification mail carries its code; an older one doesn't, codes expire."""
+
+    async def make_verification_mails() -> None:
+        async with Session() as db:
+            for subject in ("CI passed", "Hacker Weekly #312"):  # 1.5 and 30 hours old
+                thread = await db.scalar(select(Thread).where(Thread.subject == subject))
+                assert thread is not None
+                await db.execute(
+                    update(Message)
+                    .where(Message.thread_id == thread.id)
+                    .values(body_text="Your verification code is 482913.")
+                )
+            await db.commit()
+
+    run(make_verification_mails())
+    threads = demo.get("/api/threads", params={"account_id": 1, "limit": 200}).json()["threads"]
+    found = {t["subject"]: t["code"] for t in threads if t["code"]}
+    assert found == {"CI passed": "482913"}
 
 
 def test_me_and_recipients(demo: TestClient) -> None:

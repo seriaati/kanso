@@ -1,5 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useEffect, useEffectEvent, useRef, type ReactNode, type RefObject } from 'react'
+import { useEffect, useEffectEvent, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { Link } from 'react-router'
 import { shortDate } from '../../app/format'
 import { quickAction, redundant, type Quick } from '../../app/actions'
@@ -420,6 +420,7 @@ function ThreadRow(props: RowProps) {
           <span className={styles.subject}>{thread.subject || '(no subject)'}</span>
           {thread.snippet && <span className={styles.muted}> — {thread.snippet}</span>}
         </span>
+        {thread.code && <CopyCode code={thread.code} />}
         {thread.important && (
           <span className={styles.important} aria-label="Important">
             <Icon name="important" size={11} filled />
@@ -451,5 +452,33 @@ function ThreadRow(props: RowProps) {
         })}
       </span>
     </div>
+  )
+}
+
+/** A verification mail's code: a click copies it, without opening the thread. */
+function CopyCode({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false)
+  useEffect(() => {
+    if (!copied) return
+    const timer = setTimeout(() => setCopied(false), 1500)
+    return () => clearTimeout(timer)
+  }, [copied])
+  return (
+    <span
+      className={styles.code}
+      role="button"
+      aria-label={copied ? 'Copied' : `Copy code ${code}`}
+      title={copied ? 'Copied' : 'Copy code'}
+      data-copied={copied || undefined}
+      onClick={(event) => {
+        if (event.button !== 0) return
+        event.preventDefault() // not also open the thread
+        event.stopPropagation()
+        void navigator.clipboard.writeText(code).then(() => setCopied(true))
+      }}
+    >
+      <span className={styles.codeText}>{code}</span>
+      <Icon name={copied ? 'check' : 'copy'} size={12} />
+    </span>
   )
 }

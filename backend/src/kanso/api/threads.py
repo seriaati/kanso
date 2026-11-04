@@ -1,6 +1,6 @@
 import asyncio
 import base64
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 from urllib.parse import quote
 
@@ -10,7 +10,7 @@ from sqlalchemy import ColumnElement, exists, func, select, true, tuple_
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kanso import demo_seed, logos
+from kanso import codes, demo_seed, logos
 from kanso.db import search
 from kanso.db.models import (
     Account,
@@ -58,6 +58,8 @@ class ThreadOut(BaseModel):
     # (sync/photos.py), else their domain's logo (logos.py). None: draw their initial.
     sender_name: str | None = None
     sender_photo: str | None = None
+    # The one-time code in the newest message, when it is a recent verification mail (codes.py).
+    code: str | None = None
 
 
 class BundleSender(BaseModel):
@@ -231,6 +233,26 @@ async def _people(db: AsyncSession, threads: list[ThreadOut], recipients: bool) 
     ]
 
 
+async def _codes(db: AsyncSession, threads: list[ThreadOut]) -> list[ThreadOut]:
+    """Each recent thread's one-time code, from its newest message."""
+    since = datetime.now(UTC) - codes.FRESH
+    recent = [t.id for t in threads if t.last_message_at >= since]
+    if not recent:
+        return threads
+    rows = await db.execute(
+        select(Message.thread_id, Message.subject, func.left(Message.body_text, codes.HEAD))
+        .where(Message.thread_id.in_(recent))
+        .ext(distinct_on(Message.thread_id))
+        .order_by(Message.thread_id, Message.internal_date.desc(), Message.id.desc())
+    )
+    found = {
+        thread_id: code
+        for thread_id, subject, text in rows
+        if (code := codes.find_code(subject, text))
+    }
+    return [t.model_copy(update={"code": found[t.id]}) if t.id in found else t for t in threads]
+
+
 def _encode_cursor(thread: Thread) -> str:
     raw = f"{thread.last_message_at.isoformat()}|{thread.id}"
     return base64.urlsafe_b64encode(raw.encode()).decode()
@@ -379,7 +401,7 @@ async def list_threads(
     out = [ThreadOut.model_validate(t) for t in threads[:limit]]
     recipients = mailbox in ("sent", "drafts")
     return ThreadPage(
-        threads=await _people(db, out, recipients),
+        threads=await _codes(db, await _people(db, out, recipients)),
         next_cursor=next_cursor,
         bundles=await _bundles(db, account_id) if grouped and not cursor else None,
     )

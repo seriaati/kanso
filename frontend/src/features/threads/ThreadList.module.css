@@ -354,6 +354,40 @@
   color: var(--accent);
 }
 
+/* A verification mail's code, with its copy icon. */
+.code {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 20px;
+  padding: 0 6px 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    border-color var(--fast) ease,
+    color var(--fast) ease;
+}
+
+.code:hover {
+  border-color: var(--muted);
+  color: var(--ink);
+}
+
+.code[data-copied] {
+  color: var(--accent);
+}
+
+.codeText {
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+  letter-spacing: 0.06em;
+  color: var(--ink);
+}
+
 .unread .from,
 .unread .subject {
   font-weight: 700;
@@ -688,6 +722,16 @@
 
   .summary {
     grid-area: 2 / 3 / 3 / 7;
+  }
+
+  /* Under the time, the summary making room. */
+  .code {
+    grid-area: 2 / 4 / 3 / 7;
+    justify-self: end;
+  }
+
+  .main:has(.code) .summary {
+    grid-column-end: 4;
   }
 
   .actions {
