@@ -217,6 +217,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const labels = useLabels(accountId)
   const sync = useSync()
   const named = useMemo(() => userLabels(labels.data ?? []), [labels.data])
+  const labelNames = useMemo(() => named.map((l) => l.name), [named])
   const label = view.kind === 'label' ? named.find((l) => l.name === view.name) : undefined
   const labelIds = label && [label.id]
   const list = useThreads(view, accountId, labelIds)
@@ -816,6 +817,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
                   view={view}
                   inboxHref={href({ view: { kind: 'mailbox', mailbox: 'inbox' }, threadId: null, accountId })}
                   onSearch={search}
+                  labels={labelNames}
                   onCompose={compose}
                   onAsk={ai && accountId !== null ? () => setAsking(true) : undefined}
                   onMenu={() => setMenu({ open: true, at: location.key })}

@@ -44,6 +44,7 @@
 }
 
 .search {
+  position: relative;
   margin: 0 0 0 auto;
   flex: 0 1 280px;
   display: flex;
@@ -57,8 +58,15 @@
 }
 
 .search:focus-within {
+  overflow: visible; /* for the suggestions; the box only folds without focus */
   outline: 1px solid var(--line);
   background: var(--surface);
+}
+
+.suggestions {
+  top: calc(100% + 4px);
+  right: 0;
+  width: max(100%, 340px);
 }
 
 .search {

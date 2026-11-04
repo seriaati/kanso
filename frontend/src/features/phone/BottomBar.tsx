@@ -1,13 +1,16 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router'
 import type { View } from '../../app/nav'
 import { Icon } from '../../components/Icon'
+import { useSearchSuggest } from '../threads/SearchSuggest'
 import styles from './BottomBar.module.css'
 
 type Props = {
   view: View
   inboxHref: string
   onSearch: (query: string) => void
+  /** User label names, suggested after label:. */
+  labels: string[]
   onCompose: () => void
   /** Only with AI on. */
   onAsk?: () => void
@@ -16,8 +19,10 @@ type Props = {
 
 // The phone's thread list controls, at the bottom within thumb reach. Search takes the bar's
 // place, so its box sits just above the keyboard.
-export function BottomBar({ view, inboxHref, onSearch, onCompose, onAsk, onMenu }: Props) {
+export function BottomBar({ view, inboxHref, onSearch, labels, onCompose, onAsk, onMenu }: Props) {
   const [searching, setSearching] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const suggest = useSearchSuggest(inputRef, labels, styles.suggestions)
   const inbox = view.kind === 'mailbox' && view.mailbox === 'inbox'
 
   if (searching || view.kind === 'search') {
@@ -38,8 +43,20 @@ export function BottomBar({ view, inboxHref, onSearch, onCompose, onAsk, onMenu 
       >
         <label className={styles.box}>
           <Icon name="search" size={16} />
-          <input key={query} name="q" type="search" enterKeyHint="search" placeholder="Search mail" aria-label="Search mail" defaultValue={query} autoFocus={searching} />
+          <input
+            key={query}
+            ref={inputRef}
+            name="q"
+            type="search"
+            enterKeyHint="search"
+            placeholder="Search mail"
+            aria-label="Search mail"
+            defaultValue={query}
+            autoFocus={searching}
+            {...suggest.inputProps}
+          />
         </label>
+        {suggest.list}
         <button
           type="button"
           className={styles.cancel}

@@ -12,6 +12,7 @@ import { Icon, type IconName } from '../../components/Icon'
 import { Menu } from '../../components/Menu'
 import { InstallButton } from '../install/InstallButton'
 import { Avatar as AccountAvatar } from '../sidebar/AccountSwitcher'
+import { useSearchSuggest } from './SearchSuggest'
 import { useSwipe } from './swipe'
 import styles from './ThreadList.module.css'
 
@@ -88,6 +89,8 @@ export function ThreadList(props: Props) {
   const { onRowMenu, menuId, onSelectClick, selectionBar } = props
   const scrollRef = useRef<HTMLDivElement>(null)
   const comfortable = useDensity() === 'comfortable'
+  const labelNames = [...labelsById.values()].map((label) => label.name)
+  const suggest = useSearchSuggest(searchRef, labelNames, styles.suggestions)
   // eslint-disable-next-line react-hooks/incompatible-library -- the build doesn't use React Compiler
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -168,14 +171,17 @@ export function ThreadList(props: Props) {
             type="text"
             placeholder="Search"
             aria-label="Search mail"
-            title="Search (/). Try from:, label:, is:unread, has:attachment, before:2024-01-01"
+            title="Search (/)"
             defaultValue={query}
+            {...suggest.inputProps}
             onKeyDown={(event) => {
-              if (event.key !== 'Escape') return
+              suggest.inputProps.onKeyDown(event)
+              if (event.defaultPrevented || event.key !== 'Escape') return
               event.currentTarget.value = query
               event.currentTarget.blur()
             }}
           />
+          {suggest.list}
         </form>
         )}
         {onAsk && (
