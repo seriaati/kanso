@@ -47,6 +47,7 @@
   position: relative;
   margin: 0 0 0 auto;
   flex: 0 1 280px;
+  min-width: 0; /* or the overflow: visible below lets the input's width widen the box */
   display: flex;
   align-items: center;
   gap: 8px;
@@ -65,8 +66,8 @@
 
 .suggestions {
   top: calc(100% + 4px);
+  left: 0;
   right: 0;
-  width: max(100%, 340px);
 }
 
 .search {
