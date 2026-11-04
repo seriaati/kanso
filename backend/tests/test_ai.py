@@ -152,13 +152,9 @@ def sync(gmail: FakeGmail) -> None:
     run(go())
 
 
-async def _describe(name: str, description: str, **flags: bool) -> None:
+async def _describe(name: str, description: str) -> None:
     async with Session() as db:
-        await db.execute(
-            update(Label)
-            .where(Label.name == name)
-            .values(description=description, **({"ai_managed": True} | flags))
-        )
+        await db.execute(update(Label).where(Label.name == name).values(description=description))
         await db.commit()
 
 
@@ -168,7 +164,6 @@ def synced(gmail: FakeGmail, logged_in: TestClient) -> TestClient:
     sync(gmail)
     run(_describe("Finance", "bills, statements and payment reminders"))
     run(_describe("Work", "work mail"))
-    run(_describe("Newsletters", "", ai_managed=False, is_bundle=True))
     return logged_in
 
 
@@ -260,13 +255,13 @@ def test_prompt_sends_only_sender_subject_and_trimmed_body(
     private = ["partner@example.com", "accountant@example.com", "statement-secret", "PDF"]
     private += ["my private earlier question", "unsubscribe", "Q4 planning", "Hiring"]
     assert [p for p in private if p in sent] == []
-    # The AI-managed labels and their descriptions, nothing else; a structured answer.
+    # Every label and its description (else its name), nothing else; a structured answer.
     system = request["system"][0]["text"]
-    assert "- Finance: bills, statements and payment reminders\n- Work: work mail" in system
-    assert "Newsletters" not in sent
+    labels = "- Finance: bills, statements and payment reminders\n- Newsletters: Newsletters\n"
+    assert labels + "- Work: work mail" in system
     assert request["model"] == "claude-haiku-5-5"
     schema = request["output_config"]["format"]["schema"]
-    assert schema["properties"]["label"]["enum"] == ["Finance", "Work", "none"]
+    assert schema["properties"]["label"]["enum"] == ["Finance", "Newsletters", "Work", "none"]
     assert "cache_control" not in request["system"][0]  # a short prefix: nothing to cache
 
 
@@ -588,50 +583,50 @@ def test_config_with_a_key(ai_on: None, logged_in: TestClient) -> None:
     assert logged_in.get("/api/config").json() == {"ai": True, "labeling": True}
 
 
+def test_labeling_turned_off_in_settings_runs_nothing(
+    ai_on: None, synced: TestClient, gmail: FakeGmail, claude: FakeClaude
+) -> None:
+    assert synced.patch("/api/settings", json={"ai_labeling": False}).json()["ai_labeling"] is False
+    assert synced.get("/api/config").json() == {"ai": True, "labeling": False}
+    new_mail(gmail, "m6", "t6", "Bill", "x")
+    assert rows(AiQueue) == []
+    assert synced.post("/api/ai/label-inbox", json={"account_id": 1}).status_code == 409
+    synced.patch("/api/settings", json={"ai_labeling": True})
+    assert synced.get("/api/config").json()["labeling"] is True
+
+
 def _grouped(api: TestClient, query: str = "") -> dict[str, Any]:
     response = api.get(f"/api/threads?account_id=1&mailbox=inbox&grouped=true{query}")
     assert response.status_code == 200, response.text
     return response.json()
 
 
-def test_grouped_inbox_sections_and_bundles(ai_on: None, synced: TestClient) -> None:
-    # t6: Work and Finance (sections by name: Finance); t7: Work and the bundle (Work wins).
+def test_grouped_inbox_unlabeled_then_bundles(synced: TestClient) -> None:
+    # A thread goes in its first label's bundle by name. t6: Work and Finance (Finance); t7:
+    # Work and Newsletters (Newsletters). Grouping needs no AI.
     gmail_threads = {
         "t6": ["INBOX", "Label_1", "Label_2"],
         "t7": ["INBOX", "Label_3", "Label_1"],
     }
     run(_add_threads(gmail_threads))
     page = _grouped(synced)
-    order = [(t["subject"], t["section"]) for t in page["threads"]]
-    # Unlabeled first (t4, t1), then sections by their newest thread: Work (t7), Finance (t6).
-    assert order == [
-        ("Dinner?", None),
-        ("Your bill for October", None),
-        ("Extra t7", "Work"),
-        ("Q4 planning", "Work"),
-        ("Extra t6", "Finance"),
+    assert [t["subject"] for t in page["threads"]] == ["Dinner?", "Your bill for October"]
+    # Newest first: Newsletters (t7), Finance (t6), Work (t2).
+    assert [(b["name"], b["count"]) for b in page["bundles"]] == [
+        ("Newsletters", 2),
+        ("Finance", 1),
+        ("Work", 1),
     ]
-    assert [s["name"] for s in page["sections"] if not s["bundle"]] == [None, "Work", "Finance"]
-    sections = {(s["name"], s["bundle"]): s for s in page["sections"]}
-    assert {k: s["count"] for k, s in sections.items()} == {
-        ("Work", False): 2,
-        ("Finance", False): 1,
-        (None, False): 2,
-        ("Newsletters", True): 1,
-    }
-    assert sections[("Newsletters", True)]["senders"] == [
-        {"name": "Brief", "photo": "/api/logos/x.io"}
-    ]
+    assert {"name": "Brief", "photo": "/api/logos/x.io"} in page["bundles"][0]["senders"]
     bundle = synced.get("/api/threads?account_id=1&mailbox=inbox&bundle=Newsletters").json()
-    assert [t["subject"] for t in bundle["threads"]] == ["Weekly brief"]
+    assert [t["subject"] for t in bundle["threads"]] == ["Extra t7", "Weekly brief"]
 
-    # Cursor pagination walks the same order.
-    first = _grouped(synced, "&limit=2")
-    second = _grouped(synced, f"&limit=2&cursor={first['next_cursor']}")
-    third = _grouped(synced, f"&limit=2&cursor={second['next_cursor']}")
-    walked = [t["subject"] for p in (first, second, third) for t in p["threads"]]
-    assert walked == [s for s, _ in order] and third["next_cursor"] is None
-    assert second["sections"] is None
+    # Cursor pagination walks the unlabeled threads; the bundles come with the first page.
+    first = _grouped(synced, "&limit=1")
+    second = _grouped(synced, f"&limit=1&cursor={first['next_cursor']}")
+    walked = [t["subject"] for p in (first, second) for t in p["threads"]]
+    assert walked == ["Dinner?", "Your bill for October"] and second["next_cursor"] is None
+    assert second["bundles"] is None
 
 
 async def _add_threads(threads_: dict[str, list[str]]) -> None:
@@ -654,57 +649,27 @@ async def _add_threads(threads_: dict[str, list[str]]) -> None:
         await db.commit()
 
 
-def test_without_ai_the_inbox_is_one_list_plus_bundles(synced: TestClient) -> None:
+def test_done_all_clears_a_bundle_seen_until_then_undo(synced: TestClient) -> None:
     page = _grouped(synced)
-    assert {t["section"] for t in page["threads"]} == {None}
-    assert [t["subject"] for t in page["threads"]] == [
-        "Dinner?",
-        "Q4 planning",
-        "Your bill for October",
-    ]
-    assert {(s["name"], s["count"]) for s in page["sections"]} == {(None, 3), ("Newsletters", 1)}
-
-
-def test_done_all_clears_a_section_seen_until_then_undo(ai_on: None, synced: TestClient) -> None:
-    page = _grouped(synced)
-    other = next(s for s in page["sections"] if s["name"] is None)
-    until = other["newest_at"]
-    run(_add_threads({"t9": ["INBOX"]}))  # arrives after the user looked: left alone
-    response = synced.post(
-        "/api/threads/actions",
-        json={"action": "done", "section": {"name": None, "account_id": 1, "until": until}},
-    )
+    work = next(b for b in page["bundles"] if b["name"] == "Work")
+    run(_add_threads({"t9": ["INBOX", "Label_1"]}))  # arrives after the user looked: left alone
+    scope = {"name": "Work", "account_id": 1, "until": work["newest_at"]}
+    response = synced.post("/api/threads/actions", json={"action": "done", "bundle": scope})
     entries = response.json()["entries"]
     state = threads()
-    assert not state["t1"].in_inbox and not state["t4"].in_inbox
-    assert state["t9"].in_inbox and state["t2"].in_inbox  # newer, or another section
+    assert not state["t2"].in_inbox
+    assert state["t9"].in_inbox and state["t5"].in_inbox  # newer, or another bundle
     synced.post("/api/threads/undo", json={"entries": entries})
-    assert threads()["t1"].in_inbox and threads()["t4"].in_inbox
-    bundle = {
-        "name": "Newsletters",
-        "bundle": True,
-        "account_id": 1,
-        "until": "2100-01-01T00:00:00Z",
-    }
-    synced.post("/api/threads/actions", json={"action": "done", "section": bundle})
-    assert not threads()["t5"].in_inbox
+    assert threads()["t2"].in_inbox
 
 
 def test_label_settings_are_local(synced: TestClient, gmail: FakeGmail) -> None:
     label = next(lb for lb in synced.get("/api/labels?account_id=1").json() if lb["name"] == "Work")
-    assert (label["description"], label["ai_managed"], label["is_bundle"]) == (
-        "work mail",
-        True,
-        False,
-    )
+    assert label["description"] == "work mail"
     writes = len(gmail.writes)
-    patch = {"description": "  the office  ", "ai_managed": False, "is_bundle": True}
+    patch = {"description": "  the office  "}
     updated = synced.patch(f"/api/labels/{label['id']}", json=patch).json()
-    assert (updated["description"], updated["ai_managed"], updated["is_bundle"]) == (
-        "the office",
-        False,
-        True,
-    )
+    assert updated["description"] == "the office"
     assert label["icon"] is None  # a colored dot
     url = f"/api/labels/{label['id']}"
     assert synced.patch(url, json={"icon": "briefcase"}).json()["icon"] == "briefcase"
@@ -717,12 +682,11 @@ def test_label_settings_are_local(synced: TestClient, gmail: FakeGmail) -> None:
         json={
             "name": "Receipts",
             "description": "orders",
-            "is_bundle": True,
             "icon": "receipt",
             "account_id": 1,
         },
     ).json()
-    assert created["is_bundle"] and created["description"] == "orders"
+    assert created["description"] == "orders"
     assert created["icon"] == "receipt"
 
 
@@ -819,21 +783,18 @@ SUGGESTED = {
             "name": "finance",  # already a label: left out
             "description": "bills",
             "color": "plum",
-            "bundle": False,
             "examples": [],
         },
         {
             "name": "  Home   bills ",
             "description": " Utility bills and household services. ",
             "color": "ochre",
-            "bundle": False,
             "examples": ["Your bill for October", "a", "b", "c"],
         },
         {
             "name": "Friends",
             "description": "Plans with friends",
             "color": "moss",
-            "bundle": True,
             "examples": ["Dinner?"],
         },
     ]
@@ -858,14 +819,12 @@ def test_label_suggestions_from_unlabeled_inbox_mail(
             "name": "Home bills",
             "description": "Utility bills and household services.",
             "color": "#A07338",
-            "bundle": False,
             "examples": ["Your bill for October", "a", "b"],
         },
         {
             "name": "Friends",
             "description": "Plans with friends",
             "color": "#556B3F",
-            "bundle": True,
             "examples": ["Dinner?"],
         },
     ]
@@ -1002,12 +961,13 @@ def test_jev_request_sends_only_sender_subject_and_trimmed_body(
     private = ["partner@example.com", "accountant@example.com", "statement-secret", "PDF"]
     private += ["my private earlier question", "unsubscribe", "Q4 planning", "Hiring"]
     assert [p for p in private if p in sent] == []
-    # "none" first, as Jev leans toward the first option; then the AI-managed labels only.
+    # "none" first, as Jev leans toward the first option; then every label.
     question = body["questions"]["label"]
     assert question["type"] == "choice"
     assert list(question["criteria"].items()) == [
         ("none", "None of the other labels clearly fits"),
         ("Finance", "bills, statements and payment reminders"),
+        ("Newsletters", None),
         ("Work", "work mail"),
     ]
 

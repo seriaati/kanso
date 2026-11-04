@@ -37,8 +37,6 @@ export function Suggestions({ accountId, suggestions, labels, onClose }: Props) 
         color: s.color,
         account_id: accountId,
         description: s.description,
-        ai_managed: true,
-        is_bundle: s.bundle,
       })
       markAdded(i)
       return true
@@ -57,7 +55,7 @@ export function Suggestions({ accountId, suggestions, labels, onClose }: Props) 
     return (
       <Dialog title="New label" onClose={() => setEditing(null)}>
         <LabelEditor
-          draft={{ name: edited.name, color: edited.color, description: edited.description, aiManaged: true, isBundle: edited.bundle }}
+          draft={{ name: edited.name, color: edited.color, description: edited.description }}
           accountId={accountId}
           ai
           onDone={(change) => {
@@ -80,7 +78,6 @@ export function Suggestions({ accountId, suggestions, labels, onClose }: Props) 
               <div className={settings.text}>
                 <span className={settings.name}>
                   {s.name}
-                  {s.bundle && <span className={settings.flags}> · Bundled</span>}
                 </span>
                 <span className={settings.muted}>{s.description}</span>
                 {s.examples.length > 0 && (

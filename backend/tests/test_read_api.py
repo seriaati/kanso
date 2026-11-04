@@ -105,7 +105,7 @@ def test_thread_list_item_shape(demo: TestClient) -> None:
     assert set(thread) == {
         "id", "account_id", "subject", "snippet", "senders", "last_message_at", "message_count",
         "label_ids", "unread", "starred", "important", "in_inbox", "in_trash", "in_spam",
-        "has_attachments", "lang", "section", "me", "recipients", "sender_name", "sender_photo",
+        "has_attachments", "lang", "me", "recipients", "sender_name", "sender_photo",
     }  # fmt: skip
 
 
@@ -126,10 +126,10 @@ def test_me_and_recipients(demo: TestClient) -> None:
     assert people()["Lease renewal for apartment 4B"] == ([], None)
     assert people()["Re: Dinner on Saturday?"] == (["Demo"], None)
     assert people(q="trail")["Trail map"] == (["Demo"], None)
-    grouped = demo.get(
-        "/api/threads", params={"account_id": 1, "mailbox": "inbox", "grouped": "true"}
+    bundle = demo.get(
+        "/api/threads", params={"account_id": 1, "mailbox": "inbox", "bundle": "Personal"}
     ).json()
-    dinner = next(t for t in grouped["threads"] if t["subject"] == "Re: Dinner on Saturday?")
+    dinner = next(t for t in bundle["threads"] if t["subject"] == "Re: Dinner on Saturday?")
     assert dinner["me"] == ["Demo"]
 
     # "Me" is the thread's account: another connected account is someone else here.

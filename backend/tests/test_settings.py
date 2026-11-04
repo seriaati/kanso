@@ -130,6 +130,7 @@ def test_model_settings(logged_in: TestClient) -> None:
     models = ["claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"]
     assert logged_in.get("/api/settings").json() == {
         "assistant_confirm": True,
+        "ai_labeling": True,
         "labeling_model": "claude-haiku-5-5",
         "summary_model": "claude-haiku-5-5",
         "assistant_model": "claude-sonnet-5-5",

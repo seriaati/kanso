@@ -218,18 +218,18 @@ const cost = (usd: number) => (usd < 0.01 ? 'Costs under $0.01.' : `Costs about 
 type LabelStepProps = { account: Account; labels: NamedLabel[]; labeling: boolean; onNotice: Notify }
 
 function LabelStep({ account, labels, labeling, onNotice }: LabelStepProps) {
-  const sorting = labels.filter((l) => l.aiManaged)
   return (
     <Step title="3. Label the rest">
       {!labeling ? (
-        needsKey('AI labeling needs an Anthropic or a TypeSafe API key.')
-      ) : sorting.length === 0 ? (
         <p className={settings.note}>
-          No label sorts mail with AI yet. Add suggested labels above, or turn on “Label new mail with AI” for a label in{' '}
-          <Link to={`/labels?account=${account.id}`}>Labels</Link>.
+          AI labeling is off. It needs an Anthropic or a TypeSafe API key, and to be on in <Link to="/settings">Settings</Link>.
+        </p>
+      ) : labels.length === 0 ? (
+        <p className={settings.note}>
+          No labels yet. Add suggested labels above, or create some in <Link to={`/labels?account=${account.id}`}>Labels</Link>.
         </p>
       ) : (
-        <LabelRange account={account} sorting={sorting} onNotice={onNotice} />
+        <LabelRange account={account} sorting={labels} onNotice={onNotice} />
       )}
     </Step>
   )

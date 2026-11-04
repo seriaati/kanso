@@ -5,7 +5,7 @@ import type { Label } from './mail'
 // LabelSettings are kanso's own, not stored in Gmail.
 
 // icon: '' for none (a colored dot).
-export type LabelSettings = { description?: string; ai_managed?: boolean; is_bundle?: boolean; icon?: string }
+export type LabelSettings = { description?: string; icon?: string }
 
 const refresh = () => {
   void queryClient.invalidateQueries({ queryKey: ['labels'] })

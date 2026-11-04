@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import type { Account } from '../../app/accounts'
-import { userLabels, type Label, type NamedLabel } from '../../app/mail'
+import { userLabels, type Label } from '../../app/mail'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
 import { LabelMark } from '../../components/LabelMark'
@@ -23,7 +23,6 @@ export function Labels({ account, labels, ai, onMenu }: Props) {
   const [editing, setEditing] = useState<string | null>(null)
   const named = userLabels(labels)
   const edited = named.find((l) => l.name === editing)
-  const flags = (label: NamedLabel) => [ai && label.aiManaged && 'AI labels new mail', label.isBundle && 'Bundled'].filter(Boolean).join(' · ')
   return (
     <section className={styles.settings} aria-label="Labels">
       <header className={styles.header}>
@@ -40,7 +39,7 @@ export function Labels({ account, labels, ai, onMenu }: Props) {
             {account ? (
               <>
                 <p className={styles.intro}>
-                  {account.email}’s labels.{ai && ' Describe a label and turn on AI, and new inbox mail is sorted into it.'}
+                  {account.email}’s labels.{ai && ' AI sorts new inbox mail into them by their descriptions.'}
                 </p>
                 <ul className={styles.list}>
                   {named.map((label) => (
@@ -49,7 +48,6 @@ export function Labels({ account, labels, ai, onMenu }: Props) {
                       <div className={styles.text}>
                         <span className={styles.name}>
                           {label.name}
-                          {flags(label) && <span className={styles.flags}> · {flags(label)}</span>}
                         </span>
                         {ai && label.description && <span className={styles.muted}>{label.description}</span>}
                       </div>

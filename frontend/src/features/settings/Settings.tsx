@@ -15,7 +15,7 @@ type Props = {
   accounts: Account[]
   sync: SyncStatus[]
   ai: boolean
-  /** Auto-labeling is on: an Anthropic or a TypeSafe key is set. */
+  /** Auto-labeling is on: an Anthropic or a TypeSafe key is set, and it is on here. */
   labeling: boolean
   onMenu?: () => void
 }
@@ -45,7 +45,8 @@ export function Settings({ accounts, sync, ai, labeling, onMenu }: Props) {
           {!demo && <Notifications />}
           <ApiKeys />
           {ai && <Assistant />}
-          {labeling && <Models ai={ai} />}
+          <Labeling />
+          {(ai || labeling) && <Models ai={ai} labeling={labeling} />}
           {ai && <Usage />}
           {!demo && <Password />}
           <Sessions />
@@ -295,18 +296,41 @@ function Assistant() {
   )
 }
 
+// Shown once there is a key for it, so it can be turned back on.
+function Labeling() {
+  const settings = useSettings()
+  const update = useUpdateSettings()
+  const data = settings.data
+  if (!data?.labeling_models.length) return null
+  return (
+    <Section title="AI labeling">
+      <label className={styles.toggle}>
+        <input type="checkbox" checked={data.ai_labeling} onChange={(event) => update.mutate({ ai_labeling: event.target.checked })} />
+        <span>
+          Label new inbox mail with AI
+          <span className={styles.muted}>
+            AI puts each new inbox thread under one of your labels, going by their descriptions, and leaves it unlabeled when none
+            clearly fits. Mail you label yourself stays as you left it.
+          </span>
+        </span>
+      </label>
+      {update.error && <p className={styles.note}>Couldn’t save: {update.error.message}</p>}
+    </Section>
+  )
+}
+
 const modelFeatures = [
   { key: 'assistant_model', name: 'Assistant chat' },
   { key: 'summary_model', name: 'Thread summaries' },
   { key: 'labeling_model', name: 'Auto-labeling' },
 ] as const
 
-function Models({ ai }: { ai: boolean }) {
+function Models({ ai, labeling }: { ai: boolean; labeling: boolean }) {
   const settings = useSettings()
   const update = useUpdateSettings()
   const data = settings.data
-  // Without an Anthropic key only auto-labeling runs, and then on Jev.
-  const shown = ai ? modelFeatures : modelFeatures.filter((f) => f.key === 'labeling_model')
+  // Chat and summaries need an Anthropic key; auto-labeling can run on Jev.
+  const shown = modelFeatures.filter((f) => (f.key === 'labeling_model' ? labeling : ai))
   const choices = (key: (typeof modelFeatures)[number]['key']) => (key === 'labeling_model' ? data?.labeling_models : data?.models) ?? []
   return (
     <Section title="AI models">

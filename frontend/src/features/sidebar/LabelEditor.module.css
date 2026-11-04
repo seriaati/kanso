@@ -36,19 +36,6 @@
   border-color: var(--accent);
 }
 
-.toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--text-small);
-  color: var(--muted);
-}
-
-.toggle input {
-  margin: 0;
-  accent-color: var(--accent);
-}
-
 .swatches {
   display: flex;
   flex-wrap: wrap;
@@ -164,11 +151,6 @@
   .iconOption {
     width: 36px;
     height: 36px;
-  }
-
-  .toggle {
-    min-height: 36px;
-    font-size: var(--text-ui);
   }
 
   .delete,

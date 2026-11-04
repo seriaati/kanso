@@ -1,7 +1,7 @@
 import { useMutation, type InfiniteData, type QueryKey } from '@tanstack/react-query'
 import { api, queryClient } from './api'
 import type { IconName } from '../components/Icon'
-import type { Section, ThreadDetail, ThreadPage, ThreadSummary } from './mail'
+import type { Bundle, ThreadDetail, ThreadPage, ThreadSummary } from './mail'
 
 // Optimistic triage actions, rolled back if the request fails.
 
@@ -25,13 +25,11 @@ export type ActionInput = {
   action: ThreadAction
   threads: ThreadSummary[]
   label?: { name: string; id: number }
-  /** A whole section ("Done all"): the server finds its threads; `threads` are only the loaded ones. */
-  section?: SectionScope
+  /** A whole bundle ("Done all"): the server finds its threads; `threads` are only the loaded ones. */
+  bundle?: BundleScope
 }
 
-export type SectionScope = { name: string | null; bundle: boolean; account_id: number; until: string }
-
-const sectionKey = (name: string | null | undefined, bundle: boolean) => `${bundle ? 'b' : 's'}:${name ?? ''}`
+export type BundleScope = { name: string; account_id: number; until: string }
 
 export function applied(thread: ThreadSummary, { action, label }: Omit<ActionInput, 'threads'>): ThreadSummary {
   switch (action) {
@@ -64,14 +62,15 @@ export function applied(thread: ThreadSummary, { action, label }: Omit<ActionInp
   }
 }
 
-// Search results can't be judged here, so only Trash and Spam leave them.
-export function inList(params: URLSearchParams, thread: ThreadSummary): boolean {
+// Search results can't be judged here, so only Trash and Spam leave them. `labeled`: the thread
+// was just given a label, so it leaves the inbox's unlabeled threads for that label's bundle.
+export function inList(params: URLSearchParams, thread: ThreadSummary, labeled = false): boolean {
   const mailbox = params.get('mailbox')
   if (mailbox === 'trash') return thread.in_trash
   if (thread.in_trash) return false
   if (mailbox === 'spam') return thread.in_spam
   if (thread.in_spam) return false
-  if (mailbox === 'inbox') return thread.in_inbox
+  if (mailbox === 'inbox') return thread.in_inbox && !(labeled && params.has('grouped'))
   if (mailbox === 'starred') return thread.starred
   if (mailbox === 'done') return !thread.in_inbox
   const labelIds = params.getAll('label_id').map(Number)
@@ -128,7 +127,7 @@ type Snapshot = [QueryKey, unknown][]
 function patchCaches(input: ActionInput): Snapshot {
   const ids = new Set(input.threads.map((t) => t.id))
   const snapshot: Snapshot = []
-  const left = new Map<number, string>() // threads that left the inbox -> their section's key
+  const left = new Map<number, string>() // threads that left a bundle -> its name
   const lists = queryClient.getQueriesData<InfiniteData<ThreadPage>>({ queryKey: ['threads'] })
   for (const [key, data] of lists) {
     if (!data) continue
@@ -142,27 +141,27 @@ function patchCaches(input: ActionInput): Snapshot {
         threads: page.threads.flatMap((t) => {
           if (!ids.has(t.id)) return [t]
           const next = applied(t, input)
-          if (inList(params, next)) return [next]
-          if (params.get('mailbox') === 'inbox') left.set(t.id, bundle === null ? sectionKey(t.section, false) : sectionKey(bundle, true))
+          if (inList(params, next, input.action === 'label')) return [next]
+          if (bundle !== null) left.set(t.id, bundle)
           return []
         }),
       })),
     })
   }
   const fewer = new Map<string, number>()
-  for (const key of left.values()) fewer.set(key, (fewer.get(key) ?? 0) + 1)
-  // Only an action that takes the threads out of the inbox empties the section.
+  for (const name of left.values()) fewer.set(name, (fewer.get(name) ?? 0) + 1)
+  // Only an action that takes the threads out of the inbox empties the bundle.
   const emptied = input.action === 'done' || input.action === 'delete' || input.action === 'spam'
-  const cleared = emptied && input.section && sectionKey(input.section.name, input.section.bundle)
-  const recount = (section: Section) => {
-    const key = sectionKey(section.name, section.bundle)
-    return { ...section, count: key === cleared ? 0 : Math.max(section.count - (fewer.get(key) ?? 0), 0) }
-  }
+  const cleared = emptied && input.bundle?.name
+  const recount = (bundle: Bundle) => ({
+    ...bundle,
+    count: bundle.name === cleared ? 0 : Math.max(bundle.count - (fewer.get(bundle.name) ?? 0), 0),
+  })
   for (const [key] of lists) {
     const data = queryClient.getQueryData<InfiniteData<ThreadPage>>(key)
     const [first, ...rest] = data?.pages ?? []
-    if (!data || !first?.sections) continue
-    queryClient.setQueryData<InfiniteData<ThreadPage>>(key, { ...data, pages: [{ ...first, sections: first.sections.map(recount) }, ...rest] })
+    if (!data || !first?.bundles) continue
+    queryClient.setQueryData<InfiniteData<ThreadPage>>(key, { ...data, pages: [{ ...first, bundles: first.bundles.map(recount) }, ...rest] })
   }
   for (const id of ids) {
     const key = ['thread', id]
@@ -183,10 +182,10 @@ const mutationKey = ['thread-action']
 export function useThreadAction(onError: (message: string) => void) {
   return useMutation({
     mutationKey,
-    mutationFn: ({ action, threads, label, section }: ActionInput) =>
+    mutationFn: ({ action, threads, label, bundle }: ActionInput) =>
       api<{ entries: number[] }>('/threads/actions', {
         method: 'POST',
-        body: section ? { action, section, label: label?.name } : { action, thread_ids: threads.map((t) => t.id), label: label?.name },
+        body: bundle ? { action, bundle, label: label?.name } : { action, thread_ids: threads.map((t) => t.id), label: label?.name },
       }),
     onMutate: async (input) => {
       await queryClient.cancelQueries({ queryKey: ['threads'] })

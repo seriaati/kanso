@@ -15,6 +15,8 @@ DB = Annotated[AsyncSession, Depends(get_session)]
 class SettingsOut(BaseModel):
     # Off: the assistant changes mail at once; each change is still shown and can be undone.
     assistant_confirm: bool
+    # AI labeling of new inbox mail, given an API key for it (labeling_models isn't empty).
+    ai_labeling: bool
     labeling_model: str
     summary_model: str
     assistant_model: str
@@ -26,6 +28,7 @@ class SettingsOut(BaseModel):
 
 class SettingsIn(BaseModel):
     assistant_confirm: bool | None = None
+    ai_labeling: bool | None = None
     labeling_model: str | None = None
     summary_model: str | None = None
     assistant_model: str | None = None
@@ -40,6 +43,7 @@ async def get_settings(db: DB) -> SettingsOut:
         labeling_models.append(labeling.JEV_MODEL)
     return SettingsOut(
         assistant_confirm=await prefs.assistant_confirm(db),
+        ai_labeling=await prefs.ai_labeling(db),
         labeling_model=chosen[0] if chosen else await labeling.claude_model(db),
         summary_model=await prefs.model(db, "summary"),
         assistant_model=await prefs.model(db, "assistant"),
@@ -52,6 +56,8 @@ async def get_settings(db: DB) -> SettingsOut:
 async def update_settings(body: SettingsIn, db: DB) -> SettingsOut:
     if body.assistant_confirm is not None:
         await prefs.put(db, prefs.ASSISTANT_CONFIRM, body.assistant_confirm)
+    if body.ai_labeling is not None:
+        await prefs.put(db, prefs.AI_LABELING, body.ai_labeling)
     for feature in prefs.MODEL_DEFAULTS:
         model = getattr(body, f"{feature}_model")
         if model is None:
@@ -61,6 +67,6 @@ async def update_settings(body: SettingsIn, db: DB) -> SettingsOut:
             raise HTTPException(status_code=422, detail=f"Unknown model: {model}")
         await prefs.put(db, f"model_{feature}", model)
     await db.commit()
-    if body.labeling_model is not None:
-        await labeling.wake()  # the worker switches models at once
+    if body.labeling_model is not None or body.ai_labeling is not None:
+        await labeling.wake()  # the worker switches models, or turns on or off, at once
     return await get_settings(db)

@@ -26,10 +26,9 @@ import { Cleanup } from '../features/cleanup/Cleanup'
 import { Labels } from '../features/labels/Labels'
 import { Settings } from '../features/settings/Settings'
 import { Sidebar, type Notice } from '../features/sidebar/Sidebar'
-import { LabelInbox } from '../features/threads/LabelInbox'
-import { InboxZero, ThreadList, type LabelChip, type ListRow, type SectionAction } from '../features/threads/ThreadList'
+import { InboxZero, ThreadList, type LabelChip, type BundleAction, type ListRow } from '../features/threads/ThreadList'
 import { pickAccount, rememberAccount, useAccounts, type Account } from './accounts'
-import { applied, inList, quickAction, quickTarget, redundant, unsubscribe, useThreadAction, useUndo, type Quick, type SectionScope, type ThreadAction } from './actions'
+import { applied, inList, quickAction, quickTarget, redundant, unsubscribe, useThreadAction, useUndo, type BundleScope, type Quick, type ThreadAction } from './actions'
 import { useConfig } from './ai'
 import { ApiError, queryClient, Unauthorized } from './api'
 import { createDraft, openDraft, type ComposeMode } from './compose'
@@ -46,7 +45,7 @@ import {
   userLabels,
   viewParams,
   type NamedLabel,
-  type Section,
+  type Bundle,
   type ThreadPage,
   type ThreadSummary,
 } from './mail'
@@ -241,38 +240,20 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const openBundle = grouped && bundle?.viewKey === viewKey ? bundle.name : null
   const bundleList = useBundleThreads(openBundle, accountId)
   const bundleThreads = useMemo(() => unique(bundleList.data?.pages), [bundleList.data])
-  const sections = useMemo(() => (grouped ? (list.data?.pages[0]?.sections ?? []) : []), [grouped, list.data])
+  const bundles = useMemo(() => (grouped ? (list.data?.pages[0]?.bundles ?? []).filter((b) => b.count > 0) : []), [grouped, list.data])
 
+  // In the inbox: its unlabeled threads, then a row per label, the open bundle's threads under it.
   const { rows, threads, mainEnd } = useMemo(() => {
-    const marks = new Map(named.map((l) => [l.name, { name: l.name, color: l.color, icon: l.icon }]))
-    const mark = (name: string | null) => (name === null ? null : (marks.get(name) ?? null))
-    const rows: ListRow[] = []
-    let current: string | null | undefined
-    for (const thread of listThreads) {
-      const name = thread.section ?? null
-      if (grouped && labeling && name !== current) {
-        const section = sections.find((s) => !s.bundle && s.name === name) ?? {
-          name,
-          bundle: false,
-          count: listThreads.filter((t) => (t.section ?? null) === name).length,
-          newest_at: thread.last_message_at,
-          senders: [],
-        }
-        rows.push({ kind: 'section', section, label: mark(name) })
-        current = name
-      }
-      rows.push({ kind: 'thread', thread })
-    }
+    const rows: ListRow[] = listThreads.map((thread) => ({ kind: 'thread', thread }))
     const mainEnd = rows.length - 1
-    const bundles = sections.filter((s) => s.bundle && s.count > 0)
-    bundles.forEach((section, i) => {
-      const open = section.name === openBundle
-      rows.push({ kind: 'bundle', section, color: mark(section.name)?.color ?? null, open, first: i === 0 })
+    bundles.forEach((bundle, i) => {
+      const open = bundle.name === openBundle
+      rows.push({ kind: 'bundle', bundle, open, first: i === 0 && mainEnd >= 0 })
       if (open) for (const thread of bundleThreads) rows.push({ kind: 'thread', thread })
     })
-    const opened = bundles.some((s) => s.name === openBundle)
+    const opened = bundles.some((b) => b.name === openBundle)
     return { rows, threads: opened ? [...listThreads, ...bundleThreads] : listThreads, mainEnd }
-  }, [listThreads, bundleThreads, sections, openBundle, grouped, labeling, named])
+  }, [listThreads, bundleThreads, bundles, openBundle])
   const onRangeEnd = (last: number) => {
     if (hasNextPage && last >= mainEnd - 10) loadMore()
     if (bundleList.hasNextPage && !bundleList.isFetching && last >= rows.length - 10) void bundleList.fetchNextPage()
@@ -334,10 +315,12 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     undoAction.mutate(entries, { onSuccess: ({ thread_ids }) => thread_ids[0] !== undefined && setCursor(thread_ids[0]) })
 
   // Threads leaving the view go at once and the cursor moves on, so e e e works through the inbox.
-  const run = (action: ThreadAction, on: ThreadSummary[], withLabel?: NamedLabel, scope?: { section: SectionScope; count: number }) => {
+  const run = (action: ThreadAction, on: ThreadSummary[], withLabel?: NamedLabel, scope?: { bundle: BundleScope; count: number }) => {
     if (on.length === 0 && !scope) return
     const label = withLabel && { name: withLabel.name, id: withLabel.id }
-    const leaving = new Set(on.filter((t) => !inList(listParams, applied(t, { action, label }))).map((t) => t.id))
+    // Labeled, an unlabeled inbox thread moves into that label's bundle.
+    const moves = (t: ThreadSummary) => action === 'label' && !bundleThreads.some((b) => b.id === t.id)
+    const leaving = new Set(on.filter((t) => !inList(listParams, applied(t, { action, label }), moves(t))).map((t) => t.id))
     if (leaving.size) {
       select(new Set())
       if (cursorId !== null && leaving.has(cursorId)) {
@@ -357,9 +340,9 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
         } else setCursor(next?.id ?? null)
       }
     }
-    const sent = threadAction.mutateAsync({ action, threads: on, label, section: scope?.section })
+    const sent = threadAction.mutateAsync({ action, threads: on, label, bundle: scope?.bundle })
     sent.catch(() => undefined) // shown by the mutation's onError
-    // Marking one thread read says nothing; a whole section says how many.
+    // Marking one thread read says nothing; a whole bundle says how many.
     const what = told[action] ?? (scope && action === 'read' ? 'marked read' : undefined)
     if (what) {
       const count = scope?.count ?? on.length
@@ -387,15 +370,11 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
       .catch((error: Error) => say(`Couldn’t unsubscribe: ${error.message}`))
   const quick = (q: Quick, on = targets) => run(quickTarget(q, on), on)
   // Every thread the user has seen (newer arrivals stay), loaded here or not.
-  const sectionAction = (action: SectionAction, section: Section) => {
+  const bundleAction = (action: BundleAction, bundle: Bundle) => {
     if (accountId === null) return
-    const loaded = section.bundle
-      ? section.name === openBundle
-        ? bundleThreads
-        : []
-      : listThreads.filter((t) => (t.section ?? null) === section.name)
-    const scope = { name: section.name, bundle: section.bundle, account_id: accountId, until: section.newest_at }
-    run(action, loaded, undefined, { section: scope, count: section.count })
+    const loaded = bundle.name === openBundle ? bundleThreads : []
+    const scope = { name: bundle.name, account_id: accountId, until: bundle.newest_at }
+    run(action, loaded, undefined, { bundle: scope, count: bundle.count })
   }
   const setUnread = (on: ThreadSummary[], unread: boolean) => {
     if (on.length === 0) return
@@ -821,9 +800,8 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
             selected={selected}
             labelsById={labelsById}
             hideLabel={label?.name}
-            hideChips={grouped && labeling}
-            labelInbox={labeling && grouped && accountId !== null ? <LabelInbox accountId={accountId} onFinished={say} /> : undefined}
-            onSectionAction={sectionAction}
+            hideChips={grouped}
+            onBundleAction={bundleAction}
             onToggleBundle={(name) => setBundle(openBundle === name ? null : { viewKey, name })}
             threadHref={(id) => href({ ...route, threadId: id })}
             onOpen={(id) => {

@@ -159,6 +159,11 @@ async def claude_model(db: AsyncSession) -> str:
     return prefs.MODEL_DEFAULTS[FEATURE] if model == JEV_MODEL else model
 
 
+async def on(db: AsyncSession) -> bool:
+    """An API key is set and AI labeling isn't turned off in Settings."""
+    return (await keys.load(db)).labeling and await prefs.ai_labeling(db)
+
+
 async def chosen(db: AsyncSession, found: keys.Keys) -> tuple[str, str] | None:
     """The labeling model and its key: the picked one, or the one there is a key for.
     None: no key, labeling is off."""
@@ -193,10 +198,8 @@ def jev_key_rejected(error: Exception) -> bool:
     return isinstance(error, httpx.HTTPStatusError) and error.response.status_code in (401, 403)
 
 
-def _has_ai_labels(account_id: Any) -> Any:
-    return exists().where(
-        Label.account_id == account_id, Label.type == "user", Label.ai_managed.is_(True)
-    )
+def _has_labels(account_id: Any) -> Any:
+    return exists().where(Label.account_id == account_id, Label.type == "user")
 
 
 def _has_label(message_id: Any, gmail_id: str) -> Any:
@@ -223,9 +226,9 @@ async def _enqueue(db: AsyncSession, rows: list[dict[str, Any]]) -> int:
 
 async def enqueue_new(db: AsyncSession, account_id: int, gmail_ids: set[str]) -> int:
     """The caller commits, then calls wake()."""
-    if not gmail_ids or not (await keys.load(db)).labeling:
+    if not gmail_ids or not await on(db):
         return 0
-    if not await db.scalar(select(_has_ai_labels(account_id))):
+    if not await db.scalar(select(_has_labels(account_id))):
         return 0
     thread_ids = await db.scalars(
         select(Message.thread_id)
@@ -255,7 +258,7 @@ def eligible(after: datetime | None = None, before: datetime | None = None) -> A
         Thread.drafts_only.is_(False),
         Thread.labels_manual.is_(False),
         ~user_label,
-        _has_ai_labels(Thread.account_id),
+        _has_labels(Thread.account_id),
     )
     if after is not None:
         stmt = stmt.where(Thread.last_message_at >= after)
@@ -360,17 +363,13 @@ async def classify(db: AsyncSession, ai: Client, row: AiQueue) -> tuple[str, set
         (name, description)
         for name, description in await db.execute(
             select(Label.name, Label.description)
-            .where(
-                Label.account_id == row.account_id,
-                Label.type == "user",
-                Label.ai_managed.is_(True),
-            )
+            .where(Label.account_id == row.account_id, Label.type == "user")
             .order_by(Label.name)
         )
     ]
     email = await _email(db, thread.id)
     if not labels or email is None:
-        row.last_error = "no AI-managed labels" if not labels else "no inbox message"
+        row.last_error = "no labels" if not labels else "no inbox message"
         return "skipped", set()
     # Demo mail is made up: never sent to the AI, except on a demo instance, where all mail is.
     if account.demo and not settings.demo_mode:
@@ -508,7 +507,8 @@ async def _close(ai: Client) -> None:
 
 
 async def run() -> None:
-    """Idle until an API key is set in Settings; a key or model change takes effect at once."""
+    """Idle until an API key is set and AI labeling is on in Settings; a change of key, model or
+    switch takes effect at once."""
     global _paused_until
     current: tuple[str, str] | None = None
     ai: Client | None = None
@@ -524,14 +524,14 @@ async def run() -> None:
             wake_up.clear()
             try:
                 async with Session() as db:
-                    wanted = await chosen(db, await keys.load(db))
+                    wanted = await chosen(db, await keys.load(db)) if await on(db) else None
                 if wanted != current:
                     if ai is not None:
                         await _close(ai)
                     ai = client(*wanted) if wanted else None
                     current = wanted
                     _paused_until = 0.0
-                    log.info("labeling: %s", wanted[0] if wanted else "off, no API key")
+                    log.info("labeling: %s", wanted[0] if wanted else "off")
                 if ai is not None:
                     await asyncio.gather(*(drain(ai) for _ in range(CONCURRENCY)))
                 delay = await _seconds_until_due()

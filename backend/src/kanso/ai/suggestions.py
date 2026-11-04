@@ -44,8 +44,6 @@ it, e.g. "Bills, bank statements, receipts and payment reminders". Another AI la
 new email by reading these descriptions alone, so describe the category, not who sends it: no \
 sender, company, product or people names, which would narrow the label to them.
 - color: one of {", ".join(COLORS)}.
-- bundle: true for mail read in bulk or not at all, such as newsletters, promotions and \
-notifications. Its inbox mail then collapses into one row.
 - examples: up to 3 subjects from the sample that belong under it.
 
 Suggest 3 to {MAX_LABELS} broad labels that together cover most of the sample, without \
@@ -63,10 +61,9 @@ SCHEMA = {
                     "name": {"type": "string"},
                     "description": {"type": "string"},
                     "color": {"type": "string", "enum": list(COLORS)},
-                    "bundle": {"type": "boolean"},
                     "examples": {"type": "array", "items": {"type": "string"}},
                 },
-                "required": ["name", "description", "color", "bundle", "examples"],
+                "required": ["name", "description", "color", "examples"],
                 "additionalProperties": False,
             },
         }
@@ -96,7 +93,6 @@ class Suggestion(BaseModel):
     name: str
     description: str
     color: str  # a KansoColor
-    bundle: bool
     examples: list[str]
 
 
@@ -155,7 +151,6 @@ def parse(response: Any, existing: list[str]) -> list[Suggestion]:
                 name=name,
                 description=description,
                 color=color,
-                bundle=label.bundle,
                 examples=examples,
             )
         )

@@ -13,7 +13,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kanso.api.cleanup import InboxScope, inbox_thread_ids
-from kanso.api.threads import section_thread_ids
+from kanso.api.threads import bundle_thread_ids
 from kanso.db import redis as events
 from kanso.db.models import Account, BlockedSender, Label, Message, MessageLabel, Outbox, Thread
 from kanso.db.session import get_session
@@ -22,7 +22,7 @@ from kanso.sync import outbox, store
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/threads")
 DB = Annotated[AsyncSession, Depends(get_session)]
-# A section or an InboxScope can hold thousands of threads: they go in chunks, each an outbox
+# A bundle or an InboxScope can hold thousands of threads: they go in chunks, each an outbox
 # entry, so no query outgrows Postgres's limit on parameters.
 CHUNK = 1000
 
@@ -65,11 +65,10 @@ ACTIONS: dict[str, tuple[Literal["add", "remove"], str | None, Literal["all", "l
 FOLLOW_UPS = {"spam": "done", "unspam": "inbox", "untrash": "inbox"}
 
 
-class Section(BaseModel):
-    """A section or bundle of the grouped inbox (kanso.api.threads), for "Done all"."""
+class Bundle(BaseModel):
+    """A bundle of the grouped inbox (kanso.api.threads), for "Done all"."""
 
-    name: str | None  # the label; None for the section of unlabeled threads
-    bundle: bool = False
+    name: str  # the label
     account_id: int
     # The newest thread the user saw in it: anything that arrived later is left alone.
     until: datetime
@@ -78,14 +77,14 @@ class Section(BaseModel):
 class ActionIn(BaseModel):
     action: Action
     thread_ids: list[int] = Field(default=[], max_length=1000)
-    section: Section | None = None  # instead of thread_ids
+    bundle: Bundle | None = None  # instead of thread_ids
     inbox: InboxScope | None = None  # instead of thread_ids (the Clean up page)
     label: str | None = None  # the user label's name, for "label" and "unlabel"
 
     @model_validator(mode="after")
     def _targets(self) -> "ActionIn":
-        if not self.thread_ids and self.section is None and self.inbox is None:
-            raise ValueError("thread_ids, section or inbox is required")
+        if not self.thread_ids and self.bundle is None and self.inbox is None:
+            raise ValueError("thread_ids, bundle or inbox is required")
         return self
 
 
@@ -228,9 +227,9 @@ async def block_senders(db: AsyncSession, thread_ids: list[int], block: bool) ->
 @router.post("/actions")
 async def thread_action(body: ActionIn, db: DB) -> ActionOut:
     thread_ids = body.thread_ids
-    if body.section is not None:
-        s = body.section
-        thread_ids = await section_thread_ids(db, s.name, s.bundle, s.account_id, s.until)
+    if body.bundle is not None:
+        b = body.bundle
+        thread_ids = await bundle_thread_ids(db, b.name, b.account_id, b.until)
     elif body.inbox is not None:
         thread_ids = await inbox_thread_ids(db, body.inbox)
     if not thread_ids:

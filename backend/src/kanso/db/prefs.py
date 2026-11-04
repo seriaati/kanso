@@ -15,6 +15,8 @@ PASSWORD_HASH = "password_hash"
 ASSISTANT_CONFIRM = "assistant_confirm"
 SESSION_EPOCH = "session_epoch"
 AI_KEY_REJECTED = "ai_key_rejected"
+# AI labeling of new inbox mail, with an API key set. On unless turned off.
+AI_LABELING = "ai_labeling"
 # The Claude model per AI feature, keyed by the usage table's feature names.
 MODEL_DEFAULTS = {
     "labeling": "claude-haiku-5-5",
@@ -40,6 +42,10 @@ async def remove(db: AsyncSession, key: str) -> None:
 
 async def assistant_confirm(db: AsyncSession) -> bool:
     return bool(await get(db, ASSISTANT_CONFIRM, True))
+
+
+async def ai_labeling(db: AsyncSession) -> bool:
+    return bool(await get(db, AI_LABELING, True))
 
 
 async def model(db: AsyncSession, feature: str) -> str:

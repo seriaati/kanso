@@ -51,7 +51,6 @@ DESCRIPTIONS = {
     "Receipts": "order confirmations, shipping updates and subscription receipts",
     "Notifications": "automated notifications from services, CI and code review",
 }
-BUNDLES = {"Newsletters", "Receipts", "Notifications"}
 
 
 def _person(name: str) -> tuple[str, str]:
@@ -335,7 +334,7 @@ async def seed() -> int:
             await db.execute(
                 update(Label)
                 .where(Label.account_id == account.id, Label.name == name)
-                .values(description=description, ai_managed=True, is_bundle=name in BUNDLES)
+                .values(description=description)
             )
         # Fake AI usage; not on a demo instance, where usage is real.
         today = now.date()

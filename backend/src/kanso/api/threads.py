@@ -1,18 +1,16 @@
 import asyncio
 import base64
-import json
 from datetime import datetime
 from typing import Annotated, Any, Literal
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import ColumnElement, case, exists, func, null, select, true, tuple_
+from sqlalchemy import ColumnElement, exists, func, select, true, tuple_
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kanso import demo_seed, logos
-from kanso.ai import keys
 from kanso.db import search
 from kanso.db.models import (
     Account,
@@ -52,8 +50,6 @@ class ThreadOut(BaseModel):
     in_spam: bool
     has_attachments: bool
     lang: str | None
-    # In the grouped inbox: the label section the thread is placed in (None: unlabeled).
-    section: str | None = None
     # The names in `senders` that are the user's own addresses (any connected account): "me".
     me: list[str] = []
     # Sent and Drafts: who the user's messages in the thread went to, shown instead of senders.
@@ -69,20 +65,19 @@ class BundleSender(BaseModel):
     photo: str | None  # as ThreadOut.sender_photo
 
 
-class SectionOut(BaseModel):
-    """A section of the grouped inbox, or a bundle."""
+class BundleOut(BaseModel):
+    """A label's inbox threads, collapsed into one row of the grouped inbox."""
 
-    name: str | None  # the label; None for unlabeled threads
-    bundle: bool
+    name: str  # the label
     count: int
     newest_at: datetime
-    senders: list[BundleSender]  # bundles: the senders of their newest threads, newest first
+    senders: list[BundleSender]  # the senders of its newest threads, newest first
 
 
 class ThreadPage(BaseModel):
     threads: list[ThreadOut]
     next_cursor: str | None
-    sections: list[SectionOut] | None = None  # the grouped inbox's first page
+    bundles: list[BundleOut] | None = None  # the grouped inbox's first page
 
 
 class Address(BaseModel):
@@ -267,25 +262,21 @@ MAILBOXES: dict[str, Any] = {
 }
 
 
-# Each inbox thread goes under one user label, non-bundles first. Label sections only with AI
-# labeling on; without it the inbox is one date-ordered list, but bundles still collapse.
+# The grouped inbox: unlabeled threads, then each label's threads collapsed into a bundle. A
+# thread with several labels goes in one bundle only, its first label's by name.
 
 
-def _placed(account_id: int, labeling: bool) -> Any:
+def _placed(account_id: int) -> Any:
     first = (
-        select(Label.name.label("name"), Label.is_bundle.label("is_bundle"))
+        select(Label.name.label("name"))
         .where(Label.id == Thread.label_ids.any_(), Label.type == "user")
-        .order_by(Label.is_bundle, func.lower(Label.name), Label.name)
+        .order_by(func.lower(Label.name), Label.name)
         .limit(1)
         .lateral("first_label")
     )
-    section = case((first.c.is_bundle.is_(False), first.c.name)) if labeling else null()
     stmt = (
         select(
-            Thread.id.label("id"),
-            Thread.last_message_at.label("at"),
-            section.label("section"),
-            case((first.c.is_bundle.is_(True), first.c.name)).label("bundle"),
+            Thread.id.label("id"), Thread.last_message_at.label("at"), first.c.name.label("bundle")
         )
         .select_from(Thread)
         .outerjoin(first, true())
@@ -296,103 +287,48 @@ def _placed(account_id: int, labeling: bool) -> Any:
     return stmt.subquery("placed")
 
 
-async def section_thread_ids(
-    db: AsyncSession, name: str | None, bundle: bool, account_id: int, until: datetime
+async def bundle_thread_ids(
+    db: AsyncSession, name: str, account_id: int, until: datetime
 ) -> list[int]:
-    placed = _placed(account_id, (await keys.load(db)).labeling)
-    if bundle:
-        where = placed.c.bundle == name
-    elif name is None:
-        where = placed.c.section.is_(None) & placed.c.bundle.is_(None)
-    else:
-        where = placed.c.section == name
-    return list(await db.scalars(select(placed.c.id).where(where, placed.c.at <= until)))
+    placed = _placed(account_id)
+    where = (placed.c.bundle == name, placed.c.at <= until)
+    return list(await db.scalars(select(placed.c.id).where(*where)))
 
 
-async def _sections(db: AsyncSession, account_id: int) -> list[SectionOut]:
-    placed = _placed(account_id, (await keys.load(db)).labeling)
+async def _bundles(db: AsyncSession, account_id: int) -> list[BundleOut]:
+    placed = _placed(account_id)
     rows = await db.execute(
-        select(placed.c.section, placed.c.bundle, func.count(), func.max(placed.c.at)).group_by(
-            placed.c.section, placed.c.bundle
-        )
+        select(placed.c.bundle, func.count(), func.max(placed.c.at))
+        .where(placed.c.bundle.is_not(None))
+        .group_by(placed.c.bundle)
     )
-    sections = []
-    for section, bundle, count, newest in rows:
-        senders: dict[str, str | None] = {}
-        if bundle is not None:
-            ids = list(
-                await db.scalars(
-                    select(Thread.id)
-                    .join(placed, placed.c.id == Thread.id)
-                    .where(placed.c.bundle == bundle)
-                    .order_by(Thread.last_message_at.desc())
-                    .limit(20)
-                )
+    bundles = []
+    for name, count, newest in rows:
+        ids = list(
+            await db.scalars(
+                select(Thread.id)
+                .join(placed, placed.c.id == Thread.id)
+                .where(placed.c.bundle == name)
+                .order_by(Thread.last_message_at.desc())
+                .limit(20)
             )
-            latest = await _senders(db, ids)
-            for thread_id in ids:
-                if thread_id in latest:
-                    name, photo = latest[thread_id]
-                    senders.setdefault(name, photo)
-        sections.append(
-            SectionOut(
-                name=bundle if bundle is not None else section,
-                bundle=bundle is not None,
+        )
+        latest = await _senders(db, ids)
+        senders: dict[str, str | None] = {}
+        for thread_id in ids:
+            if thread_id in latest:
+                sender, photo = latest[thread_id]
+                senders.setdefault(sender, photo)
+        bundles.append(
+            BundleOut(
+                name=name,
                 count=count,
                 newest_at=newest,
                 senders=[BundleSender(name=n, photo=p) for n, p in list(senders.items())[:8]],
             )
         )
-    sections.sort(key=lambda s: (s.name is None and not s.bundle, s.newest_at), reverse=True)
-    return sections
-
-
-async def _grouped(db: AsyncSession, account_id: int, cursor: str | None, limit: int) -> ThreadPage:
-    """The inbox outside bundles, section by section."""
-    placed = _placed(account_id, (await keys.load(db)).labeling)
-    ranked = (
-        select(
-            placed.c.id,
-            placed.c.section,
-            placed.c.section.is_(None).label("other"),
-            func.max(placed.c.at).over(partition_by=placed.c.section).label("section_at"),
-            func.coalesce(placed.c.section, "").label("key"),
-            placed.c.at,
-        )
-        .where(placed.c.bundle.is_(None))
-        .subquery("ranked")
-    )
-    order = (ranked.c.other, ranked.c.section_at, ranked.c.key, ranked.c.at, ranked.c.id)
-    stmt = select(Thread, *order[:3], ranked.c.section).join(ranked, ranked.c.id == Thread.id)
-    if cursor:
-        try:
-            other, section_at, key, at, thread_id = json.loads(base64.urlsafe_b64decode(cursor))
-            after = (
-                bool(other),
-                datetime.fromisoformat(section_at),
-                key,
-                datetime.fromisoformat(at),
-                thread_id,
-            )
-        except ValueError as error:
-            raise HTTPException(status_code=400, detail="Invalid cursor") from error
-        stmt = stmt.where(tuple_(*order) < after)
-    stmt = stmt.order_by(*(column.desc() for column in order)).limit(limit + 1)
-    rows = (await db.execute(stmt)).all()
-    next_cursor = None
-    if len(rows) > limit:
-        thread, other, section_at, key, _ = rows[limit - 1]
-        raw = [other, section_at.isoformat(), key, thread.last_message_at.isoformat(), thread.id]
-        next_cursor = base64.urlsafe_b64encode(json.dumps(raw).encode()).decode()
-    out = [
-        ThreadOut.model_validate(thread).model_copy(update={"section": section})
-        for thread, _, _, _, section in rows[:limit]
-    ]
-    return ThreadPage(
-        threads=await _people(db, out, recipients=False),
-        next_cursor=next_cursor,
-        sections=None if cursor else await _sections(db, account_id),
-    )
+    bundles.sort(key=lambda b: b.newest_at, reverse=True)
+    return bundles
 
 
 @router.get("/threads")
@@ -407,16 +343,18 @@ async def list_threads(
     cursor: str | None = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> ThreadPage:
-    """Trash and Spam are left out unless asked for (mailbox, label or label: in the query)."""
+    """Trash and Spam are left out unless asked for (mailbox, label or label: in the query).
+
+    `grouped`: the inbox's unlabeled threads, with its bundles on the first page. `bundle`: the
+    inbox threads in that bundle."""
     if grouped or bundle is not None:
         if mailbox != "inbox" or label_id or q.strip():
             raise HTTPException(status_code=400, detail="Only the inbox is grouped")
-        if grouped:
-            return await _grouped(db, account_id, cursor, limit)
     stmt = select(Thread)
-    if bundle is not None:
-        placed = _placed(account_id, (await keys.load(db)).labeling)
-        stmt = stmt.join(placed, placed.c.id == Thread.id).where(placed.c.bundle == bundle)
+    if grouped or bundle is not None:
+        placed = _placed(account_id)
+        in_bundle = placed.c.bundle.is_(None) if grouped else placed.c.bundle == bundle
+        stmt = stmt.join(placed, placed.c.id == Thread.id).where(in_bundle)
     wants_trash_or_spam = mailbox in ("trash", "spam")
     stmt = stmt.where(Thread.account_id == account_id)
     if mailbox:
@@ -440,7 +378,11 @@ async def list_threads(
     next_cursor = _encode_cursor(threads[limit - 1]) if len(threads) > limit else None
     out = [ThreadOut.model_validate(t) for t in threads[:limit]]
     recipients = mailbox in ("sent", "drafts")
-    return ThreadPage(threads=await _people(db, out, recipients), next_cursor=next_cursor)
+    return ThreadPage(
+        threads=await _people(db, out, recipients),
+        next_cursor=next_cursor,
+        bundles=await _bundles(db, account_id) if grouped and not cursor else None,
+    )
 
 
 @router.get("/threads/{thread_id}")

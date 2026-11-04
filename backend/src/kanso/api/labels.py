@@ -32,7 +32,7 @@ GMAIL_COLORS: dict[str, str] = {
     "#556B3F": "#1a764d",  # Travel, moss
     "#87607E": "#8e63ce",  # Finance, plum
     "#A35A3A": "#cc3a21",  # Health, rust
-    "#B8B3A2": "#c2c2c2",  # bundles, sand
+    "#B8B3A2": "#c2c2c2",  # sand
 }
 LabelName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=225)]
 
@@ -52,8 +52,6 @@ class LabelCreate(BaseModel):
     color: KansoColor | None = None
     account_id: int
     description: Description = ""
-    ai_managed: bool = False
-    is_bundle: bool = False
     icon: IconName = ""
 
 
@@ -62,8 +60,6 @@ class LabelUpdate(BaseModel):
     color: KansoColor | None = None
     # kanso-local settings (not stored in Gmail): changing only these makes no Gmail call.
     description: Description | None = None
-    ai_managed: bool | None = None
-    is_bundle: bool | None = None
     icon: IconName | None = None
 
 
@@ -75,8 +71,6 @@ class LabelOut(BaseModel):
     type: str  # "system" | "user"
     color: str | None
     description: str
-    ai_managed: bool
-    is_bundle: bool
     icon: str | None
     threads_total: int
     threads_unread: int
@@ -119,8 +113,6 @@ async def list_labels(db: DB, account_id: int) -> list[LabelOut]:
                 type=label.type,
                 color=label.color,
                 description=label.description,
-                ai_managed=label.ai_managed,
-                is_bundle=label.is_bundle,
                 icon=label.icon,
                 threads_total=counts.total if counts else 0,
                 threads_unread=counts.unread if counts else 0,
@@ -158,8 +150,6 @@ def _out(label: Label) -> LabelOut:
         type=label.type,
         color=label.color,
         description=label.description,
-        ai_managed=label.ai_managed,
-        is_bundle=label.is_bundle,
         icon=label.icon,
         threads_total=0,
         threads_unread=0,
@@ -209,8 +199,6 @@ async def create_label(body: LabelCreate, db: DB) -> LabelOut:
     )
     assert label is not None
     label.description = body.description
-    label.ai_managed = body.ai_managed
-    label.is_bundle = body.is_bundle
     label.icon = body.icon or None
     await db.commit()
     return _out(label)
@@ -225,9 +213,8 @@ async def update_label(label_id: int, body: LabelUpdate, db: DB) -> LabelOut:
         request["name"] = body.name
     if body.color is not None:
         request["color"] = gmail_color(body.color)
-    for field in ("description", "ai_managed", "is_bundle"):
-        if (value := getattr(body, field)) is not None:
-            setattr(label, field, value)
+    if body.description is not None:
+        label.description = body.description
     if body.icon is not None:
         label.icon = body.icon or None
     if not request:

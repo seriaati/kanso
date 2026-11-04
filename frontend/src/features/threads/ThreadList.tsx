@@ -1,16 +1,14 @@
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useEffect, useEffectEvent, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useEffectEvent, useRef, type ReactNode, type RefObject } from 'react'
 import { Link } from 'react-router'
 import { shortDate } from '../../app/format'
 import { quickAction, redundant, type Quick } from '../../app/actions'
 import type { Account } from '../../app/accounts'
 import { useDensity } from '../../app/density'
-import type { LabelIcon, Section, ThreadSummary } from '../../app/mail'
+import type { Bundle, LabelIcon, ThreadSummary } from '../../app/mail'
 import { Avatar } from '../../components/Avatar'
 import { Icon, type IconName } from '../../components/Icon'
 import { LabelMark } from '../../components/LabelMark'
-import { Menu } from '../../components/Menu'
 import { InstallButton } from '../install/InstallButton'
 import { Avatar as AccountAvatar } from '../sidebar/AccountSwitcher'
 import { useSearchSuggest } from './SearchSuggest'
@@ -21,27 +19,23 @@ const quicks: Quick[] = ['done', 'delete', 'star', 'important']
 
 export type LabelChip = { name: string; color: string; icon: LabelIcon | null }
 
-/** What a section or bundle header can do to all its threads. */
-export type SectionAction = 'done' | 'read' | 'delete'
+/** What a bundle row can do to all its threads. */
+export type BundleAction = 'done' | 'read' | 'delete'
 
 export type ListRow =
   | { kind: 'thread'; thread: ThreadSummary }
-  | { kind: 'section'; section: Section; label: LabelChip | null }
-  | { kind: 'bundle'; section: Section; color: string | null; open: boolean; first: boolean }
+  | { kind: 'bundle'; bundle: Bundle; open: boolean; first: boolean }
 
 const ROW = 31
 const COMFORTABLE_ROW = 40
-const SECTION = 34
 const BUNDLE = 32
 const BUNDLES_GAP = 17 // above the first bundle: a margin, a hairline and padding
 // Phone sizes match ThreadList.module.css (max-width: 767px): two-line rows, 44px+ tap targets.
 const PHONE_ROW = 64
-const PHONE_SECTION = 44
 const PHONE_BUNDLE = 48
 
 function rowHeight(row: ListRow, phone: boolean, comfortable: boolean) {
   if (row.kind === 'thread') return phone ? PHONE_ROW : comfortable ? COMFORTABLE_ROW : ROW
-  if (row.kind === 'section') return phone ? PHONE_SECTION : SECTION
   return (phone ? PHONE_BUNDLE : BUNDLE) + (row.first ? BUNDLES_GAP : 0)
 }
 
@@ -60,9 +54,7 @@ type Props = {
   labelsById: Map<number, LabelChip>
   hideLabel?: string
   hideChips?: boolean
-  /** Shown in the unlabeled section's header. */
-  labelInbox?: ReactNode
-  onSectionAction: (action: SectionAction, section: Section) => void
+  onBundleAction: (action: BundleAction, bundle: Bundle) => void
   onToggleBundle: (name: string) => void
   threadHref: (id: number) => string
   onOpen: (id: number) => void
@@ -86,7 +78,7 @@ type Props = {
 
 export function ThreadList(props: Props) {
   const { title, query, rows, status, error, empty, cursorId, openId, selected, labelsById, hideLabel, hideChips } = props
-  const { labelInbox, onSectionAction, onToggleBundle, threadHref, onOpen, onQuick, onSearch, searchRef, phone, account, onMenu, footer, onAsk } = props
+  const { onBundleAction, onToggleBundle, threadHref, onOpen, onQuick, onSearch, searchRef, phone, account, onMenu, footer, onAsk } = props
   const { onRowMenu, menuId, onSelectClick, selectionBar } = props
   const scrollRef = useRef<HTMLDivElement>(null)
   const comfortable = useDensity() === 'comfortable'
@@ -99,7 +91,7 @@ export function ThreadList(props: Props) {
     estimateSize: (index) => rowHeight(rows[index], phone, comfortable),
     getItemKey: (index) => {
       const row = rows[index]
-      return row.kind === 'thread' ? row.thread.id : `${row.kind}:${row.section.name ?? ''}`
+      return row.kind === 'thread' ? row.thread.id : `bundle:${row.bundle.name}`
     },
     overscan: 12,
     paddingStart: 6,
@@ -198,14 +190,8 @@ export function ThreadList(props: Props) {
         <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
           {items.map((item) => {
             const row = rows[item.index]
-            if (row.kind === 'section')
-              return (
-                <SectionHeader key={item.key} row={row} top={item.start} onAction={onSectionAction}>
-                  {row.section.name === null && labelInbox}
-                </SectionHeader>
-              )
             if (row.kind === 'bundle')
-              return <BundleRow key={item.key} row={row} top={item.start} onAction={onSectionAction} onToggle={onToggleBundle} />
+              return <BundleRow key={item.key} row={row} top={item.start} onAction={onBundleAction} onToggle={onToggleBundle} />
             const thread = row.thread
             const chips = hideChips
               ? []
@@ -239,84 +225,20 @@ export function ThreadList(props: Props) {
   )
 }
 
-const count = (section: Section) => (
-  <span className={styles.groupCount} aria-label={`${section.count} threads`}>
-    {section.count}
+const count = (bundle: Bundle) => (
+  <span className={styles.groupCount} aria-label={`${bundle.count} threads`}>
+    {bundle.count}
   </span>
 )
-
-type ActionsProps = { section: Section; name: string; onAction: (action: SectionAction, section: Section) => void }
-
-// "Done all" in view; the rarer actions behind "More".
-function SectionActions({ section, name, onAction }: ActionsProps) {
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null)
-  return (
-    <>
-      <button type="button" className={styles.doneAll} title={`Mark every thread in ${name} done`} onClick={() => onAction('done', section)}>
-        Done all
-      </button>
-      <button
-        type="button"
-        className={`${styles.doneAll} ${styles.sectionMore}`}
-        aria-label={`More actions for ${name}`}
-        aria-haspopup="menu"
-        aria-expanded={anchor !== null}
-        onClick={(event) => setAnchor(anchor ? null : event.currentTarget)}
-      >
-        <Icon name="more" size={14} />
-      </button>
-      {/* Out of the row: its transform would make the menu's fixed position relative to it. */}
-      {anchor &&
-        createPortal(
-          <Menu
-            anchor={anchor}
-            label={`Actions for ${name}`}
-            items={[
-              { icon: 'mailOpen', label: 'Mark all read', onSelect: () => onAction('read', section) },
-              { icon: 'delete', label: 'Delete all', onSelect: () => onAction('delete', section) },
-            ]}
-            onClose={() => setAnchor(null)}
-          />,
-          document.body,
-        )}
-    </>
-  )
-}
-
-type SectionProps = {
-  row: Extract<ListRow, { kind: 'section' }>
-  top: number
-  onAction: (action: SectionAction, section: Section) => void
-  children: ReactNode
-}
-
-function SectionHeader({ row, top, onAction, children }: SectionProps) {
-  const name = row.section.name ?? 'Other'
-  return (
-    <div className={styles.section} style={{ transform: `translateY(${top}px)` }} role="heading" aria-level={2}>
-      {row.label ? (
-        <LabelMark color={row.label.color} icon={row.label.icon} size={13} />
-      ) : (
-        <span className={`${styles.groupDot} ${styles.hollowDot}`} aria-hidden="true" />
-      )}
-      <span className={styles.groupName}>{name}</span>
-      {count(row.section)}
-      <span className={styles.groupActions}>
-        {children}
-        <SectionActions section={row.section} name={name} onAction={onAction} />
-      </span>
-    </div>
-  )
-}
 
 type BundleProps = {
   row: Extract<ListRow, { kind: 'bundle' }>
   top: number
-  onAction: (action: SectionAction, section: Section) => void
+  onAction: (action: BundleAction, bundle: Bundle) => void
   onToggle: (name: string) => void
 }
 
-const bundleActions: { action: SectionAction; icon: IconName; label: string }[] = [
+const bundleActions: { action: BundleAction; icon: IconName; label: string }[] = [
   { action: 'done', icon: 'done', label: 'Done all' },
   { action: 'delete', icon: 'delete', label: 'Delete all' },
   { action: 'read', icon: 'mailOpen', label: 'Mark all read' },
@@ -325,9 +247,9 @@ const NAMED_SENDERS = 3 // the rest show only their icon
 
 // Like a thread row: the senders and the newest time, the actions on hover (on phones, a swipe).
 function BundleRow({ row, top, onAction, onToggle }: BundleProps) {
-  const { section } = row
-  const name = section.name ?? ''
-  const swipe = useSwipe((direction) => onAction(direction === 'right' ? 'done' : 'delete', section))
+  const { bundle } = row
+  const { name } = bundle
+  const swipe = useSwipe((direction) => onAction(direction === 'right' ? 'done' : 'delete', bundle))
   const swiped = bundleActions[swipe.offset > 0 ? 0 : 1]
   return (
     <div className={`${styles.bundle} ${row.first ? styles.firstBundle : ''}`} style={{ transform: `translateY(${top}px)` }}>
@@ -349,17 +271,17 @@ function BundleRow({ row, top, onAction, onToggle }: BundleProps) {
             <Icon name="chevronRight" size={12} strokeWidth={2.2} />
           </span>
           <span className={styles.from}>
-            <span className={styles.groupName}>{name}</span> {count(section)}
+            <span className={styles.groupName}>{name}</span> {count(bundle)}
           </span>
           <span className={`${styles.summary} ${styles.bundleSenders}`}>
-            {section.senders.map((sender, i) => (
+            {bundle.senders.map((sender, i) => (
               <span key={sender.name} className={`${styles.bundleSender} ${i < NAMED_SENDERS ? styles.named : ''}`} title={sender.name}>
                 <Avatar className={styles.senderAvatar} name={sender.name} src={sender.photo} />
                 {i < NAMED_SENDERS && sender.name}
               </span>
             ))}
           </span>
-          <span className={styles.time}>{shortDate(section.newest_at)}</span>
+          <span className={styles.time}>{shortDate(bundle.newest_at)}</span>
         </button>
         <span className={styles.actions}>
           {bundleActions.map(({ action, icon, label }) => (
@@ -369,7 +291,7 @@ function BundleRow({ row, top, onAction, onToggle }: BundleProps) {
               className={styles.action}
               aria-label={label}
               title={`${label} in ${name}`}
-              onClick={() => onAction(action, section)}
+              onClick={() => onAction(action, bundle)}
             >
               <Icon name={icon} size={15} />
             </button>

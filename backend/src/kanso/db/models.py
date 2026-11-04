@@ -108,8 +108,6 @@ class Label(Base):
     color: Mapped[str | None] = mapped_column(String(7))  # Gmail's background color
     # kanso-local, not stored in Gmail.
     description: Mapped[str] = mapped_column(Text, server_default="")
-    ai_managed: Mapped[bool] = mapped_column(server_default=false())
-    is_bundle: Mapped[bool] = mapped_column(server_default=false())
     icon: Mapped[str | None] = mapped_column(String(32))  # drawn in the color; None: a dot
 
 

@@ -7,7 +7,7 @@ import styles from './LabelEditor.module.css'
 type Props = {
   label?: NamedLabel
   /** A new label's starting values, e.g. a suggested label. */
-  draft?: Pick<NamedLabel, 'name' | 'color' | 'description' | 'aiManaged' | 'isBundle'>
+  draft?: Pick<NamedLabel, 'name' | 'color' | 'description'>
   accountId: number
   ai: boolean
   onDone: (change?: { renamed?: string; deleted?: boolean; created?: string }) => void
@@ -20,8 +20,6 @@ export function LabelEditor({ label, draft, accountId, ai, onDone }: Props) {
   const [color, setColor] = useState(start?.color ?? labelColors[0].value)
   const [icon, setIcon] = useState<LabelIcon | null>(label?.icon ?? null)
   const [description, setDescription] = useState(start?.description ?? '')
-  const [aiManaged, setAiManaged] = useState(start?.aiManaged ?? false)
-  const [isBundle, setIsBundle] = useState(start?.isBundle ?? false)
   const [confirming, setConfirming] = useState(false)
   const create = useCreateLabel()
   const update = useUpdateLabel()
@@ -31,7 +29,7 @@ export function LabelEditor({ label, draft, accountId, ai, onDone }: Props) {
   const trimmed = name.trim()
 
   const save = () => {
-    const settings = { description: description.trim(), ai_managed: aiManaged, is_bundle: isBundle, icon: icon ?? '' }
+    const settings = { description: description.trim(), icon: icon ?? '' }
     if (!label) {
       create.mutate({ name: trimmed, color, account_id: accountId, ...settings }, { onSuccess: () => onDone({ created: trimmed }) })
       return
@@ -40,8 +38,6 @@ export function LabelEditor({ label, draft, accountId, ai, onDone }: Props) {
       name: trimmed !== label.name ? trimmed : undefined,
       color: color !== label.color ? color : undefined,
       description: settings.description !== label.description ? settings.description : undefined,
-      ai_managed: aiManaged !== label.aiManaged ? aiManaged : undefined,
-      is_bundle: isBundle !== label.isBundle ? isBundle : undefined,
       icon: icon !== label.icon ? settings.icon : undefined,
     }
     if (Object.values(patch).every((value) => value === undefined)) return onDone()
@@ -117,16 +113,6 @@ export function LabelEditor({ label, draft, accountId, ai, onDone }: Props) {
           }}
         />
       )}
-      {ai && (
-        <label className={styles.toggle} title="AI puts new inbox mail that fits the description under this label">
-          <input type="checkbox" checked={aiManaged} onChange={(event) => setAiManaged(event.target.checked)} />
-          Label new mail with AI
-        </label>
-      )}
-      <label className={styles.toggle} title="Its inbox mail shows as one collapsed row at the bottom of the inbox">
-        <input type="checkbox" checked={isBundle} onChange={(event) => setIsBundle(event.target.checked)} />
-        Bundle in the inbox
-      </label>
       {confirming && <p className={styles.hint}>Removes the label in Gmail too. The mail stays.</p>}
       {error && (
         <p role="alert" className={styles.hint}>

@@ -3,6 +3,7 @@ import { api, queryClient } from './api'
 
 export type Settings = {
   assistant_confirm: boolean
+  ai_labeling: boolean // AI labels new inbox mail, given a key for it (labeling_models isn't empty)
   labeling_model: string
   summary_model: string
   assistant_model: string
@@ -27,7 +28,10 @@ export function useUpdateSettings() {
   return useMutation({
     mutationFn: (patch: Partial<Settings>) => api<Settings>('/settings', { method: 'PATCH', body: patch }),
     onMutate: (patch) => queryClient.setQueryData<Settings>(key, (old) => old && { ...old, ...patch }),
-    onSuccess: (settings) => queryClient.setQueryData(key, settings),
+    onSuccess: (settings, patch) => {
+      queryClient.setQueryData(key, settings)
+      if (patch.ai_labeling !== undefined) void queryClient.invalidateQueries({ queryKey: ['config'] })
+    },
     onError: () => queryClient.invalidateQueries({ queryKey: key }),
   })
 }

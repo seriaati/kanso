@@ -429,7 +429,6 @@
   color: var(--accent);
 }
 
-.section,
 .bundle {
   position: absolute;
   top: 0;
@@ -441,23 +440,6 @@
   transition: transform var(--medium) var(--ease);
 }
 
-.section {
-  height: 34px;
-  padding: 10px 16px 4px;
-}
-
-.groupDot {
-  width: 8px;
-  height: 8px;
-  margin: 0 2.5px; /* as wide as a label's mark */
-  flex-shrink: 0;
-  border-radius: 50%;
-}
-
-.hollowDot {
-  box-shadow: inset 0 0 0 1px var(--muted); /* unlabeled mail */
-}
-
 .groupName {
   font-weight: 700;
   white-space: nowrap;
@@ -465,48 +447,6 @@
 
 .groupCount {
   color: var(--muted);
-}
-
-.groupActions {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  min-width: 0;
-}
-
-.doneAll,
-.groupActions button {
-  flex-shrink: 0;
-  height: 24px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: var(--radius);
-  background: transparent;
-  font-size: var(--text-small);
-  color: var(--muted);
-}
-
-.groupActions .sectionMore,
-.sectionMore {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  padding: 0;
-}
-
-.doneAll:hover,
-.groupActions button:hover {
-  background: var(--hover);
-  color: var(--ink);
-}
-
-.groupActions .note {
-  font-size: var(--text-small);
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .bundle {
@@ -751,17 +691,6 @@
 
   .actions {
     display: none;
-  }
-
-  .section {
-    height: 44px;
-    padding: 0 8px 0 16px;
-  }
-
-  .doneAll,
-  .groupActions button {
-    height: 44px;
-    padding: 0 12px;
   }
 
   .bundle {

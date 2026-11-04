@@ -22,8 +22,6 @@ export type ThreadSummary = {
   in_spam: boolean
   has_attachments: boolean
   lang: string | null
-  /** Grouped inbox only; null: unlabeled. */
-  section?: string | null
   /** Which of `senders` are the user's own, shown as "me". */
   me: string[]
   /** Sent and Drafts only: shown instead of the senders. */
@@ -34,7 +32,8 @@ export type ThreadSummary = {
 }
 
 export type BundleSender = { name: string; photo: string | null }
-export type Section = { name: string | null; bundle: boolean; count: number; newest_at: string; senders: BundleSender[] }
+/** A label's inbox threads, collapsed into one row of the inbox. */
+export type Bundle = { name: string; count: number; newest_at: string; senders: BundleSender[] }
 
 export type Address = { name: string; email: string }
 
@@ -77,8 +76,6 @@ export type Label = {
   type: 'system' | 'user'
   color: string | null
   description: string
-  ai_managed: boolean
-  is_bundle: boolean
   icon: string | null
   threads_total: number
   threads_unread: number
@@ -96,7 +93,7 @@ export type SyncStatus = {
   push: boolean
 }
 
-export type ThreadPage = { threads: ThreadSummary[]; next_cursor: string | null; sections?: Section[] | null }
+export type ThreadPage = { threads: ThreadSummary[]; next_cursor: string | null; bundles?: Bundle[] | null }
 
 // accountId is null only while no account is connected.
 export function useLabels(accountId: number | null) {
@@ -131,7 +128,7 @@ async function threadPage(params: URLSearchParams, cursor: string) {
       { text: [...t.senders, ...(t.recipients ?? []), t.subject].join(''), lang: t.lang, bold: t.unread },
       { text: t.snippet, lang: t.lang },
     ]),
-    ...(page.sections ?? []).flatMap((s) => [{ text: s.name ?? '', bold: true }, { text: s.senders.map((sender) => sender.name).join('') }]),
+    ...(page.bundles ?? []).flatMap((b) => [{ text: b.name, bold: true }, { text: b.senders.map((sender) => sender.name).join('') }]),
   ])
   return page
 }
@@ -242,8 +239,6 @@ export type NamedLabel = {
   // kanso's own
   icon: LabelIcon | null
   description: string
-  aiManaged: boolean
-  isBundle: boolean
 }
 
 export function namedLabel(label: Label): NamedLabel {
@@ -254,8 +249,6 @@ export function namedLabel(label: Label): NamedLabel {
     unread: label.threads_unread,
     icon: isLabelIcon(label.icon) ? label.icon : null,
     description: label.description,
-    aiManaged: label.ai_managed,
-    isBundle: label.is_bundle,
   }
 }
 

@@ -21,7 +21,7 @@ CHECK_URLS: dict[Provider, str] = {
     "jev": "https://api.typesafe.ai/v1/models",
 }
 AI_OFF = "AI is off: add an Anthropic API key in Settings"
-LABELING_OFF = "AI labeling is off: add an API key in Settings"
+LABELING_OFF = "AI labeling is off: add an API key, or turn it on, in Settings"
 # Keys once read from the environment, now ignored.
 OLD_ENV = ("ANTHROPIC_API_KEY", "JEV_API_KEY")
 

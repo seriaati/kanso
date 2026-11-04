@@ -21,7 +21,7 @@ USAGE_DAYS = 30
 
 class ConfigOut(BaseModel):
     ai: bool  # an Anthropic API key is set: AI features show
-    labeling: bool  # an Anthropic or a TypeSafe API key is set: AI labeling shows
+    labeling: bool  # AI labeling is on: an Anthropic or a TypeSafe key, and on in Settings
 
 
 class KeysOut(BaseModel):
@@ -79,7 +79,7 @@ class LabelInboxIn(BaseModel):
 @router.get("/config")
 async def config(db: DB) -> ConfigOut:
     found = await keys.load(db)
-    return ConfigOut(ai=found.ai, labeling=found.labeling)
+    return ConfigOut(ai=found.ai, labeling=await labeling.on(db))
 
 
 async def _keys_out(db: AsyncSession) -> KeysOut:
@@ -161,7 +161,7 @@ async def label_inbox_status(
 @router.post("/ai/label-inbox")
 async def label_inbox(body: LabelInboxIn, db: DB) -> LabelInboxOut:
     """Only the inbox: there is no AI pass over history."""
-    if not (await keys.load(db)).labeling:
+    if not await labeling.on(db):
         raise HTTPException(status_code=409, detail=keys.LABELING_OFF)
     await labeling.enqueue_inbox(db, body.account_id, body.after, body.before)
     await db.commit()

@@ -10,7 +10,7 @@ export type Sender = { email: string; name: string; threads: number; thread_id: 
 /** `as_of`: pass it as the scope's `before`, so later mail is left alone. */
 export type Senders = { as_of: string; senders: Sender[] }
 
-export type Suggestion = { name: string; description: string; color: string; bundle: boolean; examples: string[] }
+export type Suggestion = { name: string; description: string; color: string; examples: string[] }
 
 export function useInboxCount(accountId: number, before: string | null) {
   return useQuery({
