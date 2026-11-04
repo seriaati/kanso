@@ -176,8 +176,8 @@ export function ThreadList(props: Props) {
             defaultValue={query}
             {...suggest.inputProps}
             onKeyDown={(event) => {
-              suggest.inputProps.onKeyDown(event)
-              if (event.defaultPrevented || event.key !== 'Escape') return
+              // Esc leaves the box at once, its suggestions too (they close on blur).
+              if (event.key !== 'Escape') return suggest.inputProps.onKeyDown(event)
               event.currentTarget.value = query
               event.currentTarget.blur()
             }}
