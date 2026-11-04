@@ -586,6 +586,12 @@
 }
 
 /* Keyboard: the actions come into view with focus, as they do on hover. */
+/* Within its wrapper, so long sender names shrink rather than push the time out of view. */
+.bundleRow {
+  flex: 1;
+  min-width: 0;
+}
+
 .bundleRow:has(:focus-visible) .time {
   display: none;
 }
