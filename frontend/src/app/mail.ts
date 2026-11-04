@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { useEffect, useEffectEvent } from 'react'
 import { api, queryClient } from './api'
+import { preloadGlyphs } from './fonts'
 import type { View } from './nav'
 
 export type ThreadSummary = {
@@ -119,12 +120,25 @@ export function viewParams(view: View, accountId: number | null, labelIds: numbe
   return params
 }
 
+// A page shows once the fonts for its rows are in (see preloadGlyphs).
+async function threadPage(params: URLSearchParams, cursor: string) {
+  const page = await api<ThreadPage>(`/threads?${params}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`)
+  await preloadGlyphs([
+    ...page.threads.flatMap((t) => [
+      { text: [...t.senders, ...(t.recipients ?? []), t.subject].join(''), lang: t.lang, bold: t.unread },
+      { text: t.snippet, lang: t.lang },
+    ]),
+    ...(page.sections ?? []).flatMap((s) => [{ text: s.name ?? '', bold: true }, { text: s.senders.join('') }]),
+  ])
+  return page
+}
+
 export function useThreads(view: View, accountId: number | null, labelIds: number[] | undefined) {
   const params = viewParams(view, accountId, labelIds)
   const enabled = accountId !== null && (view.kind !== 'label' || !!labelIds?.length)
   return useInfiniteQuery({
     queryKey: ['threads', params.toString()],
-    queryFn: ({ pageParam }) => api<ThreadPage>(`/threads?${params}${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`),
+    queryFn: ({ pageParam }) => threadPage(params, pageParam),
     initialPageParam: '',
     getNextPageParam: (page) => page.next_cursor ?? undefined,
     enabled,
@@ -136,7 +150,7 @@ export function useBundleThreads(bundle: string | null, accountId: number | null
   if (accountId !== null) params.set('account_id', String(accountId))
   return useInfiniteQuery({
     queryKey: ['threads', params.toString()],
-    queryFn: ({ pageParam }) => api<ThreadPage>(`/threads?${params}${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`),
+    queryFn: ({ pageParam }) => threadPage(params, pageParam),
     initialPageParam: '',
     getNextPageParam: (page) => page.next_cursor ?? undefined,
     enabled: bundle !== null && accountId !== null,

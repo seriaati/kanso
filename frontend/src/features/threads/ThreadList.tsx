@@ -4,7 +4,6 @@ import { Link } from 'react-router'
 import { shortDate } from '../../app/format'
 import { quickAction, redundant, type Quick } from '../../app/actions'
 import { useDensity } from '../../app/density'
-import { preloadGlyphs, type Run } from '../../app/fonts'
 import type { Section, ThreadSummary } from '../../app/mail'
 import { Avatar } from '../../components/Avatar'
 import { Icon } from '../../components/Icon'
@@ -98,21 +97,6 @@ export function ThreadList(props: Props) {
 
   const rangeEnd = useEffectEvent(props.onRangeEnd)
   useEffect(() => rangeEnd(lastIndex), [lastIndex, rows.length])
-
-  // All the rows' fonts at once, rather than a page-wide re-layout per row as they scroll into view.
-  useEffect(() => {
-    preloadGlyphs(
-      rows.flatMap((row): Run[] => {
-        if (row.kind !== 'thread') return [{ text: row.section.name ?? 'Other', bold: true }, { text: row.section.senders.join('') }]
-        const { thread } = row
-        return [
-          { text: people(thread) + thread.subject, lang: thread.lang, bold: thread.unread },
-          { text: thread.snippet, lang: thread.lang },
-          { text: thread.label_ids.map((id) => labelsById.get(id)?.name ?? '').join('') },
-        ]
-      }),
-    )
-  }, [rows, labelsById])
 
   // Row heights change with the layout and the density.
   useEffect(() => virtualizer.measure(), [phone, comfortable, virtualizer])
