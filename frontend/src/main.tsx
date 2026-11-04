@@ -1,8 +1,7 @@
 import './styles/fonts.css'
 import './styles/tokens.css'
 import './styles/base.css'
-
-import fullFonts from './styles/fonts-full.css?url'
+import './app/fonts'
 
 import { QueryClientProvider } from '@tanstack/react-query'
 import { StrictMode } from 'react'
@@ -20,10 +19,4 @@ createRoot(document.getElementById('root')!).render(
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,
-)
-
-// Link the full font subsets after the first paint (rAF runs before it, the timeout after).
-// A script-inserted stylesheet never blocks rendering.
-requestAnimationFrame(() =>
-  setTimeout(() => document.head.append(Object.assign(document.createElement('link'), { rel: 'stylesheet', href: fullFonts }))),
 )
