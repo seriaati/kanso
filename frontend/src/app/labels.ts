@@ -38,3 +38,12 @@ export function useDeleteLabel() {
     },
   })
 }
+
+/** AI gives the account's labels that have none an icon, when it is confident of one. */
+export function usePickIcons() {
+  return useMutation({
+    mutationFn: (accountId: number) =>
+      api<{ label: string; icon: string | null }[]>('/ai/label-icons', { method: 'POST', body: { account_id: accountId } }),
+    onSuccess: refresh,
+  })
+}

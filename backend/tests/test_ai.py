@@ -1,8 +1,10 @@
 import json
+import re
 import sys
 import time
 from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage
+from pathlib import Path
 from typing import Any
 
 import anthropic
@@ -15,7 +17,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from kanso.ai import keys, labeling, suggestions, trim
+from kanso.ai import icons, keys, labeling, suggestions, trim
 from kanso.core.settings import settings
 from kanso.db import session
 from kanso.db.models import Account, AiQueue, AiUsage, BlockedSender, Label, Outbox, Thread
@@ -867,6 +869,58 @@ def test_suggested_colors_are_gmail_colors() -> None:
     from kanso.api.labels import GMAIL_COLORS
 
     assert set(suggestions.COLORS.values()) == set(GMAIL_COLORS)
+
+
+def test_ai_picks_icons_for_labels_without_one(
+    ai_on: None, synced: TestClient, claude: FakeClaude, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(icons, "client", lambda _key: claude.client())
+    work = next(
+        label["id"]
+        for label in synced.get("/api/labels?account_id=1").json()
+        if label["name"] == "Work"
+    )
+    assert synced.patch(f"/api/labels/{work}", json={"icon": "code"}).status_code == 200
+    claude.answers = [
+        {
+            "icons": [
+                {"label": "Finance", "icon": "bank", "confidence": 0.9},
+                {"label": "Newsletters", "icon": "newspaper", "confidence": 0.5},  # unsure
+            ]
+        }
+    ]
+    response = synced.post("/api/ai/label-icons", json={"account_id": 1})
+    assert response.status_code == 200, response.text
+    assert response.json() == [
+        {"label": "Finance", "icon": "bank"},
+        {"label": "Newsletters", "icon": None},
+    ]
+    # Only the labels without an icon, by name and description.
+    [request] = claude.requests
+    prompt = request["messages"][0]["content"]
+    finance = "- Finance: bills, statements and payment reminders"
+    assert prompt == f"The labels:\n{finance}\n- Newsletters"
+    icons_by_label = {
+        label["name"]: label["icon"] for label in synced.get("/api/labels?account_id=1").json()
+    }
+    assert {name: icons_by_label[name] for name in ("Finance", "Newsletters", "Work")} == {
+        "Finance": "bank",
+        "Newsletters": None,
+        "Work": "code",
+    }
+    assert [(u.feature, u.model) for u in rows(AiUsage)] == [("icons", "claude-haiku-5-5")]
+
+
+def test_ai_icon_names_are_the_ui_label_icons() -> None:
+    source = (Path(__file__).parents[2] / "frontend/src/app/mail.ts").read_text()
+    names = source.split("export const labelIcons = [")[1].split("]")[0]
+    assert re.findall(r"'(\w+)'", names) == list(icons.ICONS)
+
+
+def test_ai_icons_need_claude(synced: TestClient, claude: FakeClaude) -> None:
+    set_key("jev", "jev-key")
+    assert synced.post("/api/ai/label-icons", json={"account_id": 1}).status_code == 409
+    assert claude.requests == []
 
 
 # TypeSafe's Jev: the labeling model with only a TypeSafe key, or when picked in Settings.

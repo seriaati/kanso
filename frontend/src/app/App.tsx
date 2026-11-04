@@ -771,7 +771,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
       {route.page === 'settings' ? (
         <Settings accounts={accounts} sync={sync.data ?? []} ai={ai} labeling={labeling} onMenu={openMenu} />
       ) : route.page === 'labels' ? (
-        <Labels key={accountId} account={accounts.find((a) => a.id === accountId)} labels={labels.data ?? []} ai={labeling} onMenu={openMenu} />
+        <Labels key={accountId} account={accounts.find((a) => a.id === accountId)} labels={labels.data ?? []} ai={labeling} claude={ai} onMenu={openMenu} />
       ) : route.page === 'cleanup' ? (
         <Cleanup
           key={accountId}

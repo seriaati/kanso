@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kanso.ai import keys, labeling, suggestions, summaries, usage
+from kanso.ai import icons, keys, labeling, suggestions, summaries, usage
 from kanso.core.settings import settings
 from kanso.db.models import Account, AiQueue, Thread
 from kanso.db.session import get_session
@@ -191,6 +191,28 @@ async def suggest_labels(body: SuggestIn, db: DB) -> list[suggestions.Suggestion
     try:
         result = await suggestions.suggest(db, account, body.model)
     except suggestions.Failed as error:
+        await db.commit()  # the usage, if Claude answered
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    await db.commit()
+    return result
+
+
+class IconsIn(BaseModel):
+    account_id: int
+
+
+@router.post("/ai/label-icons")
+async def pick_label_icons(body: IconsIn, db: DB) -> list[icons.Picked]:
+    """Icons for the account's labels that have none, with the Claude labeling model. Sends
+    Claude only the labels' names and descriptions."""
+    if not (await keys.load(db)).ai:
+        raise HTTPException(status_code=409, detail=keys.AI_OFF)
+    account = await db.get(Account, body.account_id)
+    if account is None:
+        raise HTTPException(status_code=404, detail="Account not found")
+    try:
+        result = await icons.pick(db, account, await labeling.claude_model(db))
+    except icons.Failed as error:
         await db.commit()  # the usage, if Claude answered
         raise HTTPException(status_code=502, detail=str(error)) from error
     await db.commit()

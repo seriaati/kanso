@@ -355,7 +355,7 @@ function Models({ ai, labeling }: { ai: boolean; labeling: boolean }) {
 }
 
 const tokens = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 })
-const features: Record<string, string> = { labeling: 'Labeling', summary: 'Summaries', assistant: 'Assistant', suggestions: 'Label suggestions' }
+const features: Record<string, string> = { labeling: 'Labeling', summary: 'Summaries', assistant: 'Assistant', suggestions: 'Label suggestions', icons: 'Label icons' }
 const dollars = (cost: number) => (cost > 0 && cost < 0.01 ? '< $0.01' : `$${cost.toFixed(2)}`)
 
 function Usage() {

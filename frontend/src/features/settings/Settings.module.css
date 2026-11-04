@@ -150,9 +150,16 @@
   padding: 0 10px;
 }
 
+.labelActions {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 16px;
+}
+
 .add {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   height: 36px;
   margin: 2px 0 8px;
   padding: 0 10px 0 0;
