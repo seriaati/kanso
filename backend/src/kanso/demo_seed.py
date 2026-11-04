@@ -6,6 +6,7 @@ Safe to run again. On a demo instance (DEMO_MODE) it empties every table first.
 
 import asyncio
 import logging
+import math
 import struct
 import zlib
 from datetime import UTC, datetime, timedelta
@@ -65,7 +66,7 @@ THREADS: list[DemoThread] = [
     ("Home", [(_person("Mika Tanaka"), 2, "Hi,\n\nAttaching the renewal contract for apartment 4B. The new term starts January 1st; please sign page 3 and send it back by the 20th.\n\nThanks,\nMika")], "Lease renewal for apartment 4B", {"unread", "attachment"}, "utf-8"),
     ("Home", [(("City Library", "holds@library.example.com"), 50, "Your hold is ready for pickup. Waiting at the front desk for 7 days.")], "Your hold is ready for pickup", set(), "utf-8"),
     ("Personal", [(_person("Daniel Reyes"), 30, "Are you free for dinner on Saturday? There's a new ramen place near the station."), (ME, 20, "Sounds great! What time works for you?"), (_person("Daniel Reyes"), 3, "Works for me. 7pm?")], "Re: Dinner on Saturday?", {"unread"}, "utf-8"),
-    ("Personal", [(_person("Priya Shah"), 75, "The ridge ones came out great. Uploading the rest tonight.")], "Photos from the hike", set(), "utf-8"),
+    ("Personal", [(_person("Priya Shah"), 75, "The ridge ones came out great. Uploading the rest tonight.")], "Photos from the hike", {"photos"}, "utf-8"),
     ("Personal", [(_person("Tomás Silva"), 100, "I can pick it up Sunday morning. Is 10 ok?")], "Re: Bike for sale", set(), "utf-8"),
     ("Personal", [(_person("Yuki Sato"), 125, "Vote in the thread. Three candidates this month.")], "Book club: next pick", set(), "utf-8"),
     ("Personal", [(_person("Sofia Nguyen"), 170, "Come by from 6pm. Bring nothing but yourself!")], "Housewarming on the 14th", set(), "utf-8"),
@@ -119,12 +120,19 @@ def demo_summary(subject: str, bodies: list[str]) -> str:
     return f"Demo summary of {count}, made without Claude."
 
 
-def _png(width: int, height: int, rgb: tuple[int, int, int]) -> bytes:
+RGB = tuple[int, int, int]
+
+
+def _png(width: int, height: int, rgb: RGB) -> bytes:
+    return _encode_png(width, height, [bytes(rgb) * width] * height)
+
+
+def _encode_png(width: int, height: int, pixel_rows: list[bytes]) -> bytes:
     def chunk(kind: bytes, data: bytes) -> bytes:
         body = kind + data
         return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body))
 
-    rows = b"".join(b"\0" + bytes(rgb) * width for _ in range(height))
+    rows = b"".join(b"\0" + row for row in pixel_rows)
     header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
     return (
         b"\x89PNG\r\n\x1a\n"
@@ -132,6 +140,28 @@ def _png(width: int, height: int, rgb: tuple[int, int, int]) -> bytes:
         + chunk(b"IDAT", zlib.compress(rows))
         + chunk(b"IEND", b"")
     )
+
+
+def _photo(sky: RGB, far: RGB, near: RGB, seed: float) -> bytes:
+    """A landscape (sky, a far ridge, a near hill) for the hike email's photo attachments."""
+    width, height = 360, 240
+    far_top = [
+        height * 0.45 + 16 * math.sin(x / 31 + seed) + 8 * math.sin(x / 11 + 2 * seed)
+        for x in range(width)
+    ]
+    near_top = [height * 0.72 + 12 * math.sin(x / 57 + 3 * seed) for x in range(width)]
+    rows = []
+    for y in range(height):
+        haze = min(y / (height * 0.6), 1) * 0.5  # the sky pales toward the horizon
+        sky_px = bytes(round(c + (245 - c) * haze) for c in sky)
+        far_px, near_px = bytes(far), bytes(near)
+        rows.append(
+            b"".join(
+                near_px if y >= near_top[x] else far_px if y >= far_top[x] else sky_px
+                for x in range(width)
+            )
+        )
+    return _encode_png(width, height, rows)
 
 
 def _pdf(text: str) -> bytes:
@@ -167,6 +197,18 @@ DEMO_FILES = {
     "image/png": _png(120, 24, (0x2F, 0x4B, 0x6E)),
     "application/pdf": _pdf("kanso demo attachment (DEMO DATA)"),
 }
+
+
+# Photo attachments, served by filename: image/png above is the newsletters' logo.
+DEMO_PHOTOS = {
+    "ridge.png": _photo((96, 146, 196), (82, 98, 124), (74, 93, 44), 0),
+    "ridge-at-dusk.png": _photo((214, 150, 120), (104, 84, 104), (40, 58, 66), 2),
+}
+
+
+def demo_file(filename: str, mime_type: str) -> bytes | None:
+    """An attachment's bytes: demo mail has no Gmail copy to fetch them from."""
+    return DEMO_PHOTOS.get(filename) or DEMO_FILES.get(mime_type)
 
 
 def _mime(
@@ -216,6 +258,9 @@ def _mime(
                 filename="logo.png",
                 disposition="inline",
             )
+    if "photos" in flags:
+        for filename, content in DEMO_PHOTOS.items():
+            msg.add_attachment(content, "image", "png", filename=filename)
     if "attachment" in flags:
         msg.add_attachment(
             DEMO_FILES["application/pdf"], "application", "pdf", filename=f"{subject[:30]}.pdf"

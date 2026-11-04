@@ -514,7 +514,7 @@ async def download_attachment(attachment_id: int, db: DB) -> Response:
         raise HTTPException(status_code=404, detail="Attachment not found")
     attachment, gmail_id, account = row
     if account.demo:
-        content = demo_seed.DEMO_FILES.get(attachment.mime_type)
+        content = demo_seed.demo_file(attachment.filename, attachment.mime_type)
     else:
         async with gmail_client.http_client() as http:
             try:

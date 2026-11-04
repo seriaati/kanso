@@ -328,7 +328,7 @@ async def _fetch(
     if account is None:
         return None
     if account.demo:  # demo mail has no Gmail copy
-        return demo_seed.DEMO_FILES.get(entry["mime_type"])
+        return demo_seed.demo_file(entry["filename"], entry["mime_type"])
     key = (account.id, src["gmail_id"])
     if key not in raws:
         try:

@@ -267,6 +267,16 @@ def test_html_mail_with_inline_image_and_cjk_language(demo: TestClient) -> None:
     assert image.content == demo_seed.DEMO_FILES["image/png"]
     assert image.headers["content-disposition"].startswith("inline;")
     assert image.headers["cache-control"] == "private, max-age=31536000, immutable"
+    # Photo attachments share image/png with the logo, so they're served by filename.
+    [thread] = demo.get(
+        "/api/threads", params={"account_id": 1, "q": "Photos from the hike"}
+    ).json()["threads"]
+    [message] = demo.get(f"/api/threads/{thread['id']}").json()["messages"]
+    photos = {a["filename"]: a for a in message["attachments"]}
+    assert set(photos) == set(demo_seed.DEMO_PHOTOS)
+    assert not any(a["inline"] for a in photos.values())
+    photo = demo.get(f"/api/attachments/{photos['ridge.png']['id']}")
+    assert photo.content == demo_seed.DEMO_PHOTOS["ridge.png"]
 
 
 def test_labels_with_counts(demo: TestClient) -> None:
