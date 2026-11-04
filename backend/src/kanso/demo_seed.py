@@ -227,6 +227,8 @@ def _mime(
     msg["Date"] = format_datetime(when)
     msg["Message-ID"] = make_msgid(domain="kanso.demo")
     msg["X-Kanso-Demo"] = "true"
+    if "list" in flags:
+        msg["List-Id"] = f"{sender[0]} <{sender[1].replace('@', '.')}>"
     msg.set_content(body, charset=charset)
     if "html" in flags:
         paragraphs = "".join(f"<p>{line}</p>" for line in body.splitlines() if line)
@@ -293,6 +295,8 @@ async def seed() -> int:
         )
         thread_ids = set()
         for t, (label, messages, subject, flags, charset) in enumerate(THREADS, 1):
+            if label == "Newsletters":
+                flags = flags | {"list"}  # sent with a List-Id
             for m, (sender, hours_ago, body) in enumerate(messages, 1):
                 when = now - timedelta(hours=hours_ago)
                 from_me = sender == ME

@@ -171,6 +171,8 @@ class Message(Base):
     lang: Mapped[str | None] = mapped_column(String(16))  # BCP 47 hint, e.g. "ja", "zh-Hant"
     has_attachments: Mapped[bool] = mapped_column(server_default=false())
     size: Mapped[int] = mapped_column(server_default="0")
+    # The List-Id header, "" without one. None until fetched, for mail mirrored before 0020.
+    list_id: Mapped[str | None] = mapped_column(Text)
     # When the message was last fetched from Gmail; a full resync drops rows it didn't touch.
     synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     search: Mapped[Any] = mapped_column(TSVECTOR)

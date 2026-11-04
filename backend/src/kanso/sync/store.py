@@ -123,6 +123,7 @@ async def save_message(
         "lang": parsed.lang,
         "has_attachments": any(not a.inline for a in parsed.attachments),
         "size": int(meta.get("sizeEstimate", 0)),
+        "list_id": parsed.list_id,
         "synced_at": func.now(),
         "search": func.to_tsvector(
             "simple",

@@ -119,6 +119,7 @@ class ParsedMessage:
     message_id: str | None = None
     in_reply_to: str | None = None
     references: str | None = None
+    list_id: str = ""
     body_text: str = ""
     body_html: str | None = None
     lang: str | None = None
@@ -239,6 +240,7 @@ def _parse(raw: bytes) -> ParsedMessage:
         message_id=_header_or_none(msg, "Message-ID"),
         in_reply_to=_header_or_none(msg, "In-Reply-To"),
         references=_header_or_none(msg, "References"),
+        list_id=" ".join(decode_header(_raw_header(msg, "List-Id"), charset).split()),
         body_text=body_text.strip(),
         body_html=sanitize_html(html_body) if html_body is not None else None,
         lang=detect_lang(

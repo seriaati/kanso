@@ -9,7 +9,7 @@ from conftest import run
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fake_gmail import FakeGmail, make_raw
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from kanso.db.models import Account, Attachment, Label, Message, Thread
 from kanso.db.session import Session
@@ -101,6 +101,34 @@ def test_backfill_mirrors_the_whole_mailbox(gmail: FakeGmail, fake_redis: Any) -
     labels = run(_labels())
     assert labels["Label_1"] == ("Work", "user", "#6b6b66")
     assert labels["INBOX"] == ("INBOX", "system", None)
+
+
+async def _list_ids() -> dict[str, str | None]:
+    async with Session() as db:
+        return dict((await db.execute(select(Message.gmail_id, Message.list_id))).all())
+
+
+def test_list_id_is_kept_and_fetched_for_older_mail(gmail: FakeGmail) -> None:
+    raw = make_raw("Weekly digest", "News", headers={"List-Id": "Digest <digest.example.com>"})
+    gmail.add("m6", "t5", ["INBOX"], raw)
+    run(_create_account())
+    sync(gmail)
+    ids = run(_list_ids())
+    assert ids["m6"] == "Digest <digest.example.com>"
+    assert ids["m1"] == ""  # none
+    assert not any(r.endswith(" metadata") for r in gmail.requests)
+
+    # Mirrored before kanso kept List-Id: the next sync fetches the headers.
+    run(_forget_list_ids())
+    sync(gmail)
+    assert run(_list_ids()) == ids
+    assert gmail.requests.count("GET /messages/m6 metadata") == 1
+
+
+async def _forget_list_ids() -> None:
+    async with Session() as db:
+        await db.execute(update(Message).values(list_id=None))
+        await db.commit()
 
 
 async def _labels() -> dict[str, tuple[str, str, str | None]]:

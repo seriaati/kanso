@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx2 as httpx
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kanso.ai import labeling
@@ -24,6 +24,7 @@ log = logging.getLogger(__name__)
 # Only bounds how many are in flight; the Gmail client paces requests to the quota.
 FETCH_CONCURRENCY = 8
 BACKFILL_CHUNK = 100
+LIST_ID_BATCH = 1000
 # Gmail asks to renew users.watch daily; it expires after 7 days.
 WATCH_RENEW_BEFORE = timedelta(days=6)
 
@@ -39,6 +40,7 @@ async def sync_account(account_id: int, http: httpx.AsyncClient) -> None:
         if settings.pubsub_configured:
             await renew_watch(db, gmail, account)
         await incremental(db, gmail, account)
+        await fill_list_ids(db, gmail, account.id)
 
 
 async def _now(db: AsyncSession) -> datetime:
@@ -163,6 +165,30 @@ async def import_messages(
             thread_ids.add(tid)
     await store.refresh_threads(db, thread_ids)
     return thread_ids, fetched
+
+
+async def fill_list_ids(db: AsyncSession, gmail: Gmail, account_id: int) -> None:
+    """Mail mirrored before kanso kept List-Id (migration 0020) gets it, a batch per sync."""
+    rows = await db.execute(
+        select(Message.id, Message.gmail_id)
+        .where(Message.account_id == account_id, Message.list_id.is_(None))
+        .limit(LIST_ID_BATCH)
+    )
+    semaphore = asyncio.Semaphore(FETCH_CONCURRENCY)
+
+    async def fetch(gmail_id: str) -> str:
+        async with semaphore:
+            try:
+                headers = await gmail.message_headers(gmail_id, ["List-Id"])
+            except NotFound:  # deleted: the next sync removes it
+                return ""
+        return " ".join(mime.decode_header(headers.get("list-id")).split())
+
+    pending = rows.all()
+    found = await asyncio.gather(*(fetch(gmail_id) for _, gmail_id in pending))
+    for (message_id, _), list_id in zip(pending, found, strict=True):
+        await db.execute(update(Message).where(Message.id == message_id).values(list_id=list_id))
+    await db.commit()
 
 
 async def incremental(db: AsyncSession, gmail: Gmail, account: Account) -> None:
