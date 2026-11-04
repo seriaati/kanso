@@ -14,6 +14,7 @@ import { Menu, type MenuItem } from '../components/Menu'
 import { Resizer } from '../components/Resizer'
 import { Assistant, type AssistantHandle } from '../features/assistant/Assistant'
 import { BottomBar } from '../features/phone/BottomBar'
+import { ActionSheet } from '../features/phone/ActionSheet'
 import { MenuSheet } from '../features/phone/MenuSheet'
 import { Composer } from '../features/compose/Composer'
 import { CommandBar } from '../features/command/CommandBar'
@@ -26,9 +27,9 @@ import { Cleanup } from '../features/cleanup/Cleanup'
 import { Labels } from '../features/labels/Labels'
 import { Settings } from '../features/settings/Settings'
 import { Sidebar, type Notice } from '../features/sidebar/Sidebar'
-import { InboxZero, ThreadList, type LabelChip, type BundleAction, type ListRow } from '../features/threads/ThreadList'
+import { InboxZero, ThreadList, type LabelChip, type ListRow } from '../features/threads/ThreadList'
 import { pickAccount, rememberAccount, useAccounts, type Account } from './accounts'
-import { applied, inList, quickAction, quickTarget, redundant, unsubscribe, useThreadAction, useUndo, type BundleScope, type Quick, type ThreadAction } from './actions'
+import { applied, bundleActions, inList, quickAction, quickTarget, redundant, unsubscribe, useThreadAction, useUndo, type BundleAction, type BundleScope, type Quick, type ThreadAction } from './actions'
 import { useConfig } from './ai'
 import { ApiError, queryClient, Unauthorized } from './api'
 import { createDraft, openDraft, type ComposeMode } from './compose'
@@ -412,7 +413,10 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     }
   }
 
-  const [rowMenu, setRowMenu] = useState<{ thread: ThreadSummary; x: number; y: number } | null>(null)
+  // A row's right-click menu; on a phone, its long-press sheet.
+  const [rowMenu, setRowMenu] = useState<
+    (({ thread: ThreadSummary; bundle?: never } | { bundle: Bundle; thread?: never }) & { x: number; y: number }) | null
+  >(null)
   const rowMenuItems = (thread: ThreadSummary): MenuItem[] => {
     const quickItem = (q: Quick): MenuItem => {
       const { icon, title } = quickAction(q, [thread])
@@ -438,9 +442,12 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
           setPicking(true)
         },
       },
-      { icon: 'select', label: selected.has(thread.id) ? 'Deselect' : 'Select', shortcut: 'x', onSelect: () => toggleSelected(thread) },
+      // Phones don't select (no selection bar).
+      ...(phone ? [] : [{ icon: 'select', label: selected.has(thread.id) ? 'Deselect' : 'Select', shortcut: 'x', onSelect: () => toggleSelected(thread) } satisfies MenuItem]),
     ]
   }
+  const bundleMenuItems = (bundle: Bundle): MenuItem[] =>
+    bundleActions.map(({ action, icon, label }) => ({ icon, label, onSelect: () => bundleAction(action, bundle) }))
 
   const markedRead = useRef<number | null>(null)
   // A thread of drafts only is the composer itself: nothing for the assistant to read.
@@ -702,6 +709,9 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
       onClose={() => setAsking(false)}
     />
   )
+  const rowMenuFor = rowMenu?.thread
+    ? { title: rowMenu.thread.subject || '(no subject)', items: rowMenuItems(rowMenu.thread) }
+    : rowMenu?.bundle && { title: rowMenu.bundle.name, items: bundleMenuItems(rowMenu.bundle) }
 
   return (
     <div
@@ -833,8 +843,10 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
               )
             }
             onAsk={ai && !phone && !paneOpen && !showAssistant && accountId !== null ? () => setAsking(true) : undefined}
-            onRowMenu={phone ? undefined : (thread, point) => setRowMenu({ thread, ...point })}
-            menuId={rowMenu?.thread.id}
+            onRowMenu={(thread, point) => setRowMenu({ thread, ...point })}
+            menuId={rowMenu?.thread?.id}
+            onBundleMenu={(bundle, point) => setRowMenu({ bundle, ...point })}
+            menuBundle={rowMenu?.bundle?.name}
             onSelectClick={phone ? undefined : clickSelect}
             selectionBar={
               multi && (
@@ -916,14 +928,13 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
           )}
         </>
       )}
-      {rowMenu && (
-        <Menu
-          anchor={rowMenu}
-          label={`Actions for ${rowMenu.thread.subject || '(no subject)'}`}
-          items={rowMenuItems(rowMenu.thread)}
-          onClose={() => setRowMenu(null)}
-        />
-      )}
+      {rowMenu &&
+        rowMenuFor &&
+        (phone ? (
+          <ActionSheet title={rowMenuFor.title} items={rowMenuFor.items} onClose={() => setRowMenu(null)} />
+        ) : (
+          <Menu anchor={rowMenu} label={`Actions for ${rowMenuFor.title}`} items={rowMenuFor.items} onClose={() => setRowMenu(null)} />
+        ))}
       {composing && (
         <ComposeWindow key={composing.draftId} minimized={composing.minimized} movable={!phone}>
           <Composer

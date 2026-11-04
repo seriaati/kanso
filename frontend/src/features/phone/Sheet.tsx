@@ -70,8 +70,14 @@ export function Sheet({ label, role, className, onClose, children }: Props) {
 
   return (
     <>
-      <div ref={scrimRef} className={styles.scrim} onClick={onClose} aria-hidden="true" />
-      <div ref={sheetRef} className={`${styles.sheet} ${className ?? ''}`} role={role} aria-label={label}>
+      <div ref={scrimRef} className={styles.scrim} onClick={onClose} onContextMenu={(event) => event.preventDefault()} aria-hidden="true" />
+      <div
+        ref={sheetRef}
+        className={`${styles.sheet} ${className ?? ''}`}
+        role={role}
+        aria-label={label}
+        onContextMenu={(event) => event.preventDefault()} // a long press that opened it ends here
+      >
         <button type="button" className={styles.handle} aria-label="Close" onClick={onClose} />
         {children}
       </div>

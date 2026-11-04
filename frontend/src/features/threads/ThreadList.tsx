@@ -2,12 +2,12 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useEffect, useEffectEvent, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { Link } from 'react-router'
 import { shortDate } from '../../app/format'
-import { quickAction, redundant, type Quick } from '../../app/actions'
+import { bundleActions, quickAction, redundant, type BundleAction, type Quick } from '../../app/actions'
 import type { Account } from '../../app/accounts'
 import { useDensity } from '../../app/density'
 import type { Bundle, LabelIcon, ThreadSummary } from '../../app/mail'
 import { Avatar } from '../../components/Avatar'
-import { Icon, type IconName } from '../../components/Icon'
+import { Icon } from '../../components/Icon'
 import { LabelMark } from '../../components/LabelMark'
 import { InstallButton } from '../install/InstallButton'
 import { Avatar as AccountAvatar } from '../sidebar/AccountSwitcher'
@@ -18,9 +18,6 @@ import styles from './ThreadList.module.css'
 const quicks: Quick[] = ['done', 'delete', 'star', 'important']
 
 export type LabelChip = { name: string; color: string; icon: LabelIcon | null }
-
-/** What a bundle row can do to all its threads. */
-export type BundleAction = 'done' | 'read' | 'delete'
 
 export type ListRow =
   | { kind: 'thread'; thread: ThreadSummary }
@@ -72,8 +69,11 @@ type Props = {
   /** Phones: the bottom bar. */
   footer?: ReactNode
   onAsk?: () => void
+  /** Right-click, or on a phone a long press. */
   onRowMenu?: (thread: ThreadSummary, point: { x: number; y: number }) => void
   menuId?: number | null
+  onBundleMenu?: (bundle: Bundle, point: { x: number; y: number }) => void
+  menuBundle?: string | null
   /** Ctrl/⌘-click (one thread) or Shift-click (a range): select instead of open. */
   onSelectClick?: (id: number, range: boolean) => void
   selectionBar?: ReactNode
@@ -82,7 +82,7 @@ type Props = {
 export function ThreadList(props: Props) {
   const { title, query, rows, status, error, empty, cursorId, openId, selected, labelsById, hideLabel, hideChips } = props
   const { onBundleAction, onToggleBundle, threadHref, onOpen, onQuick, onSearch, searchRef, phone, account, onMenu, footer, onAsk } = props
-  const { onRowMenu, menuId, onSelectClick, selectionBar } = props
+  const { onRowMenu, menuId, onBundleMenu, menuBundle, onSelectClick, selectionBar } = props
   const scrollRef = useRef<HTMLDivElement>(null)
   const comfortable = useDensity() === 'comfortable'
   const labelNames = [...labelsById.values()].map((label) => label.name)
@@ -209,7 +209,17 @@ export function ThreadList(props: Props) {
           {items.map((item) => {
             const row = rows[item.index]
             if (row.kind === 'bundle')
-              return <BundleRow key={item.key} row={row} top={item.start} onAction={onBundleAction} onToggle={onToggleBundle} />
+              return (
+                <BundleRow
+                  key={item.key}
+                  row={row}
+                  top={item.start}
+                  menu={row.bundle.name === menuBundle}
+                  onAction={onBundleAction}
+                  onToggle={onToggleBundle}
+                  onMenu={onBundleMenu}
+                />
+              )
             if (row.kind === 'divider') return <div key={item.key} className={styles.divider} style={{ transform: `translateY(${item.start}px)` }} aria-hidden="true" />
             const thread = row.thread
             const chips = hideChips
@@ -254,26 +264,36 @@ const count = (bundle: Bundle) => (
 type BundleProps = {
   row: Extract<ListRow, { kind: 'bundle' }>
   top: number
+  menu: boolean
   onAction: (action: BundleAction, bundle: Bundle) => void
   onToggle: (name: string) => void
+  onMenu?: (bundle: Bundle, point: { x: number; y: number }) => void
 }
 
-const bundleActions: { action: BundleAction; icon: IconName; label: string }[] = [
-  { action: 'done', icon: 'done', label: 'Done all' },
-  { action: 'delete', icon: 'delete', label: 'Delete all' },
-  { action: 'read', icon: 'mailOpen', label: 'Mark all read' },
-]
 const NAMED_SENDERS = 3 // the rest show only their icon
 
 // Like a thread row: the senders and the newest time, the actions on hover (on phones, a swipe).
-function BundleRow({ row, top, onAction, onToggle }: BundleProps) {
+function BundleRow({ row, top, menu, onAction, onToggle, onMenu }: BundleProps) {
   const { bundle } = row
   const { name } = bundle
-  const swipe = useSwipe((direction) => onAction(direction === 'right' ? 'done' : 'delete', bundle))
+  const swipe = useSwipe(
+    (direction) => onAction(direction === 'right' ? 'done' : 'delete', bundle),
+    onMenu && ((point) => onMenu(bundle, point)),
+  )
   const swiped = bundleActions[swipe.offset > 0 ? 0 : 1]
   return (
     <div className={styles.bundle} style={{ transform: `translateY(${top}px)` }}>
-      <div className={`${styles.row} ${styles.bundleRow}`} {...swipe.handlers}>
+      <div
+        className={`${styles.row} ${styles.bundleRow} ${menu ? styles.menuOpen : ''}`}
+        onContextMenu={
+          onMenu &&
+          ((event) => {
+            event.preventDefault()
+            onMenu(bundle, { x: event.clientX, y: event.clientY })
+          })
+        }
+        {...swipe.handlers}
+      >
         {swipe.offset !== 0 && (
           <span className={`${styles.swipe} ${swipe.offset > 0 ? styles.swipeDone : styles.swipeDelete}`} aria-hidden="true">
             <Icon name={swiped.icon} size={17} />
@@ -358,7 +378,10 @@ type RowProps = {
 
 function ThreadRow(props: RowProps) {
   const { thread, chips, top, reveal, cursor, open, menu, checked, href, onOpen, onQuick, onMenu, onSelectClick } = props
-  const swipe = useSwipe((direction) => onQuick(direction === 'right' ? 'done' : 'delete', thread))
+  const swipe = useSwipe(
+    (direction) => onQuick(direction === 'right' ? 'done' : 'delete', thread),
+    onMenu && ((point) => onMenu(thread, point)),
+  )
   const rowClass = [styles.row, thread.unread && styles.unread, (cursor || open) && styles.selected, checked && styles.checked, menu && styles.menuOpen, reveal !== undefined && styles.revealed]
     .filter(Boolean)
     .join(' ')
