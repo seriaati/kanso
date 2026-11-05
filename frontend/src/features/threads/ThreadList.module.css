@@ -161,8 +161,60 @@
 }
 
 .scroll {
+  position: relative; /* for the pull-to-refresh indicator */
   flex: 1;
   overflow-y: auto;
+}
+
+/* Beside the title, desktop: reloads the list and syncs the account with Gmail now. */
+.refresh {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  margin-left: -6px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+}
+
+.refresh:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+/* Phones: pulled down from the top of the list, it turns with the finger; past the trigger it
+   darkens, and on release it spins until the list has reloaded. */
+.pull {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  left: 50%;
+  width: 36px;
+  height: 36px;
+  margin-left: -18px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--float-shadow);
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  translate: 0 calc(var(--pull) - 40px);
+  pointer-events: none;
+}
+
+.pull svg {
+  rotate: var(--turn);
+}
+
+.ready {
+  color: var(--ink);
+}
+
+.spinning svg {
+  animation: spin 0.9s linear infinite;
 }
 
 .underBar {
@@ -231,6 +283,16 @@
   .zeroTitle,
   .zero {
     animation-delay: 0s;
+  }
+
+  .spinning svg {
+    animation: none;
+  }
+}
+
+@keyframes spin {
+  to {
+    rotate: 360deg;
   }
 }
 

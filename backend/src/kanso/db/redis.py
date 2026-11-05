@@ -13,6 +13,8 @@ EVENTS_CHANNEL = "kanso:events"
 OUTBOX_CHANNEL = "kanso:outbox"
 # Wakes the worker's AI labeling.
 AI_CHANNEL = "kanso:ai"
+# Asks the worker to sync an account with Gmail now (the message is its id).
+SYNC_CHANNEL = "kanso:sync"
 
 
 async def check_redis() -> None:
@@ -36,3 +38,7 @@ async def sync_changed(account_id: int) -> None:
 
 async def wake_outbox() -> None:
     await redis.publish(OUTBOX_CHANNEL, "1")
+
+
+async def request_sync(account_id: int) -> None:
+    await redis.publish(SYNC_CHANNEL, str(account_id))

@@ -1,11 +1,12 @@
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kanso.db import redis as events
 from kanso.db.models import Account
 from kanso.db.session import get_session
 
@@ -41,3 +42,10 @@ async def sync_status(db: DB) -> list[SyncStatus]:
         )
         for a in await db.scalars(select(Account).order_by(Account.id))
     ]
+
+
+@router.post("/sync/{account_id}", status_code=204)
+async def sync_now(account_id: int) -> Response:
+    """Refresh: the worker syncs the account with Gmail now; changes arrive as live events."""
+    await events.request_sync(account_id)
+    return Response(status_code=204)

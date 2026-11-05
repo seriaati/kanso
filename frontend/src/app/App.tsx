@@ -37,6 +37,7 @@ import styles from './App.module.css'
 import { useCreateLabel } from './labels'
 import {
   namedLabel,
+  refreshMail,
   useBundleThreads,
   useLabels,
   useLiveUpdates,
@@ -898,6 +899,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
             onRowMenu={(thread, point) => setRowMenu({ thread, ...point })}
             menuId={rowMenu?.thread?.id}
             onBundleMenu={(bundle, point) => setRowMenu({ bundle, ...point })}
+            onRefresh={() => refreshMail(accountId)}
             menuBundle={rowMenu?.bundle?.name}
             onSelectClick={phone ? undefined : clickSelect}
             selectionBar={

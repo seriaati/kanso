@@ -4,6 +4,7 @@ import logging
 import httpx2 as httpx
 from sqlalchemy import select
 
+from kanso.db import redis as events
 from kanso.db.models import Account
 from kanso.db.session import Session
 from kanso.gmail.oauth import ReconnectRequired
@@ -14,6 +15,8 @@ log = logging.getLogger(__name__)
 # Notifications arriving within this window are handled by one sync.
 DEBOUNCE_SECONDS = 1.0
 RETRY_MIN, RETRY_MAX = 30.0, 1800.0
+# Refresh requests resume after Redis was unreachable.
+LISTEN_RETRY_SECONDS = 30.0
 
 
 class AccountLoop:
@@ -100,3 +103,18 @@ class Scheduler:
     def stop(self) -> None:
         for _, task in self.loops.values():
             task.cancel()
+
+
+async def listen(scheduler: Scheduler) -> None:
+    """Refresh in kanso (api/sync.py): sync an account now, not at the next push or poll."""
+    while True:
+        try:
+            async with events.redis.pubsub() as pubsub:
+                await pubsub.subscribe(events.SYNC_CHANNEL)
+                while True:
+                    message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=60)
+                    if message and (loop := scheduler.get(int(message["data"] or 0))):
+                        loop.request()
+        except Exception as error:
+            log.warning("sync requests unavailable (%s), retrying", error)
+            await asyncio.sleep(LISTEN_RETRY_SECONDS)

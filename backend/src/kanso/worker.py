@@ -9,7 +9,7 @@ from kanso.core.settings import settings
 from kanso.db.session import engine
 from kanso.gmail.client import http_client
 from kanso.sync import drafts, outbox, photos, push
-from kanso.sync.scheduler import Scheduler
+from kanso.sync.scheduler import Scheduler, listen
 
 log = logging.getLogger("kanso.worker")
 
@@ -39,6 +39,7 @@ async def run() -> None:
             "worker started: Pub/Sub not configured, polling Gmail every 2 min only "
             "(set GOOGLE_PUBSUB_* in .env for instant updates, see docs/SETUP.md)"
         )
+    refreshes = asyncio.create_task(listen(scheduler))
     writes = asyncio.create_task(outbox.run(http))
     housekeeping = asyncio.create_task(drafts.run(http))
     contact_photos = asyncio.create_task(photos.run(http))
@@ -61,6 +62,7 @@ async def run() -> None:
         except TimeoutError:
             pass
     scheduler.stop()
+    refreshes.cancel()
     writes.cancel()
     housekeeping.cancel()
     contact_photos.cancel()

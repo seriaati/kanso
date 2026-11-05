@@ -186,6 +186,7 @@ const paths = {
   close: <path d="M6 6l12 12M18 6L6 18" />,
   plus: <path d="M12 5v14M5 12h14" />,
   history: <path d="M3.5 12a8.5 8.5 0 1 0 2.5-6M3.5 4v4h4M12 7.5V12l3 2" />,
+  refresh: <path d="M20 12a8 8 0 1 1-8-8c2.2 0 4.3.9 5.8 2.4L20 8.5M20 4v4.5h-4.5" />,
   calendar: <path d="M4 5.5h16V20H4zM4 10h16M8.5 3.5v4M15.5 3.5v4" />,
   image: <path d="M4 5h16v14H4zM4 16l4.5-4.5 4 4 2.5-2.5L20 18M14.5 9.5h.01" />,
   code: <path d="M8.5 7.5L4 12l4.5 4.5M15.5 7.5L20 12l-4.5 4.5" />,

@@ -12,6 +12,7 @@ import { LabelMark } from '../../components/LabelMark'
 import { InstallButton } from '../install/InstallButton'
 import { Avatar as AccountAvatar } from '../sidebar/AccountSwitcher'
 import { useSearchSuggest } from './SearchSuggest'
+import { useRefresh } from './refresh'
 import { useSwipe } from './swipe'
 import styles from './ThreadList.module.css'
 
@@ -79,13 +80,16 @@ type Props = {
   /** Ctrl/⌘-click (one thread) or Shift-click (a range): select instead of open. */
   onSelectClick?: (id: number, range: boolean) => void
   selectionBar?: ReactNode
+  /** The refresh button, and on a phone pulling the list down: settles when the list has reloaded. */
+  onRefresh?: () => Promise<unknown>
 }
 
 export function ThreadList(props: Props) {
   const { title, query, rows, status, error, empty, cursorId, openId, selected, labelsById, hideLabel, hideChips } = props
   const { onBundleAction, onToggleBundle, threadHref, onOpen, onQuick, onSearch, searchRef, phone, account, onMenu, footer, onAsk } = props
-  const { onRowMenu, menuId, onBundleMenu, menuBundle, onSelectClick, selectionBar, onLabelAction } = props
+  const { onRowMenu, menuId, onBundleMenu, menuBundle, onSelectClick, selectionBar, onLabelAction, onRefresh } = props
   const scrollRef = useRef<HTMLDivElement>(null)
+  const { pull, ready, refreshing, refresh } = useRefresh(scrollRef, onRefresh ?? (() => Promise.resolve()), phone && !!onRefresh)
   const comfortable = useDensity() === 'comfortable'
   const labelNames = [...labelsById.values()].map((label) => label.name)
   const suggest = useSearchSuggest(searchRef, labelNames, styles.suggestions)
@@ -163,6 +167,18 @@ export function ThreadList(props: Props) {
           </>
         ) : (
           <h1 className={styles.title}>{title}</h1>
+        )}
+        {!phone && onRefresh && (
+          <button
+            type="button"
+            className={`${styles.refresh} ${refreshing ? styles.spinning : ''}`}
+            aria-label="Refresh"
+            title="Refresh"
+            aria-busy={refreshing}
+            onClick={refresh}
+          >
+            <Icon name="refresh" size={15} />
+          </button>
         )}
         {phone && <InstallButton />}
         {selected.size > 0 && !selectionBar && (
@@ -242,6 +258,15 @@ export function ThreadList(props: Props) {
         }}
         onTransitionEnd={(event) => event.propertyName === 'transform' && rehover()}
       >
+        {phone && (pull > 0 || refreshing) && (
+          <div
+            className={`${styles.pull} ${ready ? styles.ready : ''} ${refreshing ? styles.spinning : ''}`}
+            style={{ '--pull': `${refreshing ? 56 : pull}px`, '--turn': `${pull * 4}deg` } as CSSProperties}
+            aria-hidden="true"
+          >
+            <Icon name="refresh" size={16} />
+          </div>
+        )}
         {status === 'error' && <p className={styles.empty}>Couldn’t load threads: {error?.message}</p>}
         {status === 'success' && rows.length === 0 && <p className={styles.empty}>{empty}</p>}
         <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>

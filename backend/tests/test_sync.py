@@ -437,3 +437,36 @@ def test_demo_accounts_are_never_synced(gmail: FakeGmail) -> None:
     assert run(demo()) == 1
     sync(gmail)
     assert gmail.requests == []
+
+
+def test_refresh_asks_the_worker_to_sync_the_account(logged_in: Any, fake_redis: Any) -> None:
+    requested: list[int] = []
+
+    class Loop:
+        def __init__(self, account_id: int) -> None:
+            self.account_id = account_id
+
+        def request(self) -> int:
+            requested.append(self.account_id)
+            return 1
+
+    class Accounts:
+        def get(self, account_id: int) -> Loop | None:
+            return Loop(account_id) if account_id == 1 else None
+
+    async def listen_while(publish: Any) -> None:
+        listener = asyncio.create_task(scheduler.listen(Accounts()))  # type: ignore[arg-type]
+        await asyncio.sleep(0.05)  # subscribed
+        await asyncio.to_thread(publish)
+        for _ in range(40):
+            if requested:
+                break
+            await asyncio.sleep(0.05)
+        listener.cancel()
+
+    def refresh() -> None:
+        assert logged_in.post("/api/sync/2").status_code == 204  # not synced here: ignored
+        assert logged_in.post("/api/sync/1").status_code == 204
+
+    run(listen_while(refresh))
+    assert requested == [1]

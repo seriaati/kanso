@@ -107,6 +107,13 @@ export function useLabels(accountId: number | null) {
   })
 }
 
+/** Refresh: reads the lists again from the mirror, and asks the worker to sync the account with
+ * Gmail now (what that finds arrives as live updates). Settles when the lists have reloaded. */
+export function refreshMail(accountId: number | null): Promise<unknown> {
+  if (accountId !== null) void api(`/sync/${accountId}`, { method: 'POST' }).catch(() => undefined)
+  return Promise.all(['threads', 'labels', 'accounts'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })))
+}
+
 export function useSync() {
   return useQuery({ queryKey: ['sync'], queryFn: () => api<SyncStatus[]>('/sync') })
 }
