@@ -33,6 +33,11 @@ saving a backup next to it. When it finishes, continue with step 7.
 If enabling Pub/Sub fails because the project has no billing account, the script tells you how to
 link one, or lets you skip Pub/Sub. kanso then checks Gmail every 2 minutes instead.
 
+It also offers to set up Firebase for the Android app's notifications (steps 1–4 of
+[Notifications in the Android app](#notifications-in-the-android-app)). It needs `curl`, and your
+Google account must have accepted the Firebase terms once: if it hasn't, the script says so, and
+opening the [Firebase console](https://console.firebase.google.com/) once fixes it.
+
 The rest of this guide is the same setup done by hand in the Google Cloud console.
 
 ## 1. Create a Google Cloud project
@@ -150,6 +155,7 @@ Open `.env` and fill it in:
 | `GOOGLE_PUBSUB_TOPIC` | `projects/<project-id>/topics/kanso-gmail` |
 | `GOOGLE_PUBSUB_SUBSCRIPTION` | `projects/<project-id>/subscriptions/kanso-gmail` |
 | `GOOGLE_PUBSUB_CREDENTIALS` | The service account key from step 5 on one line: `base64 -w0 key.json` (macOS: `base64 -i key.json`). |
+| `FIREBASE_ANDROID_CONFIG` | Optional, for notifications in the Android app: see [step 10](#notifications-in-the-android-app). |
 
 Then set your login password. This downloads the kanso image the first time:
 
@@ -273,6 +279,108 @@ Screen (iOS 16.4 or later), not in a Safari tab. The notification goes through t
 your phone's or browser's maker (Google, Apple or Mozilla), encrypted so that only your device can
 read it. Changing `SECRET_KEY` turns notifications off: turn them on again on each device.
 
+## 10. The Android app (optional)
+
+Instead of the installed web app, Android phones can use kanso's own app. It shows the same kanso
+from your server, opens email links (`mailto:`) in Compose, and follows Android's Back button.
+Nothing of your server is built into the app: it asks for your server's address when it first
+opens. It needs kanso reachable over HTTPS (step 8).
+
+On the phone, download `kanso.apk` from the
+[latest release](https://github.com/seriaati/kanso/releases/latest) and open it; Android asks you
+to allow installing apps from your browser (or wherever you opened it).
+
+**Updates.** When a newer release is out, the app says "A new version of the app is out." Tap
+**Update**: your browser downloads the new `kanso.apk`; open it, and Android installs it over the
+old app, keeping your login and settings. To check, the app asks GitHub for the latest
+release when it starts and every few hours, so GitHub sees your phone's IP address. Apps like
+[Obtainium](https://github.com/ImranR98/Obtainium) can also track the Releases page.
+
+**Building it yourself** (optional). You need Docker; no Android tools are needed:
+
+```sh
+scripts/build-android.sh
+```
+
+The first build takes several minutes, mostly downloading the Android build tools (kept in
+`~/.cache/kanso-android` for the next builds), and writes `frontend/android/kanso.apk`. It also
+creates the key your build is signed with: `frontend/android/kanso.keystore` and its password in
+`frontend/android/keystore.properties`; back both up. Android installs an app over another only
+when both are signed with the same key, so your build and the release app can't update each
+other: uninstall one before installing the other. A build of your own doesn't look for updates.
+
+When the app first opens, enter your kanso's address, your `PUBLIC_URL` (`kanso.example.com` is
+enough: the app adds `https://`). It checks that kanso answers there, then shows its login. To
+switch to another kanso later, open **Settings → Server → Change** in the app: it logs out, turns
+its notifications off and asks for the new address. If kanso can't be reached when the app opens,
+it says so, with **Retry** and **Change server**.
+
+In the app, log in as in the browser. Connect Gmail accounts from a browser (step 7) rather than
+in the app: Google doesn't allow its sign-in inside apps like this one, and sends you back to the
+browser. Links in emails open in your browser. The first time you tap an email address in another
+app, Android asks which app to use: pick kanso, then **Always**.
+
+Attachments you download in the app go to the phone's **Downloads** folder.
+
+**Home-screen widget.** Log in to the app first. Then long-press the home screen, pick
+**Widgets**, find **kanso** and drag it onto the home screen. With more than one Gmail account,
+it asks which one to show; for two accounts, add two widgets. The widget lists that account's unread
+inbox mail. Tap a message to open it, or the address at the top to open the inbox. It updates
+with each new-mail notification, when you leave the app, and at least every 30 minutes. If you
+turn notifications off, only the last two apply. Resize it with a long press. On Android 12 and
+later, the long-press menu also lets you pick another account.
+
+### Notifications in the Android app
+
+The app shows its own notifications of new mail: the sender's picture, the subject and first line,
+and **Done**, **Delete** and **Reply** buttons that work without opening the app (Reply sends a
+plain-text answer to the sender). A notification goes away by itself once you read, archive or
+delete the mail anywhere, in kanso, Gmail or another app. Each Gmail account
+gets its own notification category in Android's settings, so you can give each its own sound or
+silence one. They come through Firebase Cloud Messaging (FCM) in the same Google Cloud project, sent
+by kanso's service account, so they need the service account from step 5 (if you skipped Pub/Sub,
+do step 5's parts 4 and 6 anyway and set `GOOGLE_PUBSUB_CREDENTIALS`). The app gets your
+project's Firebase settings from kanso, so they're set up on the server, in `.env`, not in the app.
+`scripts/setup.sh` does steps 1–4 for you (see [Quick setup](#quick-setup-with-the-gcloud-cli));
+by hand:
+
+1. **Add Firebase to the project.** Open the [Firebase console](https://console.firebase.google.com/),
+   and add Firebase to your existing Google Cloud project `kanso` rather than creating a new
+   project: the console offers **Add Firebase to a Google Cloud project** next to **Create a
+   project**, or lists `kanso` when you type its name. Google Analytics isn't needed: turn it
+   off. Firebase's free plan is enough.
+2. **Register the app.** In the Firebase project, open **Project settings → General → Your apps**,
+   click the Android icon (**Add app**), and enter the package name `app.kanso` exactly. The
+   nickname and signing certificate are optional (FCM doesn't use the certificate). Click
+   **Register app**, then **Download google-services.json**, and skip the remaining steps (the
+   app is already set up for it). Put the file on one line into `.env`:
+   `FIREBASE_ANDROID_CONFIG=` followed by the output of `base64 -w0 google-services.json` (macOS:
+   `base64 -i google-services.json`). It holds no secrets: kanso hands its project ID, app ID, API
+   key and sender ID to the app once you're logged in.
+3. **Check that the FCM API is on.** In the Google Cloud console, go to **APIs & Services →
+   Library**, search for **Firebase Cloud Messaging API** and click **Enable** if it isn't
+   already.
+4. **Let the service account send notifications.** Go to **IAM & Admin → IAM**, click **Grant
+   access**, enter the service account's email (`kanso-pubsub@<project-id>.iam.gserviceaccount.com`)
+   and pick the role **Firebase Cloud Messaging API Admin**. **Save**. kanso sends with the same
+   key as for Pub/Sub.
+5. **Restart kanso** to read the new `.env` (`docker compose up -d`), then in the app open
+   **Settings → Notifications**, turn on **New inbox mail on this device**, and allow
+   notifications when Android asks. Without `FIREBASE_ANDROID_CONFIG` (or the service account),
+   the app says the server isn't set up for them.
+
+The app is signed with a different key than any you registered in Firebase, and that's fine: FCM
+doesn't check it. Firebase's auto-created **Android key** has no app restriction either, only a
+list of Firebase APIs it may call. If you restricted that key to Android apps yourself (Google
+Cloud console → **APIs & Services → Credentials**), the app can't get its notification token: add
+`app.kanso` with the SHA-1 fingerprint the app is signed with (any JDK's `keytool -printcert
+-jarfile kanso.apk` shows it), or remove the restriction.
+
+If you also turned on notifications in the installed web app or in Chrome on the same phone
+(step 9), turn them off there, or you get every notification twice. Unlike Web Push, FCM messages
+aren't end-to-end encrypted: Google, which already holds your Gmail, carries the sender, subject
+and first line of each new message to the app.
+
 ## Your password
 
 Change it in **Settings → Password**. It signs out every other browser and phone. The new password
@@ -359,9 +467,17 @@ and `.env.example` say so.
 - **An account stops syncing after a week**: the consent screen is still in *Testing*. Publish it
   (step 3) and connect the account again.
 - **The phone offers no "Install"**: kanso must be opened over HTTPS (step 8), at `PUBLIC_URL`.
+- **"App not installed" when updating the Android app**: it was signed with a different key than
+  the installed one (step 10). Restore your backed-up `kanso.keystore` and `keystore.properties`
+  and build again, or uninstall the app and install the new build. Android also refuses an older
+  version over a newer one: a local build is version 1 unless you set `VERSION_CODE` (see `scripts/build-android.sh`).
 - **No notifications**: check that Settings → Notifications is on *on that device* and that the
   phone allows notifications for kanso (or for the browser). New mail must reach kanso first: with
   Gmail push (step 5) that takes seconds, without it up to 2 minutes.
+- **No notifications in the Android app**: check step 10's notification setup, in particular
+  `FIREBASE_ANDROID_CONFIG` and the **Firebase Cloud Messaging API Admin** role; kanso's log (`docker compose logs worker`) shows
+  `FCM send failed` with Google's reason. A phone's battery saver can also hold notifications back:
+  set kanso's battery use to **Unrestricted** in Android's app settings.
 - **"Missing the X-Requested-With header"**: something between the browser and kanso drops request
   headers. kanso refuses changes without that header, so other websites can't make them in your
   name. Caddy and Tailscale pass it through as is.

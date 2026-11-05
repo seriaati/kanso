@@ -26,8 +26,9 @@ Check every change against these. If a change conflicts with one, stop and ask.
    typography and no clutter. Fewer buttons and more keyboard.
 5. **Easy to self-host.** One `docker compose up`, configured through a single `.env` (AI API keys
    are the exception: they are added in Settings). No external services beyond Gmail, Google Cloud
-   Pub/Sub (for instant mail notifications) and the Anthropic API (plus, optionally, TypeSafe's Jev
-   for AI labeling).
+   Pub/Sub (for instant mail notifications), Firebase Cloud Messaging (for the Android app's
+   notifications) and the Anthropic API (plus, optionally, TypeSafe's Jev for AI labeling). A new
+   service is fine when a feature needs it, but propose it first.
 6. **Personal scale.** One user. Don't build for multi-tenancy, horizontal scaling or enterprise needs.
 
 ## Product decisions (settled)
@@ -39,7 +40,7 @@ Check every change against these. If a change conflicts with one, stop and ask.
 | Accounts | **One user, multiple Gmail accounts**, one in view at a time, with no combined view. |
 | AI provider | **Anthropic (Claude)** with the user's own API key, added in Settings and stored encrypted (never in `.env`). **Optional**: without a key, kanso is a plain email client and AI features are hidden. AI labeling can instead use **TypeSafe's Jev** classification model, picked in Settings, which works without an Anthropic key. |
 | Search | **Postgres full-text search.** No vector search. |
-| Clients | **Web app plus an installable PWA**, desktop-first and usable on a phone. No native apps. |
+| Clients | **Web app plus an installable PWA**, desktop-first and usable on a phone, and an **Android app**: a Capacitor shell that loads the user's own kanso server, with native code only where the web can't reach (notifications, `mailto:` links, widgets). iOS keeps the PWA. |
 | Auth | A simple single-user password login. |
 
 ## Scope
@@ -47,11 +48,12 @@ Check every change against these. If a change conflicts with one, stop and ask.
 **In:** read, compose, reply and forward · a done/archive flow with undo · bundles (group the
 inbox by label and clear a group at once) · keyboard-first navigation and a command palette ·
 AI auto-labeling into user-defined labels (real Gmail labels) · an assistant chat that works on the
-local mirror · thread summaries.
+local mirror · thread summaries · an Android app with native notifications, `mailto:` handling and
+home-screen widgets.
 
 **Out (until the user decides otherwise):** snooze and reminders · AI-drafted replies · semantic
 search · non-Gmail providers · multi-user or teams · calendar · todos · scheduled send · read
-receipts or tracking · native apps · billing or usage limits. Don't add these "while you're at
+receipts or tracking · a native iOS app · billing or usage limits. Don't add these "while you're at
 it"; propose them first.
 
 ## UI principles
@@ -82,6 +84,7 @@ live in `frontend/src/styles/tokens.css`; use them, don't hard-code values.
 | Backend | Python + FastAPI | REST API, Gmail OAuth, AI orchestration; serves the built frontend |
 | Worker | Same codebase, separate container | Gmail sync, write-back to Gmail, AI labeling |
 | Frontend | React + Vite (Bun) | SPA plus PWA |
+| Android app | Capacitor + Kotlin | WebView on the user's kanso server; native notifications (FCM), `mailto:`, widgets |
 | Deploy | Docker Compose | One image for app and worker, plus Postgres and Redis |
 
 - **Sync**: a background full backfill, then incremental syncs via the Gmail History API,
@@ -122,9 +125,13 @@ frontend/
   src/styles/                tokens.css (design tokens), base.css, fonts
   public/                    service-worker push handler, theme bootstrap, headers
   functions/                 optional Cloudflare Pages proxy for /api
+  capacitor.config.ts        the Android app's Capacitor config; the server is entered in the app
+  android/                   Capacitor Android project; Kotlin in app/src/main/java/app/kanso/
+                             (MainActivity, KansoPlugin); src/app/native.ts is the web side
 docs/SETUP.md                self-hosting guide (Google Cloud, OAuth, Pub/Sub, .env)
 docker-compose.yml           production stack; docker-compose.demo.yml + demo.sh run a demo
 Dockerfile                   builds the frontend, then the backend image that serves it
+scripts/                     setup.sh (Google Cloud + .env), build-android.sh (+ android.Dockerfile)
 ```
 
 ## Commands
@@ -133,7 +140,9 @@ Dockerfile                   builds the frontend, then the backend image that se
   `uv run pyrefly check`, `uv run pytest` (needs `TEST_DATABASE_URL` pointing at Postgres).
 - Frontend (in `frontend/`): `bun run dev` (proxies `/api` to `localhost:8000`), `bun run lint`,
   `bun run build` (type-checks first).
-- These are what CI runs (`.github/workflows/ci.yml`).
+- Android app: `scripts/build-android.sh` builds a signed APK in Docker (no local Android SDK); a
+  `v*` tag builds the release APK with it in CI (`.github/workflows/android.yml`).
+- The rest are what CI runs (`.github/workflows/ci.yml`).
 
 ## Known constraints
 
@@ -141,3 +150,6 @@ Dockerfile                   builds the frontend, then the backend image that se
   and an OAuth app left in *Testing* issues refresh tokens that expire after about 7 days, so the
   setup docs must cover publishing it to *In production* (unverified) for personal use.
 - The PWA is reached from outside localhost over HTTPS.
+- The Android APK is the same for everyone and sideloaded (no Play Store): the app asks for the
+  server's address at first launch and gets the Firebase settings from the server
+  (`FIREBASE_ANDROID_CONFIG`).
