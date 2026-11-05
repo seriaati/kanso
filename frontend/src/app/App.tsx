@@ -29,7 +29,7 @@ import { Settings } from '../features/settings/Settings'
 import { Sidebar, type Notice } from '../features/sidebar/Sidebar'
 import { InboxZero, ThreadList, type LabelChip, type ListRow } from '../features/threads/ThreadList'
 import { pickAccount, rememberAccount, useAccounts, type Account } from './accounts'
-import { applied, bundleActions, inList, quickAction, quickTarget, redundant, unsubscribe, useThreadAction, useUndo, type BundleAction, type BundleScope, type Quick, type ThreadAction } from './actions'
+import { applied, bundleActions, inList, quickAction, quickTarget, redundant, unsubscribe, useThreadAction, useUndo, type BundleAction, type BundleScope, type LabelScope, type Quick, type ThreadAction } from './actions'
 import { useConfig } from './ai'
 import { ApiError, queryClient, Unauthorized } from './api'
 import { createDraft, openDraft, type ComposeMode } from './compose'
@@ -318,7 +318,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     undoAction.mutate(entries, { onSuccess: ({ thread_ids }) => thread_ids[0] !== undefined && setCursor(thread_ids[0]) })
 
   // Threads leaving the view go at once and the cursor moves on, so e e e works through the inbox.
-  const run = (action: ThreadAction, on: ThreadSummary[], withLabel?: NamedLabel, scope?: { bundle: BundleScope; count: number }) => {
+  const run = (action: ThreadAction, on: ThreadSummary[], withLabel?: NamedLabel, scope?: { bundle?: BundleScope; inLabel?: LabelScope; count: number }) => {
     if (on.length === 0 && !scope) return
     const label = withLabel && { name: withLabel.name, id: withLabel.id }
     // Labeled, an unlabeled inbox thread moves into that label's bundle.
@@ -343,7 +343,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
         } else setCursor(next?.id ?? null)
       }
     }
-    const sent = threadAction.mutateAsync({ action, threads: on, label, bundle: scope?.bundle })
+    const sent = threadAction.mutateAsync({ action, threads: on, label, bundle: scope?.bundle, inLabel: scope?.inLabel })
     sent.catch(() => undefined) // shown by the mutation's onError
     // Marking one thread read says nothing; a whole bundle says how many.
     const what = told[action] ?? (scope && action === 'read' ? 'marked read' : undefined)
@@ -378,6 +378,13 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     const loaded = bundle.name === openBundle ? bundleThreads : []
     const scope = { name: bundle.name, account_id: accountId, until: bundle.newest_at }
     run(action, loaded, undefined, { bundle: scope, count: bundle.count })
+  }
+  // A label's page: every thread in it up to the newest one shown, loaded here or not.
+  const labelAction = (action: BundleAction) => {
+    if (!label || threads.length === 0) return
+    const total = labels.data?.find((l) => l.id === label.id)?.threads_total ?? threads.length
+    const inLabel = { id: label.id, until: threads[0].last_message_at }
+    run(action, threads, undefined, { inLabel, count: action === 'read' ? label.unread : total })
   }
   const setUnread = (on: ThreadSummary[], unread: boolean) => {
     if (on.length === 0) return
@@ -814,6 +821,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
             hideLabel={label?.name}
             hideChips={grouped}
             onBundleAction={bundleAction}
+            onLabelAction={label && threads.length > 0 ? labelAction : undefined}
             onToggleBundle={(name) => setBundle(openBundle === name ? null : { viewKey, name })}
             threadHref={(id) => href({ ...route, threadId: id })}
             onOpen={(id) => {

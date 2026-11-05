@@ -27,9 +27,12 @@ export type ActionInput = {
   label?: { name: string; id: number }
   /** A whole bundle ("Done all"): the server finds its threads; `threads` are only the loaded ones. */
   bundle?: BundleScope
+  /** A whole label (its page's "Done all"), likewise. */
+  inLabel?: LabelScope
 }
 
 export type BundleScope = { name: string; account_id: number; until: string }
+export type LabelScope = { id: number; until: string }
 
 export function applied(thread: ThreadSummary, { action, label }: Omit<ActionInput, 'threads'>): ThreadSummary {
   switch (action) {
@@ -84,7 +87,7 @@ export type Quick = 'done' | 'delete' | 'star' | 'important' | 'spam'
 const inTrash = (threads: ThreadSummary[]) => threads.length > 0 && threads.every((t) => t.in_trash)
 
 /** In Trash, Done would only repeat Restore (which moves threads to the inbox), so it isn't shown. */
-/** What a bundle row can do to all its threads. */
+/** What a bundle row, or a label's page, can do to all its threads. */
 export type BundleAction = 'done' | 'read' | 'delete'
 
 export const bundleActions: { action: BundleAction; icon: IconName; label: string }[] = [
@@ -191,10 +194,14 @@ const mutationKey = ['thread-action']
 export function useThreadAction(onError: (message: string) => void) {
   return useMutation({
     mutationKey,
-    mutationFn: ({ action, threads, label, bundle }: ActionInput) =>
+    mutationFn: ({ action, threads, label, bundle, inLabel }: ActionInput) =>
       api<{ entries: number[] }>('/threads/actions', {
         method: 'POST',
-        body: bundle ? { action, bundle, label: label?.name } : { action, thread_ids: threads.map((t) => t.id), label: label?.name },
+        body: {
+          action,
+          label: label?.name,
+          ...(bundle ? { bundle } : inLabel ? { in_label: inLabel } : { thread_ids: threads.map((t) => t.id) }),
+        },
       }),
     onMutate: async (input) => {
       await queryClient.cancelQueries({ queryKey: ['threads'] })

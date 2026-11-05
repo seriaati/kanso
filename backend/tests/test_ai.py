@@ -665,6 +665,21 @@ def test_done_all_clears_a_bundle_seen_until_then_undo(synced: TestClient) -> No
     assert threads()["t2"].in_inbox
 
 
+def test_done_all_in_a_label_seen_until_then_undo(synced: TestClient) -> None:
+    labels = synced.get("/api/labels?account_id=1").json()
+    work = next(lb for lb in labels if lb["name"] == "Work")
+    page = synced.get(f"/api/threads?account_id=1&label_id={work['id']}").json()
+    run(_add_threads({"t9": ["INBOX", "Label_1"]}))  # arrives after the user looked: left alone
+    scope = {"id": work["id"], "until": page["threads"][0]["last_message_at"]}
+    response = synced.post("/api/threads/actions", json={"action": "done", "in_label": scope})
+    entries = response.json()["entries"]
+    state = threads()
+    assert not state["t2"].in_inbox
+    assert state["t9"].in_inbox and state["t1"].in_inbox  # newer, or not in the label
+    synced.post("/api/threads/undo", json={"entries": entries})
+    assert threads()["t2"].in_inbox
+
+
 def test_label_settings_are_local(synced: TestClient, gmail: FakeGmail) -> None:
     label = next(lb for lb in synced.get("/api/labels?account_id=1").json() if lb["name"] == "Work")
     assert label["description"] == "work mail"

@@ -22,8 +22,8 @@ from kanso.sync import outbox, store
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/threads")
 DB = Annotated[AsyncSession, Depends(get_session)]
-# A bundle or an InboxScope can hold thousands of threads: they go in chunks, each an outbox
-# entry, so no query outgrows Postgres's limit on parameters.
+# A bundle, a label or an InboxScope can hold thousands of threads: they go in chunks, each an
+# outbox entry, so no query outgrows Postgres's limit on parameters.
 CHUNK = 1000
 
 Action = Literal[
@@ -74,17 +74,27 @@ class Bundle(BaseModel):
     until: datetime
 
 
+class LabelScope(BaseModel):
+    """A label's threads, as its page lists them (out of Trash and Spam), for "Done all"."""
+
+    id: int
+    # The newest thread the user saw in it: anything that arrived later is left alone.
+    until: datetime
+
+
 class ActionIn(BaseModel):
     action: Action
     thread_ids: list[int] = Field(default=[], max_length=1000)
     bundle: Bundle | None = None  # instead of thread_ids
     inbox: InboxScope | None = None  # instead of thread_ids (the Clean up page)
+    in_label: LabelScope | None = None  # instead of thread_ids (a label's page)
     label: str | None = None  # the user label's name, for "label" and "unlabel"
 
     @model_validator(mode="after")
     def _targets(self) -> "ActionIn":
-        if not self.thread_ids and self.bundle is None and self.inbox is None:
-            raise ValueError("thread_ids, bundle or inbox is required")
+        scopes = (self.bundle, self.inbox, self.in_label)
+        if not self.thread_ids and all(scope is None for scope in scopes):
+            raise ValueError("thread_ids, bundle, inbox or in_label is required")
         return self
 
 
@@ -232,6 +242,18 @@ async def thread_action(body: ActionIn, db: DB) -> ActionOut:
         thread_ids = await bundle_thread_ids(db, b.name, b.account_id, b.until)
     elif body.inbox is not None:
         thread_ids = await inbox_thread_ids(db, body.inbox)
+    elif body.in_label is not None:
+        scope = body.in_label
+        thread_ids = list(
+            await db.scalars(
+                select(Thread.id).where(
+                    Thread.label_ids.overlap([scope.id]),
+                    Thread.last_message_at <= scope.until,
+                    ~Thread.in_trash,
+                    ~Thread.in_spam,
+                )
+            )
+        )
     if not thread_ids:
         return ActionOut(entries=[])
     entries: list[int] = []

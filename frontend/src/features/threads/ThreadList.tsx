@@ -55,6 +55,8 @@ type Props = {
   hideLabel?: string
   hideChips?: boolean
   onBundleAction: (action: BundleAction, bundle: Bundle) => void
+  /** A label's page: act on all its threads. */
+  onLabelAction?: (action: BundleAction) => void
   onToggleBundle: (name: string) => void
   threadHref: (id: number) => string
   onOpen: (id: number) => void
@@ -82,7 +84,7 @@ type Props = {
 export function ThreadList(props: Props) {
   const { title, query, rows, status, error, empty, cursorId, openId, selected, labelsById, hideLabel, hideChips } = props
   const { onBundleAction, onToggleBundle, threadHref, onOpen, onQuick, onSearch, searchRef, phone, account, onMenu, footer, onAsk } = props
-  const { onRowMenu, menuId, onBundleMenu, menuBundle, onSelectClick, selectionBar } = props
+  const { onRowMenu, menuId, onBundleMenu, menuBundle, onSelectClick, selectionBar, onLabelAction } = props
   const scrollRef = useRef<HTMLDivElement>(null)
   const comfortable = useDensity() === 'comfortable'
   const labelNames = [...labelsById.values()].map((label) => label.name)
@@ -166,6 +168,15 @@ export function ThreadList(props: Props) {
         {selected.size > 0 && !selectionBar && (
           <span className={styles.selection} role="status">
             {selected.size} selected
+          </span>
+        )}
+        {onLabelAction && (
+          <span className={styles.labelActions} role="toolbar" aria-label={`Actions for all of ${title}`}>
+            {bundleActions.map(({ action, icon, label }) => (
+              <button key={action} type="button" aria-label={label} title={`${label} in ${title}`} onClick={() => onLabelAction(action)}>
+                <Icon name={icon} size={16} />
+              </button>
+            ))}
           </span>
         )}
         {/* On a phone, search is in the bottom bar. */}

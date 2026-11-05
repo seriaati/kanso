@@ -117,7 +117,8 @@
   cursor: pointer;
 }
 
-.ask {
+.ask,
+.labelActions button {
   flex: none;
   width: 32px;
   height: 32px;
@@ -130,7 +131,22 @@
   place-items: center;
 }
 
-.ask:hover {
+.labelActions {
+  flex: none;
+  margin-left: auto;
+  display: flex;
+}
+
+.labelActions + .search {
+  margin-left: 0;
+}
+
+.labelActions button {
+  margin-left: 0;
+}
+
+.ask:hover,
+.labelActions button:hover {
   background: var(--hover);
   color: var(--ink);
 }
