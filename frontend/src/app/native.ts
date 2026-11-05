@@ -69,24 +69,25 @@ const releaseListeners = new Set<() => void>()
 
 type Release = { tag: string; url: string }
 
-void app
-  ?.then(({ App }) => App.getInfo())
-  .then(({ version }) => {
-    const mine = semver(version)
-    if (!mine) return // a local build (dev)
-    const check = () =>
-      fetch('/api/app/release')
-        .then((response) => (response.ok ? (response.json() as Promise<Release>) : null))
-        .then((latest) => {
-          const theirs = latest && semver(latest.tag)
-          if (!latest || !theirs || !newer(theirs, mine)) return
-          release = latest.url
-          releaseListeners.forEach((listener) => listener())
-        })
-        .catch(() => undefined) // offline, or GitHub unreachable: next time
-    void check()
-    setInterval(() => void check(), RELEASE_CHECK_MS)
-  })
+/** The app's version (versionName: "dev" for a local build) and build (versionCode). */
+export const appInfo = app?.then(({ App }) => App.getInfo())
+
+void appInfo?.then(({ version }) => {
+  const mine = semver(version)
+  if (!mine) return // a local build (dev)
+  const check = () =>
+    fetch('/api/app/release')
+      .then((response) => (response.ok ? (response.json() as Promise<Release>) : null))
+      .then((latest) => {
+        const theirs = latest && semver(latest.tag)
+        if (!latest || !theirs || !newer(theirs, mine)) return
+        release = latest.url
+        releaseListeners.forEach((listener) => listener())
+      })
+      .catch(() => undefined) // offline, or GitHub unreachable: next time
+  void check()
+  setInterval(() => void check(), RELEASE_CHECK_MS)
+})
 
 function semver(version: string): number[] | null {
   const match = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(version)

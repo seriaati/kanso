@@ -1,9 +1,9 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useDisconnectAccount, type Account } from '../../app/accounts'
 import { useAiUsage, useApiKeys, useRemoveApiKey, useSaveApiKey, type KeyProvider } from '../../app/ai'
 import type { SyncStatus } from '../../app/mail'
 import { usePhone } from '../../app/media'
-import { inApp, kanso } from '../../app/native'
+import { appInfo, inApp, kanso } from '../../app/native'
 import { usePush } from '../../app/notifications'
 import { modelName, useChangePassword, useDemoPassword, useLogoutEverywhere, useSettings, useUpdateSettings } from '../../app/settings'
 import { Dialog } from '../../components/Dialog'
@@ -52,6 +52,7 @@ export function Settings({ accounts, sync, ai, labeling, onMenu }: Props) {
           {ai && <Usage />}
           {!demo && <Password />}
           <Sessions />
+          <About />
         </div>
       </div>
     </section>
@@ -545,6 +546,40 @@ function Sessions() {
           Log out everywhere
         </button>
       </div>
+    </Section>
+  )
+}
+
+/** Which kanso this is: the commit it was built from, and in the Android app the app's version. */
+function About() {
+  const [app, setApp] = useState<string | null>(null)
+  useEffect(() => void appInfo?.then(({ version }) => setApp(version)), [])
+  const commit = __KANSO_COMMIT__
+  return (
+    <Section title="About">
+      <div className={styles.row}>
+        <div className={styles.text}>
+          <span>
+            kanso{' '}
+            {commit === 'dev' ? (
+              'dev'
+            ) : (
+              <a href={`https://github.com/seriaati/kanso/commit/${commit}`} target="_blank" rel="noreferrer">
+                {commit.slice(0, 7)}
+              </a>
+            )}
+          </span>
+          <span className={styles.muted}>The commit this kanso was built from.</span>
+        </div>
+      </div>
+      {app && (
+        <div className={styles.row}>
+          <div className={styles.text}>
+            <span>Android app {app}</span>
+            <span className={styles.muted}>The version of this app.</span>
+          </div>
+        </div>
+      )}
     </Section>
   )
 }

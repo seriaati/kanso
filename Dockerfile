@@ -7,6 +7,8 @@ RUN --mount=type=cache,target=/root/.bun/install/cache \
     --mount=type=bind,source=frontend/bun.lock,target=bun.lock \
     bun install --frozen-lockfile
 COPY frontend/ .
+# The commit shown in Settings → About; .git isn't in the build context.
+ARG KANSO_COMMIT=dev
 RUN bun run build
 
 FROM ghcr.io/astral-sh/uv:python3.13-trixie-slim AS backend

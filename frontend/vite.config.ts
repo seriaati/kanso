@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -59,8 +60,20 @@ const pwa = VitePWA({
   },
 })
 
+// The commit this build is from, for Settings → About: KANSO_COMMIT in the Docker build (which has
+// no .git), else git's, else "dev".
+function commit(): string {
+  if (process.env.KANSO_COMMIT) return process.env.KANSO_COMMIT
+  try {
+    return execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
+  } catch {
+    return 'dev'
+  }
+}
+
 export default defineConfig({
   plugins: [react(), pwa],
+  define: { __KANSO_COMMIT__: JSON.stringify(commit()) },
   css: { postcss: { plugins: [woff2Only] } },
   // `bun run dev` talks to the backend running on its default port.
   server: { proxy: { '/api': 'http://localhost:8000' } },
