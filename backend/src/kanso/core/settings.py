@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     google_pubsub_subscription: str = ""
     # The service account's JSON key, base64-encoded.
     google_pubsub_credentials: str = ""
+    # The Android app's google-services.json, base64-encoded. Empty: no notifications in the app.
+    firebase_android_config: str = ""
     # A made-up mailbox, reset every day; no Gmail accounts can be connected.
     demo_mode: bool = False
 

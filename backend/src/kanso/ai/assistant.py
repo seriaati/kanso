@@ -25,7 +25,7 @@ from kanso.db import prefs
 from kanso.db import redis as events
 from kanso.db.models import Account, AssistantConversation, AssistantMessage, Label, Thread
 from kanso.db.session import Session
-from kanso.sync import outbox, store
+from kanso.sync import notify, outbox, store
 
 log = logging.getLogger(__name__)
 
@@ -375,9 +375,10 @@ async def _apply(db: AsyncSession, action: dict[str, Any]) -> dict[int, set[int]
 
 async def decide(
     db: AsyncSession, conversation_id: int, action_id: str, confirm: bool
-) -> tuple[dict[str, Any], bool, dict[int, set[int]]]:
-    """Returns the proposal, whether the turn can continue (every proposal decided) and the
-    touched threads. The caller commits."""
+) -> tuple[dict[str, Any], bool, dict[int, set[int]], dict[int, int]]:
+    """Returns the proposal, whether the turn can continue (every proposal decided), the
+    touched threads and, for notify.clear, which were unread in the inbox before. The caller
+    commits."""
     conversation = await db.get(AssistantConversation, conversation_id, with_for_update=True)
     if conversation is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -392,7 +393,10 @@ async def decide(
     if action["status"] != "pending":
         raise Conflict("Already decided")
     touched: dict[int, set[int]] = {}
+    unread_before: dict[int, int] = {}
     if confirm:
+        ids = [t["id"] for part in tools.parts(action) for t in part["threads"]]
+        unread_before = await notify.unread_threads(db, ids)
         touched = await _apply(db, action)
     else:
         action["status"] = "declined"
@@ -404,7 +408,7 @@ async def decide(
         )
         last.pending = None
     conversation.updated_at = _now()
-    return public(action), finished, touched
+    return public(action), finished, touched, unread_before
 
 
 async def undo(db: AsyncSession, conversation_id: int, action_id: str) -> dict[int, set[int]]:

@@ -3,7 +3,7 @@ from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import Annotated, Any, Self
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +12,7 @@ from kanso.ai import assistant, keys
 from kanso.api.actions import publish
 from kanso.db.models import AssistantConversation
 from kanso.db.session import get_session
+from kanso.sync import notify
 
 DB = Annotated[AsyncSession, Depends(get_session)]
 HISTORY = 20  # conversations in the history list
@@ -134,10 +135,12 @@ async def ask(body: AskIn, db: DB) -> Response:
 
 
 @router.post("/conversations/{conversation_id}/actions/{action_id}")
-async def decide(conversation_id: int, action_id: str, body: DecideIn, db: DB) -> Response:
+async def decide(
+    conversation_id: int, action_id: str, body: DecideIn, db: DB, background: BackgroundTasks
+) -> Response:
     lock = await assistant.acquire(conversation_id)
     try:
-        action, finished, touched = await assistant.decide(
+        action, finished, touched, unread_before = await assistant.decide(
             db, conversation_id, action_id, body.confirm
         )
         await db.commit()
@@ -146,6 +149,8 @@ async def decide(conversation_id: int, action_id: str, body: DecideIn, db: DB) -
         raise
     if touched:
         await publish(touched, wake=True)
+    # Runs once the stream below ends: a clear isn't urgent.
+    background.add_task(notify.clear_soon, unread_before)
     await db.close()
     first = [{"type": "action", "action": action}]
     if not finished:

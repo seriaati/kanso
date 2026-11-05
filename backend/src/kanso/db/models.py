@@ -366,3 +366,13 @@ class PushSubscription(Base):
     p256dh: Mapped[str] = mapped_column(Text)  # the browser's public key, base64url
     auth: Mapped[str] = mapped_column(Text)  # the browser's auth secret, base64url
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class FcmToken(Base):
+    """An Android app's Firebase Cloud Messaging registration token."""
+
+    __tablename__ = "fcm_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token: Mapped[str] = mapped_column(Text, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -225,6 +225,12 @@ async def incremental(db: AsyncSession, gmail: Gmail, account: Account) -> None:
         for item in record.get("labelsRemoved", []):
             label_changes.append((item["message"]["id"], [], item["labelIds"]))
 
+    # The threads this sync may take out of the unread inbox (read, archived or deleted in Gmail
+    # or another client): if it does, their notifications go. kanso's own actions are in the
+    # mirror already, so their echo isn't one.
+    unread_before = await notify.unread_threads_of(
+        db, account.id, deleted | {gmail_id for gmail_id, _, _ in label_changes}
+    )
     thread_ids = await store.delete_messages(db, account.id, deleted)
     changed, fetched = await import_messages(
         db, gmail, account.id, [g for g in added if g not in deleted], labels
@@ -271,6 +277,7 @@ async def incremental(db: AsyncSession, gmail: Gmail, account: Account) -> None:
     await events.threads_changed(account.id, thread_ids)
     if had_error:
         await events.sync_changed(account.id)
+    await notify.clear(db, gmail.http, unread_before)
     # Never the backfill: history isn't news.
     await notify.new_mail(db, gmail.http, account.id, fetched)
     if records:

@@ -6,7 +6,7 @@ from datetime import datetime
 from itertools import batched
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import delete, func, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
@@ -17,7 +17,7 @@ from kanso.api.threads import bundle_thread_ids
 from kanso.db import redis as events
 from kanso.db.models import Account, BlockedSender, Label, Message, MessageLabel, Outbox, Thread
 from kanso.db.session import get_session
-from kanso.sync import outbox, store
+from kanso.sync import notify, outbox, store
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/threads")
@@ -235,7 +235,7 @@ async def block_senders(db: AsyncSession, thread_ids: list[int], block: bool) ->
 
 
 @router.post("/actions")
-async def thread_action(body: ActionIn, db: DB) -> ActionOut:
+async def thread_action(body: ActionIn, db: DB, background: BackgroundTasks) -> ActionOut:
     thread_ids = body.thread_ids
     if body.bundle is not None:
         b = body.bundle
@@ -256,6 +256,7 @@ async def thread_action(body: ActionIn, db: DB) -> ActionOut:
         )
     if not thread_ids:
         return ActionOut(entries=[])
+    unread_before = await notify.unread_threads(db, thread_ids)
     entries: list[int] = []
     touched: dict[int, set[int]] = {}
     for chunk in batched(thread_ids, CHUNK, strict=False):
@@ -273,6 +274,7 @@ async def thread_action(body: ActionIn, db: DB) -> ActionOut:
         await block_senders(db, thread_ids, block=body.action == "spam")
     await db.commit()
     await publish(touched, wake=bool(entries))
+    background.add_task(notify.clear_soon, unread_before)  # the app's notifications of them
     return ActionOut(entries=entries)
 
 

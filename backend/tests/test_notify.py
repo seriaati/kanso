@@ -1,26 +1,30 @@
 """Web Push encryption is checked against the example in RFC 8291, Appendix A."""
 
+import base64
 import hashlib
 import hmac
 import json
 import time
 from typing import Any
+from urllib.parse import parse_qs
 
 import httpx2 as httpx
 import pytest
 from conftest import run
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from fake_gmail import FakeGmail, make_raw
 from fastapi.testclient import TestClient
+from google.auth import jwt
 from sqlalchemy import select
 
-from kanso.db.models import Account, PushSubscription
+from kanso.core.settings import settings
+from kanso.db.models import Account, FcmToken, PushSubscription, Thread
 from kanso.db.session import Session
 from kanso.gmail import client, oauth
-from kanso.sync import engine, notify
+from kanso.sync import engine, notify, outbox
 from kanso.sync.notify import b64url, b64url_decode
 
 
@@ -238,3 +242,357 @@ def test_a_gone_subscription_is_removed_and_a_failing_one_kept(
     sync(gmail)
     assert run(_subscriptions()) == []
     assert "m3" in gmail.messages  # the sync itself went through
+
+
+class Phone:
+    """The Android app's token, FCM, and Google's OAuth token endpoint."""
+
+    PROJECT = "kanso-test"
+    EMAIL = "kanso-pubsub@kanso-test.iam.gserviceaccount.com"
+
+    def __init__(self) -> None:
+        self.key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        self.token = "fcm-token-1"
+        self.status = 200
+        self.received: list[dict[str, str]] = []
+        self.token_requests = 0
+
+    def credentials(self) -> str:
+        """GOOGLE_PUBSUB_CREDENTIALS: the service account's JSON key, base64-encoded."""
+        pem = self.key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+        info = {
+            "type": "service_account",
+            "project_id": self.PROJECT,
+            "private_key_id": "key-1",
+            "private_key": pem.decode(),
+            "client_email": self.EMAIL,
+            "token_uri": notify.TOKEN_URL,
+        }
+        return base64.b64encode(json.dumps(info).encode()).decode()
+
+    def handle(self, request: httpx.Request) -> httpx.Response:
+        if request.url.host == "oauth2.googleapis.com":
+            form = parse_qs(request.content.decode())
+            assert form["grant_type"] == ["urn:ietf:params:oauth:grant-type:jwt-bearer"]
+            public = self.key.public_key().public_bytes(
+                serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+            )
+            # Checks the signature too.
+            claims = jwt.decode(form["assertion"][0], certs=public, audience=notify.TOKEN_URL)
+            assert (claims["iss"], claims["scope"]) == (self.EMAIL, notify.FCM_SCOPE)
+            self.token_requests += 1
+            return httpx.Response(200, json={"access_token": "fcm-access", "expires_in": 3599})
+        assert request.url.path == f"/v1/projects/{self.PROJECT}/messages:send"
+        assert request.headers["authorization"] == "Bearer fcm-access"
+        message = json.loads(request.content)["message"]
+        assert message["token"] == self.token
+        # A clear shows nothing, so it isn't urgent.
+        priority = "normal" if message["data"]["type"] == "clear" else "high"
+        assert message["android"] == {"priority": priority, "ttl": "86400s"}
+        assert all(isinstance(value, str) for value in message["data"].values())
+        if self.status == 404:
+            error = {"errorCode": "UNREGISTERED"}
+            return httpx.Response(404, json={"error": {"status": "NOT_FOUND", "details": [error]}})
+        if self.status >= 400:
+            return httpx.Response(self.status, json={"error": {"status": "UNAVAILABLE"}})
+        self.received.append(message["data"])
+        return httpx.Response(200, json={"name": f"projects/{self.PROJECT}/messages/1"})
+
+
+async def _tokens() -> list[str]:
+    async with Session() as db:
+        return list(await db.scalars(select(FcmToken.token)))
+
+
+async def _add_token(token: str) -> None:
+    async with Session() as db:
+        db.add(FcmToken(token=token))
+        await db.commit()
+
+
+@pytest.fixture
+def phone(mail: tuple[FakeGmail, Browser], monkeypatch: pytest.MonkeyPatch) -> Phone:
+    gmail, _ = mail
+    phone = Phone()
+    monkeypatch.setattr(settings, "google_pubsub_credentials", phone.credentials())
+    monkeypatch.setattr(notify.Fcm, "_token", ("", 0.0))
+    route = gmail.handle
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        google = request.url.host in ("oauth2.googleapis.com", "fcm.googleapis.com")
+        return phone.handle(request) if google else route(request)
+
+    monkeypatch.setattr(gmail, "handle", handle)
+    run(_add_token(phone.token))
+    return phone
+
+
+@pytest.mark.usefixtures("db")
+def test_register_and_unregister_the_app(logged_in: TestClient) -> None:
+    for _ in range(2):  # registering again changes nothing
+        response = logged_in.put("/api/notifications/fcm", json={"token": "fcm-token-1"})
+        assert response.status_code == 204
+    assert run(_tokens()) == ["fcm-token-1"]
+    assert logged_in.put("/api/notifications/fcm", json={"token": ""}).status_code == 422
+    response = logged_in.request("DELETE", "/api/notifications/fcm", json={"token": "fcm-token-1"})
+    assert response.status_code == 204
+    assert run(_tokens()) == []
+
+
+def _google_services(*packages: str) -> str:
+    """FIREBASE_ANDROID_CONFIG: a google-services.json with an app for each package, base64."""
+    clients = [
+        {
+            "client_info": {
+                "mobilesdk_app_id": f"1:123456789012:android:{i}abc",
+                "android_client_info": {"package_name": package},
+            },
+            "oauth_client": [],
+            "api_key": [{"current_key": f"AIza-key-{i}"}],
+            "services": {"appinvite_service": {"other_platform_oauth_client": []}},
+        }
+        for i, package in enumerate(packages)
+    ]
+    config = {
+        "project_info": {"project_number": "123456789012", "project_id": "kanso-test"},
+        "client": clients,
+        "configuration_version": "1",
+    }
+    return base64.b64encode(json.dumps(config).encode()).decode()
+
+
+def test_firebase_settings_for_the_app(
+    logged_in: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "google_pubsub_credentials", "a service account key")
+    monkeypatch.setattr(
+        settings, "firebase_android_config", _google_services("x.other", "app.kanso")
+    )
+    response = logged_in.get("/api/notifications/firebase")
+    assert response.status_code == 200
+    assert response.json() == {
+        "project_id": "kanso-test",
+        "sender_id": "123456789012",
+        "app_id": "1:123456789012:android:1abc",
+        "api_key": "AIza-key-1",
+    }
+
+
+@pytest.mark.parametrize(
+    ("config", "credentials"),
+    [
+        ("", True),  # not set up
+        (_google_services("app.kanso"), False),  # nothing to send with
+        (_google_services("x.other"), True),  # no app.kanso in it
+        ("not base64 json", True),
+    ],
+)
+def test_no_firebase_settings_for_the_app(
+    logged_in: TestClient, monkeypatch: pytest.MonkeyPatch, config: str, credentials: bool
+) -> None:
+    monkeypatch.setattr(settings, "google_pubsub_credentials", "a key" if credentials else "")
+    monkeypatch.setattr(settings, "firebase_android_config", config)
+    assert logged_in.get("/api/notifications/firebase").status_code == 404
+
+
+def test_new_mail_goes_to_the_app_and_the_browser(
+    mail: tuple[FakeGmail, Browser], phone: Phone
+) -> None:
+    gmail, browser = mail
+    sync(gmail)
+    gmail.add("m2", "t1", ["INBOX", "UNREAD"], make_raw("Re: Old news", "A reply"))
+    sync(gmail)
+    assert phone.received == [
+        {
+            "type": "mail",
+            "thread_id": "1",
+            "message_id": "2",
+            "sender": "Daniel",
+            "subject": "Re: Old news",
+            "snippet": "A reply",
+            "image": "/api/logos/example.com",
+            "url": "/inbox/1?account=1",
+            "account_id": "1",
+            "account": "me@gmail.com",
+        }
+    ]
+    assert [n["title"] for n in browser.received] == ["Daniel"]  # Web Push as before
+    gmail.add("m3", "t3", ["INBOX", "UNREAD"], make_raw("Another", "..."))
+    sync(gmail)
+    assert len(phone.received) == 2
+    assert phone.token_requests == 1  # the access token is reused
+
+
+def test_many_new_messages_make_one_app_notification(
+    mail: tuple[FakeGmail, Browser], phone: Phone
+) -> None:
+    gmail, _ = mail
+    sync(gmail)
+    for i in range(notify.MAX_SEPARATE + 1):
+        gmail.add(f"n{i}", f"tn{i}", ["INBOX", "UNREAD"], make_raw(f"Hello {i}", "..."))
+    sync(gmail)
+    assert phone.received == [
+        {
+            "type": "summary",
+            "title": f"{notify.MAX_SEPARATE + 1} new messages",
+            "url": "/inbox?account=1",
+            "account_id": "1",
+            "account": "me@gmail.com",
+        }
+    ]
+
+
+def test_an_unregistered_app_is_removed_and_a_failing_one_kept(
+    mail: tuple[FakeGmail, Browser], phone: Phone
+) -> None:
+    gmail, _ = mail
+    sync(gmail)
+    phone.status = 503
+    gmail.add("m2", "t2", ["INBOX", "UNREAD"], make_raw("One", "..."))
+    sync(gmail)
+    assert run(_tokens()) == [phone.token]
+    phone.status = 404
+    gmail.add("m3", "t3", ["INBOX", "UNREAD"], make_raw("Two", "..."))
+    sync(gmail)
+    assert run(_tokens()) == []
+    assert len(run(_subscriptions())) == 1  # the browser keeps its notifications
+
+
+def test_no_app_notifications_without_the_service_account(
+    mail: tuple[FakeGmail, Browser], phone: Phone, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gmail, browser = mail
+    monkeypatch.setattr(settings, "google_pubsub_credentials", "")
+    sync(gmail)
+    gmail.add("m2", "t2", ["INBOX", "UNREAD"], make_raw("One", "..."))
+    sync(gmail)
+    assert (phone.received, phone.token_requests) == ([], 0)
+    assert len(browser.received) == 1
+    assert run(_tokens()) == [phone.token]
+
+
+def test_a_bad_service_account_does_not_fail_the_sync(
+    mail: tuple[FakeGmail, Browser], phone: Phone, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gmail, browser = mail
+    monkeypatch.setattr(settings, "google_pubsub_credentials", "bm90IGpzb24=")  # "not json"
+    sync(gmail)
+    gmail.add("m2", "t2", ["INBOX", "UNREAD"], make_raw("One", "..."))
+    sync(gmail)
+    assert phone.received == []
+    assert len(browser.received) == 1  # the sync and Web Push went on
+
+
+async def _thread_ids() -> dict[str, int]:
+    async with Session() as db:
+        rows = await db.execute(select(Thread.gmail_id, Thread.id))
+        return {gmail_id: thread_id for gmail_id, thread_id in rows}
+
+
+def _clear(*thread_ids: int) -> dict[str, str]:
+    return {"type": "clear", "account_id": "1", "thread_ids": ",".join(map(str, thread_ids))}
+
+
+def test_mail_read_or_archived_elsewhere_clears_its_notification(
+    mail: tuple[FakeGmail, Browser], phone: Phone
+) -> None:
+    gmail, browser = mail
+    gmail.add("m2", "t2", ["INBOX", "UNREAD"], make_raw("Two", "..."))
+    gmail.add("m3", "t3", ["INBOX"], make_raw("Three", "Read already"))
+    sync(gmail)
+    ids = run(_thread_ids())
+    gmail.relabel("m1", remove=("UNREAD",))  # read in Gmail
+    gmail.relabel("m3", remove=("INBOX",))  # archived, but it was read: no notification
+    sync(gmail)
+    assert phone.received == [_clear(ids["t1"])]
+    gmail.relabel("m2", add=("STARRED",))  # still unread in the inbox
+    sync(gmail)
+    assert len(phone.received) == 1
+    gmail.relabel("m2", remove=("INBOX",))
+    sync(gmail)
+    # Nothing unread is left: everything of the account goes, a burst's summary too.
+    assert phone.received[1:] == [_clear()]
+    assert browser.received == []  # Web Push can't clear silently
+
+
+def test_mail_deleted_elsewhere_clears_its_notification(
+    mail: tuple[FakeGmail, Browser], phone: Phone
+) -> None:
+    gmail, _ = mail
+    sync(gmail)
+    gmail.delete("m1")
+    sync(gmail)
+    assert phone.received == [_clear()]
+
+
+def test_done_in_kanso_clears_the_notification(
+    mail: tuple[FakeGmail, Browser],
+    phone: Phone,
+    logged_in: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gmail, _ = mail
+    monkeypatch.setattr(client, "http_client", gmail.client)
+    gmail.add("m2", "t2", ["INBOX", "UNREAD"], make_raw("Two", "..."))
+    gmail.add("m3", "t3", ["INBOX"], make_raw("Three", "Read already"))
+    sync(gmail)
+    ids = run(_thread_ids())
+
+    def act(action: str, *threads: str) -> None:
+        body = {"action": action, "thread_ids": [ids[t] for t in threads]}
+        assert logged_in.post("/api/threads/actions", json=body).status_code == 200
+
+    act("star", "t1")  # still unread in the inbox
+    act("done", "t3")  # read: it had no notification
+    assert phone.received == []
+    act("done", "t1")
+    assert phone.received == [_clear(ids["t1"])]
+
+    async def write_back() -> None:
+        async with gmail.client() as http:
+            while await outbox.process_one(http):
+                pass
+
+    run(write_back())
+    sync(gmail)  # Gmail's echo of kanso's own change
+    assert len(phone.received) == 1
+    act("read", "t2")
+    assert phone.received[1:] == [_clear()]
+
+
+def test_no_clears_without_the_service_account_or_the_app(
+    mail: tuple[FakeGmail, Browser],
+    phone: Phone,
+    logged_in: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gmail, _ = mail
+    monkeypatch.setattr(client, "http_client", gmail.client)
+    gmail.add("m2", "t2", ["INBOX", "UNREAD"], make_raw("Two", "..."))
+    sync(gmail)
+    ids = run(_thread_ids())
+    monkeypatch.setattr(settings, "google_pubsub_credentials", "")
+    gmail.relabel("m1", remove=("UNREAD",))
+    sync(gmail)
+    body = {"action": "done", "thread_ids": [ids["t2"]]}
+    assert logged_in.post("/api/threads/actions", json=body).status_code == 200
+    assert (phone.received, phone.token_requests) == ([], 0)
+
+    monkeypatch.setattr(settings, "google_pubsub_credentials", phone.credentials())
+    run(_remove_tokens())
+    assert (
+        logged_in.post("/api/threads/actions", json=body | {"action": "inbox"}).status_code == 200
+    )
+    assert logged_in.post("/api/threads/actions", json=body).status_code == 200
+    assert (phone.received, phone.token_requests) == ([], 0)
+
+
+async def _remove_tokens() -> None:
+    async with Session() as db:
+        for token in await db.scalars(select(FcmToken)):
+            await db.delete(token)
+        await db.commit()
