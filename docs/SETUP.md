@@ -286,8 +286,8 @@ from your server, opens email links (`mailto:`) in Compose, and follows Android'
 Nothing of your server is built into the app: it asks for your server's address when it first
 opens. It needs kanso reachable over HTTPS (step 8).
 
-On the phone, download `kanso.apk` from the
-[latest release](https://github.com/seriaati/kanso/releases/latest) and open it; Android asks you
+On the phone, tap **Get the app** at the top of kanso's inbox, or download `kanso.apk` from the
+[latest release](https://github.com/seriaati/kanso/releases/latest), and open it; Android asks you
 to allow installing apps from your browser (or wherever you opened it).
 
 **Updates.** When a newer release is out, the app says "A new version of the app is out." Tap

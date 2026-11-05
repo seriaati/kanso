@@ -1,14 +1,21 @@
 import { useState } from 'react'
-import { install, useInstall } from '../../app/install'
+import { APP_DOWNLOAD, install, useInstall } from '../../app/install'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
 import styles from './InstallButton.module.css'
 
-// On a phone, until kanso is installed to the home screen.
+// On a phone, until kanso is installed to the home screen; on Android, a link to the app.
 export function InstallButton() {
   const how = useInstall()
   const [steps, setSteps] = useState(false)
   if (!how) return null
+  if (how === 'android')
+    return (
+      <a className={styles.install} href={APP_DOWNLOAD}>
+        <Icon name="install" size={15} />
+        Get the app
+      </a>
+    )
   return (
     <>
       <button type="button" className={styles.install} onClick={() => (how === 'ios' ? setSteps(true) : install())}>

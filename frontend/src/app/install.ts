@@ -1,12 +1,18 @@
 import { useSyncExternalStore } from 'react'
+import { inApp } from './native'
 
-// Installing kanso to the home screen. Chrome, Edge and Samsung Internet offer a prompt, started
-// from kanso's own button; Safari on iOS has none, so it gets the steps instead.
+// Installing kanso to the home screen. Android gets the app (.github/workflows/android.yml) from
+// its latest release; elsewhere Chrome, Edge and Samsung Internet offer a prompt, started from
+// kanso's own button, and Safari on iOS has none, so it gets the steps instead.
+
+/** The latest release's APK: the same app for every kanso server. */
+export const APP_DOWNLOAD = 'https://github.com/seriaati/kanso/releases/latest/download/kanso.apk'
 
 type InstallPrompt = Event & { prompt: () => Promise<void> }
 
 const standalone = window.matchMedia('(display-mode: standalone)')
 const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
+const android = /Android/.test(navigator.userAgent)
 
 let deferred: InstallPrompt | null = null
 let installed = standalone.matches || (navigator as Navigator & { standalone?: boolean }).standalone === true
@@ -29,10 +35,11 @@ standalone.addEventListener('change', () => {
 })
 
 /** How kanso can be installed here; null when it is installed or can't be. */
-export type Install = 'prompt' | 'ios' | null
+export type Install = 'android' | 'prompt' | 'ios' | null
 
 function state(): Install {
-  if (installed) return null
+  if (installed || inApp) return null
+  if (android) return 'android'
   if (deferred) return 'prompt'
   return ios ? 'ios' : null
 }
