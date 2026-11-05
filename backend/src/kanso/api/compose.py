@@ -1,3 +1,4 @@
+import html
 import logging
 from typing import Annotated, Literal
 from urllib.parse import quote
@@ -66,6 +67,14 @@ class DraftOut(BaseModel):
     saved: bool  # written to Gmail (or, for the demo account, to the mirror)
     sending: bool
     thread_id: int | None  # the kanso thread it is in, once there is one
+
+
+class ReplyIn(BaseModel):
+    """A plain-text reply to a message's sender (the Android app's notification)."""
+
+    message_id: int
+    text: str = Field(min_length=1, max_length=100_000)
+    tz: str | None = Field(default=None, max_length=64)  # for the date in the quote line
 
 
 class SendOut(BaseModel):
@@ -264,5 +273,26 @@ async def send_draft(draft_id: int, body: DraftIn, db: DB) -> SendOut:
             raise _error(error) from error
         except drafts.SendPending as error:
             log.warning("draft %s: send unconfirmed (%s); the worker resumes it", draft_id, error)
+            return SendOut(status="pending", thread_id=None)
+    return SendOut(status="sent", thread_id=thread_id)
+
+
+@router.post("/reply")
+async def reply(body: ReplyIn, db: DB, response: Response) -> SendOut:
+    """Writes and sends a reply to the sender in one go, as a "reply" draft would be. 202 when
+    Gmail's answer didn't arrive: the worker finishes it, and never sends it twice."""
+    try:
+        draft = await drafts.create(db, "reply", body.message_id, None, body.tz)
+    except drafts.DraftError as error:
+        raise _error(error) from error
+    draft.body_html = html.escape(body.text).replace("\n", "<br>")
+    async with drafts.lock(draft.id), gmail_client.http_client() as http:
+        try:
+            thread_id = await drafts.send(db, draft, http)
+        except drafts.DraftError as error:
+            raise _error(error) from error
+        except drafts.SendPending as error:
+            log.warning("draft %s: reply unconfirmed (%s); the worker resumes it", draft.id, error)
+            response.status_code = 202
             return SendOut(status="pending", thread_id=None)
     return SendOut(status="sent", thread_id=thread_id)

@@ -557,6 +557,52 @@ def test_unanswered_send_is_pending_then_retried_once(
 
 
 @db_test
+def test_reply_from_a_notification(synced: TestClient, gmail: FakeGmail) -> None:
+    """The Android app's Reply button: plain text to the sender only, threaded as a reply."""
+    body = {"message_id": message_id("m1"), "text": "Sounds good.\n<b>Thanks</b>", "tz": "UTC"}
+    response = synced.post("/api/reply", json=body)
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "sent"
+    [raw] = gmail.sent
+    sent = parse(raw)
+    assert sent["To"] == "Daniel Reyes <daniel@example.com>"  # not Ana: no reply-all
+    assert sent["Cc"] is None
+    assert sent["Subject"] == "Re: Lease renewal"
+    assert sent["In-Reply-To"] == "<orig@example.com>"
+    text = mime.parse(raw).body_text
+    assert "Sounds good.\n<b>Thanks</b>" in text  # as typed, not markup
+    assert "wrote:" in text  # the quote, as in any reply
+    assert draft_rows() == [] and gmail.drafts == {}
+    assert thread_subjects(synced, "sent")[0] == "Lease renewal"
+
+
+@db_test
+def test_reply_from_a_notification_unanswered_is_pending_then_resumed_once(
+    synced: TestClient, gmail: FakeGmail, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gmail.failures["POST /drafts/send"] = [500] * client.MAX_ATTEMPTS
+    body = {"message_id": message_id("m1"), "text": "On my way"}
+    response = synced.post("/api/reply", json=body)
+    assert response.status_code == 202
+    assert response.json() == {"status": "pending", "thread_id": None}
+    assert draft_rows()[0].sending_since is not None
+    monkeypatch.setattr(drafts, "RESUME_AFTER", timedelta(0))
+    run(_resume(gmail))
+    assert draft_rows() == [] and len(gmail.sent) == 1
+
+
+@db_test
+def test_reply_from_a_notification_refused(synced: TestClient, gmail: FakeGmail) -> None:
+    assert synced.post("/api/reply", json={"message_id": 999, "text": "Hi"}).status_code == 404
+    empty = {"message_id": message_id("m1"), "text": ""}
+    assert synced.post("/api/reply", json=empty).status_code == 422
+    gmail.failures["POST /drafts"] = [500] * client.MAX_ATTEMPTS
+    failed = synced.post("/api/reply", json={"message_id": message_id("m1"), "text": "Hi"})
+    assert failed.status_code == 502  # not sent, and nothing left behind
+    assert draft_rows() == [] and gmail.sent == []
+
+
+@db_test
 def test_forward_sends_the_originals_attachments(synced: TestClient, gmail: FakeGmail) -> None:
     draft = synced.post(
         "/api/drafts", json={"mode": "forward", "message_id": message_id("m1")}
