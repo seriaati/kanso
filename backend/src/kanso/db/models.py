@@ -58,7 +58,7 @@ class Account(Base):
 
 
 class ContactPhoto(Base):
-    """A sender's photo from the account's Google Contacts, served by kanso itself. A changed
+    """A sender's photo from the account's Google Contacts, served by Kanso itself. A changed
     photo gets a new row, so its URL (the id) can be cached forever."""
 
     __tablename__ = "contact_photos"
@@ -139,7 +139,7 @@ class Thread(Base):
     drafts_only: Mapped[bool] = mapped_column(server_default=false())
     has_attachments: Mapped[bool] = mapped_column(server_default=false())
     lang: Mapped[str | None] = mapped_column(String(16))
-    # Labeled by hand (in kanso or Gmail): the classifier never touches it again. Not derived.
+    # Labeled by hand (in Kanso or Gmail): the classifier never touches it again. Not derived.
     labels_manual: Mapped[bool] = mapped_column(server_default=false())
 
 
@@ -349,7 +349,7 @@ class AssistantMessage(Base):
 
 
 class Setting(Base):
-    """A setting changed in kanso itself, as opposed to .env."""
+    """A setting changed in Kanso itself, as opposed to .env."""
 
     __tablename__ = "settings"
 

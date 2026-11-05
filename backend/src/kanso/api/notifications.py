@@ -84,10 +84,10 @@ async def unsubscribe(body: Endpoint, db: DB) -> Response:
 @router.get("/firebase")
 async def firebase() -> dict[str, str]:
     """What the Android app starts Firebase with, from FIREBASE_ANDROID_CONFIG (the app's
-    google-services.json). 404 when kanso can't send to the app: no config, or no service
+    google-services.json). 404 when Kanso can't send to the app: no config, or no service
     account to send with."""
     if not settings.firebase_android_config or not settings.google_pubsub_credentials:
-        raise HTTPException(404, "This kanso server isn't set up for notifications in the app")
+        raise HTTPException(404, "This Kanso server isn't set up for notifications in the app")
     try:
         config = json.loads(base64.b64decode(settings.firebase_android_config))
         project = config["project_info"]

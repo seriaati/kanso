@@ -23,7 +23,7 @@ DB = Annotated[AsyncSession, Depends(get_session)]
 
 
 # Gmail accepts only its own palette. The mirror stores Gmail's color and the UI draws the
-# nearest kanso color, which maps back to the one picked.
+# nearest Kanso color, which maps back to the one picked.
 KansoColor = Literal["#A07338", "#4F6E8C", "#6B6B66", "#556B3F", "#87607E", "#A35A3A", "#B8B3A2"]
 GMAIL_COLORS: dict[str, str] = {
     "#A07338": "#aa8831",  # Home, ochre

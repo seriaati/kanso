@@ -38,12 +38,12 @@ object Notifications {
     private const val GROUP = "account" // tag of an account's group summary, its id the account's
     private const val SENT = "app.kanso.sent" // extra: when FCM got the message it shows
 
-    /** The FCM token kanso has, when notifications are on in this app. */
+    /** The FCM token Kanso has, when notifications are on in this app. */
     fun token(context: Context): String? = prefs(context).getString(TOKEN, null)
 
     fun remember(context: Context, token: String?) = prefs(context).edit().putString(TOKEN, token).apply()
 
-    /** Hands kanso the app's new token, when notifications are on. Call from a background thread. */
+    /** Hands Kanso the app's new token, when notifications are on. Call from a background thread. */
     fun renew(context: Context, token: String) {
         if (token(context).let { it == null || it == token }) return
         val status = Server.send(context, "PUT", "/api/notifications/fcm", JSONObject().put("token", token).toString())
@@ -52,7 +52,7 @@ object Notifications {
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    /** [sent]: when FCM got the message from kanso. */
+    /** [sent]: when FCM got the message from Kanso. */
     fun show(context: Context, data: Map<String, String>, sent: Long) {
         val accountId = data["account_id"]?.toIntOrNull() ?: return
         if (data["type"] == "clear") return clear(context, accountId, data["thread_ids"].orEmpty(), sent)
@@ -136,12 +136,12 @@ object Notifications {
         manager.notify(THREAD, threadId, notification)
     }
 
-    /** A button's change didn't reach kanso (offline, logged out): a quiet note that opens the
+    /** A button's change didn't reach Kanso (offline, logged out): a quiet note that opens the
      * thread instead. Android 12+ doesn't let a button's receiver open the app itself. */
     fun failed(context: Context, accountId: Int, account: String, threadId: Int, text: String, url: String) {
         val builder = builder(context, accountId, account)
             .setContentTitle(text)
-            .setContentText("Tap to open it in kanso.")
+            .setContentText("Tap to open it in Kanso.")
             .setContentIntent(open(context, url))
             .setSilent(true)
         post(context, accountId, account, THREAD, threadId, builder)
@@ -150,7 +150,7 @@ object Notifications {
     private fun builder(context: Context, accountId: Int, account: String) =
         NotificationCompat.Builder(context, channel(context, accountId, account))
             .setSmallIcon(R.drawable.ic_notification)
-            .setSubText(account) // in the header, after "kanso"
+            .setSubText(account) // in the header, after "Kanso"
             .setCategory(NotificationCompat.CATEGORY_EMAIL)
             .setGroup("account-$accountId")
             .setAutoCancel(true)
@@ -159,7 +159,7 @@ object Notifications {
     private fun channel(context: Context, accountId: Int, account: String): String {
         val id = "account-$accountId"
         val channel = NotificationChannelCompat.Builder(id, NotificationManagerCompat.IMPORTANCE_HIGH)
-            .setName(account.ifEmpty { "kanso" })
+            .setName(account.ifEmpty { "Kanso" })
             .setDescription("New mail in the inbox")
             .build()
         NotificationManagerCompat.from(context).createNotificationChannel(channel) // or renames it

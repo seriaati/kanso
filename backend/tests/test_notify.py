@@ -558,7 +558,7 @@ def test_done_in_kanso_clears_the_notification(
                 pass
 
     run(write_back())
-    sync(gmail)  # Gmail's echo of kanso's own change
+    sync(gmail)  # Gmail's echo of Kanso's own change
     assert len(phone.received) == 1
     act("read", "t2")
     assert phone.received[1:] == [_clear()]

@@ -14,6 +14,6 @@ compose=(docker compose -f docker-compose.demo.yml)
 
 address=$("${compose[@]}" port app 8000)
 echo
-echo "kanso demo: http://localhost:${address##*:}  (password: demo)"
+echo "Kanso demo: http://localhost:${address##*:}  (password: demo)"
 echo "AI: add your API keys under Settings -> AI keys"
 echo "Stop it with: ${compose[*]} down"

@@ -85,7 +85,7 @@ def test_cjk_subject_body_and_names_are_encoded() -> None:
     head = raw.split(b"\n\n", 1)[0].decode()
     assert "Subject: =?utf-8?" in head  # RFC 2047 encoded words
     assert "=?utf-8?" in head.split("To:", 1)[1].splitlines()[0]
-    parsed = mime.parse(raw)  # kanso's own reader gets it all back
+    parsed = mime.parse(raw)  # Kanso's own reader gets it all back
     assert parsed.subject == "周五的项目会议安排"
     assert parsed.to == [{"name": "陳志明", "email": "chen@example.tw"}]
     assert parsed.body_text == "大家好，周五下午三点开会。\nよろしくお願いします"
@@ -510,7 +510,7 @@ def saved_draft(api: TestClient) -> int:
 def test_crash_mid_send_is_resumed_without_a_duplicate(
     synced: TestClient, gmail: FakeGmail, monkeypatch: pytest.MonkeyPatch, crash: str
 ) -> None:
-    """The worker dies just before drafts.send, or after Gmail sent it but before kanso knew."""
+    """The worker dies just before drafts.send, or after Gmail sent it but before Kanso knew."""
     draft_id = saved_draft(synced)
     (gmail.crash_before if crash == "before" else gmail.crash_after).add("POST /drafts/send")
     with pytest.raises(Crash):
@@ -725,7 +725,7 @@ def test_draft_written_in_gmail_opens_in_the_composer(synced: TestClient, gmail:
     draft = synced.post("/api/drafts/open", json={"message_id": message_id("x1")}).json()
     assert draft["subject"] == "From the web" and "Started in Gmail" in draft["body_html"]
     assert [a["filename"] for a in draft["attachments"]] == ["contract.pdf"]
-    body = content(draft, body_html="<div>Finished in kanso</div>")
+    body = content(draft, body_html="<div>Finished in Kanso</div>")
     assert synced.post(f"/api/drafts/{draft['id']}/send", json=body).json()["status"] == "sent"
     files = {p.get_filename(): p.get_content() for p in parse(gmail.sent[0]).iter_attachments()}
     assert files == {"contract.pdf": b"%PDF-contract"}  # carried over from the Gmail draft

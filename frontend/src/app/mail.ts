@@ -255,7 +255,7 @@ export type NamedLabel = {
   name: string
   color: string
   unread: number
-  // kanso's own
+  // Kanso's own
   icon: LabelIcon | null
   description: string
 }

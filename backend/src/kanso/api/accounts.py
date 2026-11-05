@@ -81,13 +81,13 @@ async def disconnect_account(account_id: int, db: DB) -> None:
 async def connect() -> Response:
     if settings.demo_mode:
         return PlainTextResponse(
-            "This is a kanso demo: it shows made-up mail and can't connect Gmail accounts.",
+            "This is a Kanso demo: it shows made-up mail and can't connect Gmail accounts.",
             status_code=403,
         )
     if not settings.google_client_id or not settings.google_client_secret:
         return PlainTextResponse(
             "Google OAuth is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in "
-            ".env (see docs/SETUP.md) and restart kanso.",
+            ".env (see docs/SETUP.md) and restart Kanso.",
             status_code=503,
         )
     state = secrets.token_urlsafe(32)
@@ -99,7 +99,7 @@ async def connect() -> Response:
 async def callback(db: DB, state: str = "", code: str = "", error: str = "") -> Response:
     if not state or not await redis.getdel(f"oauth-state:{state}"):
         return PlainTextResponse(
-            "This connect link has expired. Go back to kanso and connect again.", status_code=400
+            "This connect link has expired. Go back to Kanso and connect again.", status_code=400
         )
     if error or not code:  # e.g. the user cancelled on Google's consent screen
         return RedirectResponse("/", status_code=303)

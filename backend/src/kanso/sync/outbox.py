@@ -211,7 +211,7 @@ async def process_one(http: httpx.AsyncClient) -> bool:
 
 
 async def _reconcile(db: AsyncSession, gmail: Gmail, entry: Outbox) -> None:
-    """So kanso doesn't show a change Gmail never got. Best effort: a full sync also fixes it."""
+    """So Kanso doesn't show a change Gmail never got. Best effort: a full sync also fixes it."""
     account_id = entry.account_id
     thread_ids: set[int] = set()
     try:

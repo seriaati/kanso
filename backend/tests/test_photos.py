@@ -106,7 +106,7 @@ def test_sync_keeps_unchanged_and_replaces_changed() -> None:
 def test_sync_without_contacts_access() -> None:
     run(_create_account())
     people = FakePeople()
-    people.status = 403  # connected before kanso asked for contacts
+    people.status = 403  # connected before Kanso asked for contacts
     sync_photos(people)
     assert stored() == {}
 

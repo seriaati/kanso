@@ -66,7 +66,7 @@ class DraftOut(BaseModel):
     attachments: list[AttachmentOut]
     saved: bool  # written to Gmail (or, for the demo account, to the mirror)
     sending: bool
-    thread_id: int | None  # the kanso thread it is in, once there is one
+    thread_id: int | None  # the Kanso thread it is in, once there is one
 
 
 class ReplyIn(BaseModel):
@@ -78,7 +78,7 @@ class ReplyIn(BaseModel):
 
 
 class SendOut(BaseModel):
-    # "pending": Gmail's answer didn't arrive; kanso retries and never sends the message twice.
+    # "pending": Gmail's answer didn't arrive; Kanso retries and never sends the message twice.
     status: Literal["sent", "pending"]
     thread_id: int | None
 

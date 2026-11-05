@@ -55,7 +55,7 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     (async () => {
       const icon = data.sender ? await picture(data.sender, data.image).catch(() => undefined) : undefined
-      await self.registration.showNotification(data.title || 'kanso', {
+      await self.registration.showNotification(data.title || 'Kanso', {
         body: data.body || '',
         icon: icon || '/icon-192.png',
         badge: '/badge-96.png', // Android's small icon: the ensō instead of a bell
@@ -75,7 +75,7 @@ self.addEventListener('push', (event) => {
   )
 })
 
-// Opens the thread in a kanso window already open (the app navigates, no reload), or a new one.
+// Opens the thread in a Kanso window already open (the app navigates, no reload), or a new one.
 async function open(url) {
   const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
   const client = windows.find((c) => c.focused) || windows[0]

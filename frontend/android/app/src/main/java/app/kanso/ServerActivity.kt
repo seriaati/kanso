@@ -12,8 +12,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import kotlin.concurrent.thread
 
-// The kanso server the app shows: asked for at the first start and after Settings → Server, and
-// kept once kanso answers there. Also what shows when the server can't be reached (MainActivity),
+// The Kanso server the app shows: asked for at the first start and after Settings → Server, and
+// kept once Kanso answers there. Also what shows when the server can't be reached (MainActivity),
 // with Retry and Change server, instead of the WebView's error page.
 class ServerActivity : AppCompatActivity() {
     companion object {
@@ -79,7 +79,7 @@ class ServerActivity : AppCompatActivity() {
         }
     }
 
-    /** Opens [server] once kanso answers there; else says [failed]. */
+    /** Opens [server] once Kanso answers there; else says [failed]. */
     private fun check(server: String, failed: String) {
         busy(true)
         say(getString(R.string.server_checking))

@@ -13,7 +13,7 @@ type Props = {
   onDone: (change?: { renamed?: string; deleted?: boolean; created?: string }) => void
 }
 
-// Shown in a Dialog. Name and color go to Gmail; the other settings (the icon too) are kanso's own.
+// Shown in a Dialog. Name and color go to Gmail; the other settings (the icon too) are Kanso's own.
 export function LabelEditor({ label, draft, accountId, ai, onDone }: Props) {
   const start = label ?? draft
   const [name, setName] = useState(start?.name ?? '')

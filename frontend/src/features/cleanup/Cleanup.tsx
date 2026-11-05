@@ -31,7 +31,7 @@ type Props = {
   onUnsubscribe: (threadId: number) => void
 }
 
-// For an inbox from before kanso, in the order that works best: labels first, then archive what
+// For an inbox from before Kanso, in the order that works best: labels first, then archive what
 // is old, so AI labels (and is paid for) only what is left.
 export function Cleanup({ account, labels, ai, labeling, onMenu, onNotice, onUndo, onUnsubscribe }: Props) {
   return (
@@ -114,7 +114,7 @@ function useInboxAction(onNotice: Notify, onUndo: (entries: number[]) => void) {
     setBusy(true)
     inboxAction(action, scope)
       .then(({ entries }) => {
-        // No undo for spam, as anywhere in kanso: it would leave the sender blocked.
+        // No undo for spam, as anywhere in Kanso: it would leave the sender blocked.
         const back = action === 'spam' || entries.length === 0 ? undefined : () => onUndo(entries)
         onNotice(said, back)
       })

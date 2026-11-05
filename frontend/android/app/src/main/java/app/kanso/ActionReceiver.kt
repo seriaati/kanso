@@ -12,7 +12,7 @@ import org.json.JSONObject
 import java.util.TimeZone
 import kotlin.concurrent.thread
 
-// A new-mail notification's Done, Delete and Reply buttons: the change or reply goes to kanso in
+// A new-mail notification's Done, Delete and Reply buttons: the change or reply goes to Kanso in
 // the background, so the notification shade stays open. Done and Delete remove the notification;
 // a reply shows under it once sent.
 class ActionReceiver : BroadcastReceiver() {
@@ -44,7 +44,7 @@ class ActionReceiver : BroadcastReceiver() {
         return if (status != null && status in 200..299) null else FAILED[action] ?: "Couldn’t change it"
     }
 
-    /** null when sent (or left to kanso's worker to finish, 202), else what to tell. Sending takes
+    /** null when sent (or left to Kanso's worker to finish, 202), else what to tell. Sending takes
      * a few Gmail calls, so it gets longer than the usual timeout, within the receiver's ~10 s.
      * No answer or a server error may still mean it went out: then it says so rather than
      * inviting a second send. */

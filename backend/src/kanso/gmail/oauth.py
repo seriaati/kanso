@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 REVOKE_URL = "https://oauth2.googleapis.com/revoke"
-# gmail.modify only lacks permanent deletion that bypasses Trash, which kanso never does.
+# gmail.modify only lacks permanent deletion that bypasses Trash, which Kanso never does.
 GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.modify"
 # profile: the account's name and photo. Contacts: sender photos (sync/photos.py).
 CONTACTS_SCOPES = (

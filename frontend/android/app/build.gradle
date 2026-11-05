@@ -52,7 +52,7 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
-    // New-mail notifications (FCM), with the Firebase settings the kanso server gives (Push.kt).
+    // New-mail notifications (FCM), with the Firebase settings the Kanso server gives (Push.kt).
     implementation "com.google.firebase:firebase-messaging:26.0.1"
     // The home-screen widget's list: RemoteCollectionItems, with a fallback service before Android 12.
     implementation "androidx.core:core-remoteviews:1.1.0"

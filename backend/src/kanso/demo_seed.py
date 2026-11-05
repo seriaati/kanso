@@ -194,7 +194,7 @@ UNSPLASH = "https://images.unsplash.com"
 # Demo mail has no Gmail copy, so the attachment endpoint serves these.
 DEMO_FILES = {
     "image/png": _png(120, 24, (0x2F, 0x4B, 0x6E)),
-    "application/pdf": _pdf("kanso demo attachment (DEMO DATA)"),
+    "application/pdf": _pdf("Kanso demo attachment (DEMO DATA)"),
 }
 
 

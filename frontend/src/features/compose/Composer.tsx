@@ -180,7 +180,7 @@ function Form({ initial: latest, docked, title, minimized, onToggleMinimize, foc
       savedVersion.current = Infinity // nothing left to save
       refreshMail()
       onFinished(
-        result.status === 'sent' ? 'Message sent.' : 'Gmail hasn’t confirmed the send yet; kanso keeps trying (it never sends twice).',
+        result.status === 'sent' ? 'Message sent.' : 'Gmail hasn’t confirmed the send yet; Kanso keeps trying (it never sends twice).',
         result.thread_id,
       )
     } catch (error) {

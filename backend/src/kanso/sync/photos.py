@@ -74,7 +74,7 @@ async def sync(account_id: int, http: httpx.AsyncClient) -> None:
         except GmailError as error:
             if error.status != 403:
                 raise
-            # Connected before kanso asked for contacts, or the People API isn't enabled.
+            # Connected before Kanso asked for contacts, or the People API isn't enabled.
             log.info("account %s: no access to Google Contacts, no sender photos", account_id)
             return
         rows = await db.execute(

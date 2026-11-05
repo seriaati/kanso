@@ -75,8 +75,8 @@ export function App() {
       <div className={styles.notice}>
         <p>
           {accounts.error instanceof ApiError
-            ? `Can’t reach kanso: ${accounts.error.message}`
-            : 'Can’t reach kanso. You may be offline; it tries again when the connection is back.'}
+            ? `Can’t reach Kanso: ${accounts.error.message}`
+            : 'Can’t reach Kanso. You may be offline; it tries again when the connection is back.'}
         </p>
         <button type="button" onClick={() => void refetch()}>
           Try again
@@ -564,7 +564,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const title = view.kind === 'mailbox' ? mailboxTitles[view.mailbox] : view.kind === 'label' ? view.name : 'Search'
   const pageTitle = route.page === 'settings' ? 'Settings' : route.page === 'labels' ? 'Labels' : route.page === 'cleanup' ? 'Clean up' : title
   useEffect(() => {
-    document.title = `${pageTitle} · kanso`
+    document.title = `${pageTitle} · Kanso`
   }, [pageTitle])
 
   const back = () => {
@@ -1078,7 +1078,7 @@ function ComposeWindow({ minimized, movable, children }: { minimized: boolean; m
 function Toast({ notice, update, appUpdate, place }: { notice: Notice | null; update: boolean; appUpdate: string | null; place: 'bar' | 'sheet' | 'bottom' }) {
   return (
     <div className={`${styles.toast} ${styles[place] ?? ''}`} role="status">
-      {/* One at a time, the app first: installing it restarts the app, which also loads the new kanso. */}
+      {/* One at a time, the app first: installing it restarts the app, which also loads the new Kanso. */}
       {appUpdate && (
         <p>
           <span>A new version of the app is out.</span>
@@ -1089,7 +1089,7 @@ function Toast({ notice, update, appUpdate, place }: { notice: Notice | null; up
       )}
       {!appUpdate && update && (
         <p>
-          <span>A new version of kanso is ready.</span>
+          <span>A new version of Kanso is ready.</span>
           <button type="button" onClick={applyUpdate}>
             Reload
           </button>

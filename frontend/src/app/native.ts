@@ -3,7 +3,7 @@ import type { AppPlugin } from '@capacitor/app'
 import type { PluginListenerHandle } from '@capacitor/core'
 import { useTheme } from './theme'
 
-// The Android app (android/) is this web app in a WebView, loaded from the kanso server, with
+// The Android app (android/) is this web app in a WebView, loaded from the Kanso server, with
 // Capacitor's bridge in the page. Its plugins load only there, so browsers never fetch them.
 export const inApp = !!(window as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.()
 

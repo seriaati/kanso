@@ -39,8 +39,8 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
     await redis.aclose()
 
 
-# No /docs, /redoc or /openapi.json: kanso's API is for its own frontend only.
-app = FastAPI(title="kanso", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+# No /docs, /redoc or /openapi.json: Kanso's API is for its own frontend only.
+app = FastAPI(title="Kanso", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 # Starlette skips text/event-stream, so SSE isn't buffered.
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 # Added last, so it runs first.

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The home-screen widget (Widget.kt): 4×3 cells to start, down to 3×2. Android redraws it every
-     30 minutes, its shortest period, for when notifications are off; kanso's pushes and leaving
+     30 minutes, its shortest period, for when notifications are off; Kanso's pushes and leaving
      the app redraw it sooner. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"

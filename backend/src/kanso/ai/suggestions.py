@@ -21,7 +21,7 @@ SNIPPET = 200
 MAX_LABELS = 8
 MAX_TOKENS = 8192  # room for thinking plus the JSON answer
 
-# Gmail's palette as kanso draws it (kanso.api.labels.KansoColor), by name for Claude.
+# Gmail's palette as Kanso draws it (kanso.api.labels.KansoColor), by name for Claude.
 COLORS = {
     "ochre": "#A07338",
     "slate": "#4F6E8C",

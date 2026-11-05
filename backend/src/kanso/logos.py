@@ -112,7 +112,7 @@ async def _google(http: httpx.AsyncClient, domain: str) -> tuple[bytes, str] | N
 
 
 def _client() -> httpx.AsyncClient:
-    return httpx.AsyncClient(timeout=10, headers={"User-Agent": "kanso (self-hosted mail client)"})
+    return httpx.AsyncClient(timeout=10, headers={"User-Agent": "Kanso (self-hosted mail client)"})
 
 
 _locks: defaultdict[str, asyncio.Lock] = defaultdict(asyncio.Lock)

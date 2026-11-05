@@ -4,7 +4,7 @@ import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
 import styles from './InstallButton.module.css'
 
-// On a phone, until kanso is installed to the home screen; on Android, a link to the app.
+// On a phone, until Kanso is installed to the home screen; on Android, a link to the app.
 export function InstallButton() {
   const how = useInstall()
   const [steps, setSteps] = useState(false)
@@ -23,7 +23,7 @@ export function InstallButton() {
         Install
       </button>
       {steps && (
-        <Dialog title="Install kanso" onClose={() => setSteps(false)}>
+        <Dialog title="Install Kanso" onClose={() => setSteps(false)}>
           <p className={styles.steps}>
             In Safari, tap <Icon name="share" size={15} /> <strong>Share</strong>, then <strong>Add to Home Screen</strong>.
           </p>

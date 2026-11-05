@@ -63,7 +63,7 @@ def google(monkeypatch: pytest.MonkeyPatch) -> FakeGoogle:
 
 
 def connect(client: TestClient) -> httpx.Response:
-    """Run the OAuth flow: kanso -> (fake) Google consent -> callback."""
+    """Run the OAuth flow: Kanso -> (fake) Google consent -> callback."""
     response = client.get("/api/accounts/connect", follow_redirects=False)
     assert response.status_code == 303
     location = urlsplit(response.headers["location"])

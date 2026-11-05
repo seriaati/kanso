@@ -342,7 +342,7 @@ def test_new_inbox_mail_is_labeled_through_the_outbox(
     assert (entry.action, entry.message_ids, entry.add_labels) == ("label", ["m6"], ["Label_2"])
     drain(gmail)
     assert "Label_2" in gmail.messages["m6"]["labelIds"]  # a real Gmail label
-    # Gmail's history of kanso's own change is not mistaken for a manual one.
+    # Gmail's history of Kanso's own change is not mistaken for a manual one.
     sync(gmail)
     assert not threads()["t6"].labels_manual
 

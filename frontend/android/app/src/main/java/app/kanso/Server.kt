@@ -13,7 +13,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import kotlin.concurrent.thread
 
-// The kanso server the app loads, as entered on ServerActivity and kept in SharedPreferences, and
+// The Kanso server the app loads, as entered on ServerActivity and kept in SharedPreferences, and
 // requests to it with the WebView's session cookie, for when no page is there to make them: a
 // notification arriving, or one of its buttons. Call the requests from a background thread.
 object Server {
@@ -38,7 +38,7 @@ object Server {
         return "$scheme://$authority"
     }
 
-    /** Whether kanso answers at [url]: its /api/health says so (healthy or not), without a login. */
+    /** Whether Kanso answers at [url]: its /api/health says so (healthy or not), without a login. */
     fun isKanso(url: String): Boolean = try {
         val connection = URL("$url/api/health").openConnection() as HttpURLConnection
         try {
@@ -112,7 +112,7 @@ object Server {
                 connection.connectTimeout = 4000
                 connection.readTimeout = readTimeout
                 CookieManager.getInstance().getCookie(server)?.let { connection.setRequestProperty("Cookie", it) }
-                // kanso refuses changes without it (backend core/hardening.py).
+                // Kanso refuses changes without it (backend core/hardening.py).
                 connection.setRequestProperty("X-Requested-With", "kanso")
                 use(connection)
             } finally {

@@ -192,7 +192,7 @@ export function Sidebar(props: Props) {
             )}
           </div>
         )}
-        {/* One at a time, the app first: installing it restarts the app, which also loads the new kanso. */}
+        {/* One at a time, the app first: installing it restarts the app, which also loads the new Kanso. */}
         {appUpdate && (
           <div className={styles.notice} role="status">
             <span>A new version of the app is out.</span>
@@ -203,7 +203,7 @@ export function Sidebar(props: Props) {
         )}
         {!appUpdate && update && (
           <div className={styles.notice} role="status">
-            <span>A new version of kanso is ready.</span>
+            <span>A new version of Kanso is ready.</span>
             <button type="button" onClick={applyUpdate}>
               Reload
             </button>

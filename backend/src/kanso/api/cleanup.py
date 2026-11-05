@@ -1,4 +1,4 @@
-"""The Clean up page, for an inbox that piled up before kanso: archive what is older than a date,
+"""The Clean up page, for an inbox that piled up before Kanso: archive what is older than a date,
 and clear the inbox sender by sender. Its actions go through /threads/actions (an InboxScope)."""
 
 from datetime import UTC, datetime

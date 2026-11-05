@@ -6,11 +6,11 @@ Kanso (簡素) stands for "simplicity" in Japanese. It is a open-source, self-ho
 
 You can try out Kanso at https://demo.kanso.seria.moe with the password `demo`. AI features are off, and the database resets daily.
 
-![kanso: the inbox grouped by label, a thread open, and the assistant docked below it](docs/screenshot.png)
+![Kanso: the inbox grouped by label, a thread open, and the assistant docked below it](docs/screenshot.png)
 
 ## Quick start
 
-You need Docker Compose. kanso runs from a prebuilt image,
+You need Docker Compose. Kanso runs from a prebuilt image,
 [`ghcr.io/seriaati/kanso`](https://github.com/seriaati/kanso/pkgs/container/kanso), so you only
 need two files, the compose file and the `.env` template:
 
@@ -21,10 +21,10 @@ curl -fsSLO https://raw.githubusercontent.com/seriaati/kanso/main/.env.example
 ```
 
 Then follow [docs/SETUP.md](docs/SETUP.md). It walks you through creating your own Google OAuth
-client and Pub/Sub subscription, filling in `.env`, setting your password, starting kanso with
-`docker compose up -d`, connecting your accounts, and installing kanso on your phone.
+client and Pub/Sub subscription, filling in `.env`, setting your password, starting Kanso with
+`docker compose up -d`, connecting your accounts, and installing Kanso on your phone.
 
-To look around before connecting a real account, fill in `.env` (SETUP.md, step 6), start kanso
+To look around before connecting a real account, fill in `.env` (SETUP.md, step 6), start Kanso
 and load a made-up mailbox:
 
 ```sh

@@ -28,18 +28,18 @@ private const val NOTIFICATIONS = "notifications"
 class KansoPlugin : Plugin() {
     private var bars: Pair<Int, Boolean>? = null
 
-    // A token change kanso missed (onNewToken couldn't reach it) is caught up on at each start.
+    // A token change Kanso missed (onNewToken couldn't reach it) is caught up on at each start.
     @Suppress("DEPRECATION") // getToken: see MessagingService.onNewToken
     override fun load() {
         if (!Push.started(context) || Notifications.token(context) == null) return
         FirebaseMessaging.getInstance().token.addOnSuccessListener { token -> thread { Notifications.renew(context, token) } }
     }
 
-    // Plugin methods run on Capacitor's own background thread: they can wait for kanso.
+    // Plugin methods run on Capacitor's own background thread: they can wait for Kanso.
 
     /** New-mail notifications on this phone (src/app/notifications.ts): `on`, `off`, `denied` in
-     * Android's settings, or `unsupported` when the kanso server has no Firebase settings for the
-     * app (FIREBASE_ANDROID_CONFIG). `token`: the one kanso has, while they're on. */
+     * Android's settings, or `unsupported` when the Kanso server has no Firebase settings for the
+     * app (FIREBASE_ANDROID_CONFIG). `token`: the one Kanso has, while they're on. */
     @PluginMethod
     fun notificationState(call: PluginCall) {
         val firebase = Push.setup(context)
@@ -54,11 +54,11 @@ class KansoPlugin : Plugin() {
         call.resolve(JSObject().put("state", state).put("token", token))
     }
 
-    /** Asks for permission to notify (Android 13+), then resolves with the FCM token for kanso,
+    /** Asks for permission to notify (Android 13+), then resolves with the FCM token for Kanso,
      * or without one when permission is refused. */
     @PluginMethod
     fun requestNotifications(call: PluginCall) {
-        if (!Push.setup(context)) return call.reject("This kanso server isn’t set up for notifications in the app.")
+        if (!Push.setup(context)) return call.reject("This Kanso server isn’t set up for notifications in the app.")
         if (Build.VERSION.SDK_INT >= 33 && getPermissionState(NOTIFICATIONS) != PermissionState.GRANTED) {
             requestPermissionForAlias(NOTIFICATIONS, call, "notificationsAnswered")
         } else {
@@ -78,14 +78,14 @@ class KansoPlugin : Plugin() {
             .addOnFailureListener { call.reject("Firebase gave no token: ${it.message}") }
     }
 
-    /** Once kanso has the token (or has dropped it, with `token` null): notifications are on (off). */
+    /** Once Kanso has the token (or has dropped it, with `token` null): notifications are on (off). */
     @PluginMethod
     fun rememberNotifications(call: PluginCall) {
         Notifications.remember(context, call.getString("token"))
         call.resolve()
     }
 
-    /** Leaves this kanso server for the screen that asks for one (ServerActivity): what belongs
+    /** Leaves this Kanso server for the screen that asks for one (ServerActivity): what belongs
      * to this one (login, notifications, widgets' accounts) goes. */
     @PluginMethod
     fun changeServer(call: PluginCall) {

@@ -7,7 +7,7 @@ import styles from './Reader.module.css'
 import emailCss from './email.css?url'
 
 // Email HTML (already sanitized server-side with nh3) in a sandboxed iframe with no scripts.
-// allow-same-origin lets kanso size the frame; without allow-scripts the email can't use it.
+// allow-same-origin lets Kanso size the frame; without allow-scripts the email can't use it.
 // The CSP blocks remote content too, not only the sanitizer, until "Show images".
 
 const SANDBOX = 'allow-same-origin allow-popups allow-popups-to-escape-sandbox'

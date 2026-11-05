@@ -23,12 +23,12 @@ class WidgetSetup : AppCompatActivity() {
         widgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
         // Leaving without a pick (Back, a tap outside) doesn't place the widget.
         setResult(RESULT_CANCELED, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))
-        // Launchers start it from outside the app, so it's exported: only for kanso's own widgets.
+        // Launchers start it from outside the app, so it's exported: only for Kanso's own widgets.
         val provider = AppWidgetManager.getInstance(this).getAppWidgetInfo(widgetId)?.provider
         if (provider != ComponentName(this, Widget::class.java)) return finish()
         setContentView(R.layout.widget_setup)
         if (Server.url(this) == null) {
-            findViewById<TextView>(R.id.status).text = "Open kanso and connect it to your server first, then add the widget again."
+            findViewById<TextView>(R.id.status).text = "Open Kanso and connect it to your server first, then add the widget again."
             return
         }
         thread {
@@ -45,9 +45,9 @@ class WidgetSetup : AppCompatActivity() {
             null
         }
         when {
-            answer?.first == 401 -> status.text = "Log in to kanso first, then add the widget again."
-            accounts == null -> status.text = "Can’t reach kanso. Check your connection, then add the widget again."
-            accounts.length() == 0 -> status.text = "Connect a Gmail account in kanso first."
+            answer?.first == 401 -> status.text = "Log in to Kanso first, then add the widget again."
+            accounts == null -> status.text = "Can’t reach Kanso. Check your connection, then add the widget again."
+            accounts.length() == 0 -> status.text = "Connect a Gmail account in Kanso first."
             accounts.length() == 1 -> pick(accounts.getJSONObject(0))
             else -> {
                 status.visibility = View.GONE

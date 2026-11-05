@@ -1,4 +1,4 @@
-"""Forget a password changed in kanso, so PASSWORD_HASH from .env is the login password again:
+"""Forget a password changed in Kanso, so PASSWORD_HASH from .env is the login password again:
 
 docker compose exec app python -m kanso.reset_password
 docker compose restart app
@@ -30,7 +30,7 @@ def main() -> None:
         print("Done: the password is PASSWORD_HASH from .env again. Now restart the app:")
         print("  docker compose restart app")
     else:
-        print("The password was never changed in kanso: it is PASSWORD_HASH from .env.")
+        print("The password was never changed in Kanso: it is PASSWORD_HASH from .env.")
 
 
 if __name__ == "__main__":

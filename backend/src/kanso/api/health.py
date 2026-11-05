@@ -23,5 +23,5 @@ async def health(response: Response) -> dict[str, str]:
     db, redis = await asyncio.gather(_status(check_db), _status(check_redis))
     if "error" in (db, redis):
         response.status_code = 503
-    # "app" tells the Android app that a kanso server answers at the address it was given.
+    # "app" tells the Android app that a Kanso server answers at the address it was given.
     return {"app": "kanso", "db": db, "redis": redis}

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from './api'
 
-// The Clean up page: what is left of an inbox from before kanso, and suggested labels for it.
+// The Clean up page: what is left of an inbox from before Kanso, and suggested labels for it.
 
 /** Inbox threads of an account: older than `before` and/or with mail from `sender`. */
 export type InboxScope = { account_id: number; before?: string; sender?: string }

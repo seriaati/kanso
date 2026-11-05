@@ -1,11 +1,11 @@
 import { useSyncExternalStore } from 'react'
 import { inApp } from './native'
 
-// Installing kanso to the home screen. Android gets the app (.github/workflows/android.yml) from
+// Installing Kanso to the home screen. Android gets the app (.github/workflows/android.yml) from
 // its latest release; elsewhere Chrome, Edge and Samsung Internet offer a prompt, started from
-// kanso's own button, and Safari on iOS has none, so it gets the steps instead.
+// Kanso's own button, and Safari on iOS has none, so it gets the steps instead.
 
-/** The latest release's APK: the same app for every kanso server. */
+/** The latest release's APK: the same app for every Kanso server. */
 export const APP_DOWNLOAD = 'https://github.com/seriaati/kanso/releases/latest/download/kanso.apk'
 
 type InstallPrompt = Event & { prompt: () => Promise<void> }
@@ -34,7 +34,7 @@ standalone.addEventListener('change', () => {
   changed()
 })
 
-/** How kanso can be installed here; null when it is installed or can't be. */
+/** How Kanso can be installed here; null when it is installed or can't be. */
 export type Install = 'android' | 'prompt' | 'ios' | null
 
 function state(): Install {

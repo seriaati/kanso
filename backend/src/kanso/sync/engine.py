@@ -1,4 +1,4 @@
-"""Outbox changes are re-applied after each commit, so a sync never undoes a kanso action that
+"""Outbox changes are re-applied after each commit, so a sync never undoes a Kanso action that
 Gmail hasn't received yet."""
 
 import asyncio
@@ -168,7 +168,7 @@ async def import_messages(
 
 
 async def fill_list_ids(db: AsyncSession, gmail: Gmail, account_id: int) -> None:
-    """Mail mirrored before kanso kept List-Id (migration 0020) gets it, a batch per sync."""
+    """Mail mirrored before Kanso kept List-Id (migration 0020) gets it, a batch per sync."""
     rows = await db.execute(
         select(Message.id, Message.gmail_id)
         .where(Message.account_id == account_id, Message.list_id.is_(None))
@@ -226,7 +226,7 @@ async def incremental(db: AsyncSession, gmail: Gmail, account: Account) -> None:
             label_changes.append((item["message"]["id"], [], item["labelIds"]))
 
     # The threads this sync may take out of the unread inbox (read, archived or deleted in Gmail
-    # or another client): if it does, their notifications go. kanso's own actions are in the
+    # or another client): if it does, their notifications go. Kanso's own actions are in the
     # mirror already, so their echo isn't one.
     unread_before = await notify.unread_threads_of(
         db, account.id, deleted | {gmail_id for gmail_id, _, _ in label_changes}
@@ -238,7 +238,7 @@ async def incremental(db: AsyncSession, gmail: Gmail, account: Account) -> None:
     thread_ids |= changed
     blocked = await _spam_blocked(db, account.id, fetched)
     thread_ids |= blocked
-    # A user label change seen here was made by hand in Gmail (kanso's own are in the mirror
+    # A user label change seen here was made by hand in Gmail (Kanso's own are in the mirror
     # already), so AI labeling leaves that thread alone.
     user_labels = set(
         await db.scalars(

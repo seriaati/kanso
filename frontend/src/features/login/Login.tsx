@@ -24,7 +24,7 @@ export function Login() {
       >
         <h1 className={styles.title}>
           <img src="/favicon.svg" alt="" width="44" height="44" />
-          kanso <span lang="ja">簡素</span>
+          Kanso <span lang="ja">簡素</span>
         </h1>
         <label className={styles.field}>
           Password

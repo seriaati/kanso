@@ -1,4 +1,4 @@
-"""CSRF: another site can't add a custom header without a CORS preflight, which kanso never grants.
+"""CSRF: another site can't add a custom header without a CORS preflight, which Kanso never grants.
 
 CSP: email frames inherit it, so img-src allows remote images ("Show images") and style-src
 'unsafe-inline' (email HTML needs it); scripts stay 'self' only.

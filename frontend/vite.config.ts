@@ -20,8 +20,8 @@ const pwa = VitePWA({
   injectRegister: false, // registered from main.tsx
   includeManifestIcons: false, // the precache globs below have them already
   manifest: {
-    name: 'kanso',
-    short_name: 'kanso',
+    name: 'Kanso',
+    short_name: 'Kanso',
     description: 'A calm, self-hosted Gmail client for reaching inbox zero.',
     start_url: '/inbox',
     scope: '/',
@@ -33,7 +33,7 @@ const pwa = VitePWA({
       { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
       { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
-    // Installed, kanso can be the browser's mailto: handler (app/compose.ts, linkedDraft).
+    // Installed, Kanso can be the browser's mailto: handler (app/compose.ts, linkedDraft).
     protocol_handlers: [{ protocol: 'mailto', url: '/compose?mailto=%s' }],
   },
   workbox: {

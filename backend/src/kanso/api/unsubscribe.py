@@ -1,4 +1,4 @@
-"""Unsubscribe the way the sender's List-Unsubscribe header offers, preferring what kanso can do
+"""Unsubscribe the way the sender's List-Unsubscribe header offers, preferring what Kanso can do
 itself: one-click (RFC 8058), then an email, then a page the user opens. The header isn't kept in
 the mirror, so it is read from Gmail on demand."""
 

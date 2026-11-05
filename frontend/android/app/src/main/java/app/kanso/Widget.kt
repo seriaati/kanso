@@ -26,7 +26,7 @@ import java.util.concurrent.Executors
 
 // The home-screen widget: one account's unread inbox, newest first, in rows like the app's. Each
 // widget shows the account picked when it was placed (WidgetSetup); for two accounts, place two.
-// It reads kanso's API with the WebView's cookie, as the notifications do, and redraws on each FCM
+// It reads Kanso's API with the WebView's cookie, as the notifications do, and redraws on each FCM
 // message for its account (MessagingService), when the app is left (MainActivity.onStop), and
 // every 30 minutes (updatePeriodMillis in xml/widget_info.xml) for when notifications are off.
 class Widget : AppWidgetProvider() {
@@ -36,7 +36,7 @@ class Widget : AppWidgetProvider() {
             try {
                 draw(context, manager, ids)
             } catch (error: JSONException) {
-                // Not the JSON this app knows (a newer or older kanso): the widget stays as it was.
+                // Not the JSON this app knows (a newer or older Kanso): the widget stays as it was.
             } finally {
                 pending.finish()
             }
@@ -76,9 +76,9 @@ class Widget : AppWidgetProvider() {
             val manager = AppWidgetManager.getInstance(context) ?: return
             queue.execute {
                 prefs(context).edit().clear().apply()
-                val gone = Inbox.Problem("kanso is on another server now.\nAdd this widget again to pick an account.")
+                val gone = Inbox.Problem("Kanso is on another server now.\nAdd this widget again to pick an account.")
                 for (id in manager.getAppWidgetIds(ComponentName(context, Widget::class.java))) {
-                    manager.updateAppWidget(id, views(context, id, null, "kanso", gone))
+                    manager.updateAppWidget(id, views(context, id, null, "Kanso", gone))
                 }
             }
         }
@@ -110,7 +110,7 @@ class Widget : AppWidgetProvider() {
                 val account = accounts?.let { list -> (0 until list.length()).map(list::getJSONObject).firstOrNull { it.getInt("id") == accountId } }
                 when {
                     accounts == null -> problem(answer)
-                    account == null -> Inbox.Problem("This account isn’t in kanso anymore.")
+                    account == null -> Inbox.Problem("This account isn’t in Kanso anymore.")
                     else -> {
                         val page = Server.load(context, "/api/threads?account_id=$accountId&mailbox=inbox&q=is%3Aunread&limit=$ROWS")
                         parse(page) { JSONObject(it).getJSONArray("threads") }
@@ -120,12 +120,12 @@ class Widget : AppWidgetProvider() {
                 }
             }
             for ((id, accountId) in shown) {
-                val email = prefs(context).getString("$id-email", null) ?: "kanso"
+                val email = prefs(context).getString("$id-email", null) ?: "Kanso"
                 manager.updateAppWidget(id, views(context, id, accountId, email, inboxes.getValue(accountId)))
             }
         }
 
-        /** A 200's JSON, or null (another status, no answer, or not kanso's JSON). */
+        /** A 200's JSON, or null (another status, no answer, or not Kanso's JSON). */
         private fun <T> parse(answer: Pair<Int, ByteArray?>?, read: (String) -> T): T? = try {
             answer?.second?.let { read(String(it)) }
         } catch (error: JSONException) {
@@ -133,7 +133,7 @@ class Widget : AppWidgetProvider() {
         }
 
         private fun problem(answer: Pair<Int, ByteArray?>?) = Inbox.Problem(
-            if (answer?.first == 401) "Log in to kanso to see your inbox here.\nTap to open it." else "Can’t reach kanso.\nTap to open it.",
+            if (answer?.first == 401) "Log in to Kanso to see your inbox here.\nTap to open it." else "Can’t reach Kanso.\nTap to open it.",
         )
 
         private fun views(context: Context, widgetId: Int, accountId: Int?, email: String, inbox: Inbox): RemoteViews {

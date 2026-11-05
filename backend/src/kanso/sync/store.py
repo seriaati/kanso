@@ -14,7 +14,7 @@ from kanso.db.models import Attachment, Label, Message, MessageLabel, Thread
 from kanso.db.search import index_text
 from kanso.gmail.mime import ParsedMessage
 
-# Gmail label id -> kanso label id, for one account.
+# Gmail label id -> Kanso label id, for one account.
 LabelMap = dict[str, int]
 
 
@@ -181,7 +181,7 @@ async def change_labels(
     remove: list[str],
     labels: LabelMap,
 ) -> tuple[int, set[int]] | None:
-    """Returns the label ids that actually changed: the echo of kanso's own write-back changes
+    """Returns the label ids that actually changed: the echo of Kanso's own write-back changes
     none."""
     row = (
         await db.execute(

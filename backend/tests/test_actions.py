@@ -377,7 +377,7 @@ def test_worker_loop_wakes_on_new_entries(
 def test_history_replay_does_not_bounce_a_pending_change(
     synced: TestClient, gmail: FakeGmail
 ) -> None:
-    # Gmail's history has changes kanso hasn't synced: m1 left the inbox and came back.
+    # Gmail's history has changes Kanso hasn't synced: m1 left the inbox and came back.
     gmail.relabel("m1", remove=("INBOX",))
     gmail.relabel("m1", add=("INBOX",))
     act(synced, "done", "t1")

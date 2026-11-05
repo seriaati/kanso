@@ -60,7 +60,7 @@ class MainActivity : BridgeActivity() {
             if (request.isForMainFrame && error.errorCode != WebViewClient.ERROR_UNKNOWN) unreachable()
         }
 
-        // A proxy's "502 Bad Gateway" while kanso restarts, say.
+        // A proxy's "502 Bad Gateway" while Kanso restarts, say.
         override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
             super.onReceivedHttpError(view, request, response)
             if (request.isForMainFrame && response.statusCode >= 500) unreachable()
@@ -81,7 +81,7 @@ class MainActivity : BridgeActivity() {
     // attribute or Content-Disposition: attachment) go to Android's DownloadManager, with the
     // session cookie, into Downloads.
     private fun download(url: String, userAgent: String, disposition: String?, mimeType: String?) {
-        if (!url.startsWith("http")) return // blob: or data:, which kanso doesn't link to
+        if (!url.startsWith("http")) return // blob: or data:, which Kanso doesn't link to
         val name = fileName(disposition) ?: URLUtil.guessFileName(url, disposition, mimeType)
         val request = DownloadManager.Request(Uri.parse(url))
             .setMimeType(mimeType)
@@ -96,7 +96,7 @@ class MainActivity : BridgeActivity() {
         Toast.makeText(this, "Downloading $name", Toast.LENGTH_SHORT).show()
     }
 
-    // kanso sends filename*=UTF-8''… (RFC 6266), which URLUtil.guessFileName doesn't read.
+    // Kanso sends filename*=UTF-8''… (RFC 6266), which URLUtil.guessFileName doesn't read.
     private fun fileName(disposition: String?): String? {
         val encoded = disposition?.let { Regex("filename\\*=UTF-8''([^;]+)", RegexOption.IGNORE_CASE).find(it) } ?: return null
         return Uri.decode(encoded.groupValues[1].trim()).replace('/', '_').ifEmpty { null }

@@ -1,4 +1,4 @@
-"""Settings changed in kanso itself; `.env` holds everything else.
+"""Settings changed in Kanso itself; `.env` holds everything else.
 
 `password_hash` overrides PASSWORD_HASH from .env until `python -m kanso.reset_password`.
 """

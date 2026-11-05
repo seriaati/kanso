@@ -138,7 +138,7 @@ function DisconnectAccount({ account, onDone }: { account: Account; onDone: () =
   const disconnect = useDisconnectAccount()
   return (
     <div className={styles.confirm}>
-      <p className={styles.note}>Removes {account.email} and its synced mail from kanso, and revokes kanso’s access. Gmail itself is not changed.</p>
+      <p className={styles.note}>Removes {account.email} and its synced mail from Kanso, and revokes Kanso’s access. Gmail itself is not changed.</p>
       {disconnect.error && (
         <p role="alert" className={styles.note}>
           {disconnect.error.message}
@@ -163,8 +163,8 @@ function Notifications() {
       {state === 'unsupported' ? (
         <p className={styles.intro}>
           {inApp
-            ? 'This kanso server isn’t set up for notifications in the app: its .env needs FIREBASE_ANDROID_CONFIG (see the setup guide).'
-            : 'This browser can’t show notifications from kanso. They need kanso opened over HTTPS; on an iPhone or iPad, add kanso to the Home Screen (Share → Add to Home Screen) and turn them on in the app.'}
+            ? 'This Kanso server isn’t set up for notifications in the app: its .env needs FIREBASE_ANDROID_CONFIG (see the setup guide).'
+            : 'This browser can’t show notifications from Kanso. They need Kanso opened over HTTPS; on an iPhone or iPad, add Kanso to the Home Screen (Share → Add to Home Screen) and turn them on in the app.'}
         </p>
       ) : (
         <label className={styles.toggle}>
@@ -174,8 +174,8 @@ function Notifications() {
             <span className={styles.muted}>
               {state === 'denied'
                 ? inApp
-                  ? 'Notifications are off for kanso in Android’s app settings. Allow them there, then turn this on.'
-                  : 'Notifications are blocked for kanso in this browser’s site settings. Allow them there, then turn this on.'
+                  ? 'Notifications are off for Kanso in Android’s app settings. Allow them there, then turn this on.'
+                  : 'Notifications are blocked for Kanso in this browser’s site settings. Allow them there, then turn this on.'
                 : 'A notification for each new unread message in the inbox, with its sender, subject and first line. Turn it on in each browser or installed app where you want them.'}
             </span>
           </span>
@@ -186,7 +186,7 @@ function Notifications() {
   )
 }
 
-/** The Android app's kanso server, which it asked for at its first start. */
+/** The Android app's Kanso server, which it asked for at its first start. */
 function Server() {
   const [changing, setChanging] = useState(false)
   return (
@@ -194,7 +194,7 @@ function Server() {
       <div className={styles.row}>
         <div className={styles.text}>
           <span>{location.host}</span>
-          <span className={styles.muted}>The kanso this app shows.</span>
+          <span className={styles.muted}>The Kanso this app shows.</span>
         </div>
         <button type="button" className={styles.disconnect} onClick={() => setChanging(true)}>
           Change
@@ -535,7 +535,7 @@ function Sessions() {
   const logout = useLogoutEverywhere()
   return (
     <Section title="Sessions">
-      <p className={styles.intro}>Signs out every browser and device where you are logged in to kanso, this one too.</p>
+      <p className={styles.intro}>Signs out every browser and device where you are logged in to Kanso, this one too.</p>
       {logout.error && (
         <p role="alert" className={styles.note}>
           {logout.error.message}
@@ -550,7 +550,7 @@ function Sessions() {
   )
 }
 
-/** Which kanso this is: the commit it was built from, and in the Android app the app's version. */
+/** Which Kanso this is: the commit it was built from, and in the Android app the app's version. */
 function About() {
   const [app, setApp] = useState<string | null>(null)
   useEffect(() => void appInfo?.then(({ version }) => setApp(version)), [])
@@ -560,7 +560,7 @@ function About() {
       <div className={styles.row}>
         <div className={styles.text}>
           <span>
-            kanso{' '}
+            Kanso{' '}
             {commit === 'dev' ? (
               'dev'
             ) : (
@@ -569,7 +569,7 @@ function About() {
               </a>
             )}
           </span>
-          <span className={styles.muted}>The commit this kanso was built from.</span>
+          <span className={styles.muted}>The commit this Kanso was built from.</span>
         </div>
       </div>
       {app && (

@@ -11,7 +11,7 @@ import httpx2 as httpx
 
 
 class Crash(BaseException):
-    """Like SIGKILL: not an Exception, so no handler in kanso catches it."""
+    """Like SIGKILL: not an Exception, so no handler in Kanso catches it."""
 
 
 SYSTEM = ["INBOX", "SENT", "DRAFT", "TRASH", "SPAM", "UNREAD", "STARRED", "IMPORTANT"]

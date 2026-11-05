@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- KansoApp starts Firebase from the settings the kanso server gave. -->
+    <!-- KansoApp starts Firebase from the settings the Kanso server gave. -->
     <application
         android:name=".KansoApp"
         android:allowBackup="true"
@@ -36,7 +36,7 @@
 
         </activity>
 
-        <!-- Asks for the kanso server's address (at the first start, or to change it), and shows
+        <!-- Asks for the Kanso server's address (at the first start, or to change it), and shows
              when it can't be reached. -->
         <activity
             android:name=".ServerActivity"

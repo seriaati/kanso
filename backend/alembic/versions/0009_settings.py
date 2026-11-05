@@ -1,4 +1,4 @@
-"""settings changed in kanso itself
+"""settings changed in Kanso itself
 
 Revision ID: 0009
 Revises: 0008

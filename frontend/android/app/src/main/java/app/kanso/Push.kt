@@ -9,7 +9,7 @@ import org.json.JSONException
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-// Firebase, which FCM needs, started with the settings the kanso server hands out (GET
+// Firebase, which FCM needs, started with the settings the Kanso server hands out (GET
 // /api/notifications/firebase, from its FIREBASE_ANDROID_CONFIG) rather than a
 // google-services.json built in: one app for every server. They're kept for the next starts.
 object Push {
@@ -42,7 +42,7 @@ object Push {
 
     fun started(context: Context) = app(context) != null
 
-    /** Asks kanso for its Firebase settings and starts Firebase with them: false when kanso has
+    /** Asks Kanso for its Firebase settings and starts Firebase with them: false when Kanso has
      * none (FCM can't work); when it can't be asked (offline, logged out), whether Firebase runs
      * with the kept ones. Call from a background thread. */
     fun setup(context: Context): Boolean {
@@ -62,7 +62,7 @@ object Push {
         return true
     }
 
-    /** Stops Firebase and forgets its settings. The FCM token is deleted, here and in kanso (best
+    /** Stops Firebase and forgets its settings. The FCM token is deleted, here and in Kanso (best
      * effort), so nothing is sent to it anymore: notifications are off. Call from a background
      * thread. */
     @Suppress("DEPRECATION") // deleteToken: as getToken, see MessagingService.onNewToken
@@ -75,7 +75,7 @@ object Push {
             try {
                 Tasks.await(FirebaseMessaging.getInstance().deleteToken(), 10, TimeUnit.SECONDS)
             } catch (error: Exception) {
-                // Offline or slow: FCM drops a token unused for long, and kanso no longer has it.
+                // Offline or slow: FCM drops a token unused for long, and Kanso no longer has it.
             }
             app.delete()
         }

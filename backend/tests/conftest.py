@@ -8,7 +8,7 @@ import pytest
 from argon2 import PasswordHasher
 from fastapi.testclient import TestClient
 
-# Settings are read at import time, so the test environment goes in before kanso is imported.
+# Settings are read at import time, so the test environment goes in before Kanso is imported.
 PASSWORD = "correct horse battery staple"
 os.environ |= {
     "SECRET_KEY": "test-secret-key-0123456789abcdef0123456789",
@@ -24,7 +24,7 @@ os.environ |= {
 # A stand-in for the built frontend, which CI's backend job doesn't build.
 _dist = tempfile.mkdtemp(prefix="kanso-dist-")
 with open(os.path.join(_dist, "index.html"), "w") as index:
-    index.write("<!doctype html><title>kanso</title>")
+    index.write("<!doctype html><title>Kanso</title>")
 os.environ["FRONTEND_DIST"] = _dist
 # Database tests drop and recreate the schema, so use a disposable Postgres, e.g.
 # TEST_DATABASE_URL=postgresql+asyncpg://postgres:test@localhost:55432/postgres

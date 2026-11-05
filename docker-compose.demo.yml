@@ -1,5 +1,5 @@
 # A demo instance with made-up mail and no Gmail, reset on every start and daily at midnight UTC.
-# Start it with ./demo.sh. Only the DEMO_* variables below are read, not kanso's .env settings.
+# Start it with ./demo.sh. Only the DEMO_* variables below are read, not Kanso's .env settings.
 name: kanso-demo
 
 x-kanso: &kanso

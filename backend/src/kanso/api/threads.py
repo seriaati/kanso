@@ -470,7 +470,7 @@ async def get_thread(thread_id: int, db: DB) -> ThreadDetail:
 
 
 # Types safe to show inline; everything else downloads, so a hostile attachment (HTML, SVG…)
-# never renders on kanso's origin. A PDF opens in the browser's own viewer, not as a page.
+# never renders on Kanso's origin. A PDF opens in the browser's own viewer, not as a page.
 INLINE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp", "application/pdf"}
 
 
@@ -507,7 +507,7 @@ async def download_attachment(attachment_id: int, db: DB) -> Response:
         "Cache-Control": "private, max-age=31536000, immutable",
     }
     if attachment.mime_type == "application/pdf":
-        # The reader's attachment viewer frames it; kanso's own pages can't be framed at all.
+        # The reader's attachment viewer frames it; Kanso's own pages can't be framed at all.
         headers["X-Frame-Options"] = "SAMEORIGIN"
         headers["Content-Security-Policy"] = "frame-ancestors 'self'"
     return Response(content, media_type=attachment.mime_type, headers=headers)

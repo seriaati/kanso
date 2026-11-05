@@ -1,4 +1,4 @@
-"""The Android app's latest release, for its update check. kanso asks GitHub instead of the app:
+"""The Android app's latest release, for its update check. Kanso asks GitHub instead of the app:
 the page's CSP lets it reach only its own server, and GitHub sees the server rather than phones."""
 
 import logging

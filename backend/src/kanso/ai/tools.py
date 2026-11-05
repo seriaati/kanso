@@ -61,7 +61,7 @@ _TARGETS = {
     "description": "Thread ids from search_threads or get_thread.",
 }
 _CONFIRMED = (
-    " Nothing changes until the user confirms it in kanso; the result says whether they did. "
+    " Nothing changes until the user confirms it in Kanso; the result says whether they did. "
     "Only use it when the user asked for this change."
 )
 

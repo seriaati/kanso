@@ -106,7 +106,7 @@ class Scheduler:
 
 
 async def listen(scheduler: Scheduler) -> None:
-    """Refresh in kanso (api/sync.py): sync an account now, not at the next push or poll."""
+    """Refresh in Kanso (api/sync.py): sync an account now, not at the next push or poll."""
     while True:
         try:
             async with events.redis.pubsub() as pubsub:

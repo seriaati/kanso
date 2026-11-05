@@ -1,8 +1,8 @@
-# kanso (簡素)
+# Kanso (簡素)
 
 簡素 means *simplicity*. It is the product's name and its main design rule.
 
-kanso is a self-hosted, open source (AGPL-3.0) Gmail client for reaching **inbox zero**. It is
+Kanso is a self-hosted, open source (AGPL-3.0) Gmail client for reaching **inbox zero**. It is
 inspired by Shortwave but drops the parts we don't need, and keeps **your full email history with
 no 90-day limit and no paid tier**.
 
@@ -36,11 +36,11 @@ Check every change against these. If a change conflicts with one, stop and ask.
 | Area | Decision |
 |---|---|
 | Email provider | **Gmail only**, via the Gmail API with OAuth. No IMAP/Outlook. |
-| Sync model | **Two-way sync.** Gmail is the source of truth. kanso mirrors *all* of it in Postgres and writes changes back to Gmail, so other Gmail clients stay consistent. |
+| Sync model | **Two-way sync.** Gmail is the source of truth. Kanso mirrors *all* of it in Postgres and writes changes back to Gmail, so other Gmail clients stay consistent. |
 | Accounts | **One user, multiple Gmail accounts**, one in view at a time, with no combined view. |
-| AI provider | **Anthropic (Claude)** with the user's own API key, added in Settings and stored encrypted (never in `.env`). **Optional**: without a key, kanso is a plain email client and AI features are hidden. AI labeling can instead use **TypeSafe's Jev** classification model, picked in Settings, which works without an Anthropic key. |
+| AI provider | **Anthropic (Claude)** with the user's own API key, added in Settings and stored encrypted (never in `.env`). **Optional**: without a key, Kanso is a plain email client and AI features are hidden. AI labeling can instead use **TypeSafe's Jev** classification model, picked in Settings, which works without an Anthropic key. |
 | Search | **Postgres full-text search.** No vector search. |
-| Clients | **Web app plus an installable PWA**, desktop-first and usable on a phone, and an **Android app**: a Capacitor shell that loads the user's own kanso server, with native code only where the web can't reach (notifications, `mailto:` links, widgets). iOS keeps the PWA. |
+| Clients | **Web app plus an installable PWA**, desktop-first and usable on a phone, and an **Android app**: a Capacitor shell that loads the user's own Kanso server, with native code only where the web can't reach (notifications, `mailto:` links, widgets). iOS keeps the PWA. |
 | Auth | A simple single-user password login. |
 
 ## Scope
@@ -58,7 +58,7 @@ it"; propose them first.
 
 ## UI principles
 
-kanso is a tool for working through email, not a dashboard. **Function comes before looks.**
+Kanso is a tool for working through email, not a dashboard. **Function comes before looks.**
 
 - **Email comes first.** The thread list is the main surface: compact, scannable rows, many at once.
 - **No decorative real estate.** No hero numbers, banners or stat tiles.
@@ -84,7 +84,7 @@ live in `frontend/src/styles/tokens.css`; use them, don't hard-code values.
 | Backend | Python + FastAPI | REST API, Gmail OAuth, AI orchestration; serves the built frontend |
 | Worker | Same codebase, separate container | Gmail sync, write-back to Gmail, AI labeling |
 | Frontend | React + Vite (Bun) | SPA plus PWA |
-| Android app | Capacitor + Kotlin | WebView on the user's kanso server; native notifications (FCM), `mailto:`, widgets |
+| Android app | Capacitor + Kotlin | WebView on the user's Kanso server; native notifications (FCM), `mailto:`, widgets |
 | Deploy | Docker Compose | One image for app and worker, plus Postgres and Redis |
 
 - **Sync**: a background full backfill, then incremental syncs via the Gmail History API,

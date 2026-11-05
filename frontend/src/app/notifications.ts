@@ -6,7 +6,7 @@ import { kanso } from './native'
 // The Android app uses FCM instead, and draws them itself (android/…/Notifications.kt).
 
 /** `unsupported`: plain http, no service worker, or iOS outside a Home Screen app; in the Android
- * app, a kanso server without Firebase settings for it (FIREBASE_ANDROID_CONFIG). */
+ * app, a Kanso server without Firebase settings for it (FIREBASE_ANDROID_CONFIG). */
 export type PushState = 'unsupported' | 'denied' | 'off' | 'on'
 
 async function registration(): Promise<ServiceWorkerRegistration | undefined> {
@@ -45,7 +45,7 @@ async function disable() {
   await subscription.unsubscribe()
 }
 
-// The Android app's: the plugin asks Android, and kanso gets the FCM token.
+// The Android app's: the plugin asks Android, and Kanso gets the FCM token.
 const app = kanso && appPush(kanso)
 
 function appPush(native: NonNullable<typeof kanso>) {

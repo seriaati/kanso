@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sets up Google Cloud for kanso with the gcloud CLI and writes .env. Safe to re-run.
+# Sets up Google Cloud for Kanso with the gcloud CLI and writes .env. Safe to re-run.
 # Usage: scripts/setup.sh [project-id]
 set -euo pipefail
 
@@ -51,7 +51,7 @@ PROJECT="${1:-$(ask 'Project ID (created if it does not exist)' "kanso-$(openssl
 if gcloud projects describe "$PROJECT" >/dev/null 2>&1; then
   echo "Using existing project $PROJECT."
 else
-  gcloud projects create "$PROJECT" --name=kanso
+  gcloud projects create "$PROJECT" --name=Kanso
 fi
 
 say "2. Enabling the Gmail and People APIs"
@@ -63,7 +63,7 @@ if ! gcloud services enable pubsub.googleapis.com --project "$PROJECT"; then
   echo "Enabling Pub/Sub failed. If the error mentions billing, link a billing account:"
   echo "  gcloud billing accounts list"
   echo "  gcloud billing projects link $PROJECT --billing-account=<ACCOUNT_ID>"
-  echo "Pub/Sub's free tier covers kanso's traffic. Without Pub/Sub, kanso checks Gmail every 2 minutes."
+  echo "Pub/Sub's free tier covers Kanso's traffic. Without Pub/Sub, Kanso checks Gmail every 2 minutes."
   [[ $(ask 'Skip Pub/Sub for now? (y/n)' y) == y ]] || die "Fix the error above and re-run."
   PUBSUB=no
 fi
@@ -85,7 +85,7 @@ if [[ $PUBSUB == yes ]]; then
     || gcloud pubsub subscriptions create "$SUBSCRIPTION" --project "$PROJECT" \
       --topic "$TOPIC" --ack-deadline=60
   gcloud iam service-accounts describe "$SA_EMAIL" --project "$PROJECT" >/dev/null 2>&1 \
-    || gcloud iam service-accounts create "$SA_NAME" --project "$PROJECT" --display-name=kanso
+    || gcloud iam service-accounts create "$SA_NAME" --project "$PROJECT" --display-name=Kanso
   retry gcloud pubsub subscriptions add-iam-policy-binding "$SUBSCRIPTION" --project "$PROJECT" \
     --member="serviceAccount:$SA_EMAIL" --role=roles/pubsub.subscriber >/dev/null \
     || die "Could not grant the subscriber role to $SA_EMAIL."
@@ -152,7 +152,7 @@ then re-run: scripts/setup.sh $PROJECT"
   APP_ID=$(app_id)
   if [[ -z $APP_ID ]]; then
     REPLY_JSON=$(firebase_api POST "projects/$PROJECT/androidApps" \
-      "{\"packageName\": \"$PACKAGE\", \"displayName\": \"kanso\"}") \
+      "{\"packageName\": \"$PACKAGE\", \"displayName\": \"Kanso\"}") \
       || die "Registering the Android app failed: $REPLY_JSON"
     wait_operation "$REPLY_JSON"
     APP_ID=$(app_id)
@@ -160,7 +160,7 @@ then re-run: scripts/setup.sh $PROJECT"
   fi
   REPLY_JSON=$(firebase_api GET "projects/$PROJECT/androidApps/$APP_ID/config") \
     || die "Downloading google-services.json failed: $REPLY_JSON"
-  # The app's google-services.json, base64-encoded as Firebase sends it; the app gets it from kanso.
+  # The app's google-services.json, base64-encoded as Firebase sends it; the app gets it from Kanso.
   FIREBASE_CONFIG=$(json_get configFileContents <<<"$REPLY_JSON")
   [[ -n $FIREBASE_CONFIG ]] || die "Firebase sent no google-services.json: $REPLY_JSON"
   env_set FIREBASE_ANDROID_CONFIG "$FIREBASE_CONFIG"
@@ -171,7 +171,7 @@ then re-run: scripts/setup.sh $PROJECT"
     || die "Could not let $SA_EMAIL send notifications."
 fi
 
-PUBLIC_URL=$(ask 'Address you will open kanso at (no trailing slash)' "$(env_get PUBLIC_URL || true)")
+PUBLIC_URL=$(ask 'Address you will open Kanso at (no trailing slash)' "$(env_get PUBLIC_URL || true)")
 PUBLIC_URL="${PUBLIC_URL:-http://localhost:8000}"
 env_set PUBLIC_URL "$PUBLIC_URL"
 
@@ -180,7 +180,7 @@ if [[ -z $(env_get GOOGLE_CLIENT_ID) || -z $(env_get GOOGLE_CLIENT_SECRET) ]]; t
   say "5. OAuth consent screen and client (in the browser; gcloud cannot do these)"
   cat <<EOF
   a) Consent screen: $C/branding?project=$PROJECT
-     Get started -> app name "kanso", your email -> Audience: External -> your email -> Create.
+     Get started -> app name "Kanso", your email -> Audience: External -> your email -> Create.
   b) Scopes: $C/scopes?project=$PROJECT
      Add or remove scopes -> add openid, .../auth/userinfo.email, .../auth/userinfo.profile,
      .../auth/contacts.readonly, .../auth/contacts.other.readonly and
@@ -188,7 +188,7 @@ if [[ -z $(env_get GOOGLE_CLIENT_ID) || -z $(env_get GOOGLE_CLIENT_SECRET) ]]; t
   c) Publish: $C/audience?project=$PROJECT
      Publish app -> Confirm. (In "Testing", Google expires your login every 7 days.)
   d) Client: $C/clients/create?project=$PROJECT
-     Web application, name "kanso", authorized redirect URI:
+     Web application, name "Kanso", authorized redirect URI:
        $PUBLIC_URL/api/accounts/callback
      Create, then copy the client ID and secret.
 EOF
@@ -207,11 +207,11 @@ PG=$(env_get POSTGRES_PASSWORD)
 [[ -z $(env_get SECRET_KEY) ]] && env_set SECRET_KEY "$(openssl rand -hex 32)"
 
 if [[ -z $(env_get PASSWORD_HASH) ]]; then
-  read -r -s -p "kanso login password (hidden): " PW; echo
+  read -r -s -p "Kanso login password (hidden): " PW; echo
   read -r -s -p "Again: " PW2; echo
   [[ $PW == "$PW2" ]] || die "The passwords don't match."
   (( ${#PW} >= 8 )) || die "Use at least 8 characters."
-  echo "Pulling the kanso image to hash it (only the first time)..."
+  echo "Pulling the Kanso image to hash it (only the first time)..."
   HASH_LINE=$(printf '%s\n' "$PW" | docker compose run --rm -T --no-deps app python -m kanso.hash_password \
     | grep '^PASSWORD_HASH=') || die "Hashing the password failed (see the output above)."
   env_set PASSWORD_HASH "${HASH_LINE#PASSWORD_HASH=}"
@@ -219,10 +219,10 @@ else
   echo "Keeping the password already in .env."
 fi
 
-say "Done. Start kanso and connect your Gmail accounts:"
+say "Done. Start Kanso and connect your Gmail accounts:"
 cat <<EOF
   docker compose up -d
   open $PUBLIC_URL, log in, then account menu -> Settings -> Connect a Gmail account.
   For the AI features, add your API keys under Settings -> AI keys.
-  Google warns that the app is unverified: Advanced -> Go to kanso. Keep the Gmail box ticked.
+  Google warns that the app is unverified: Advanced -> Go to Kanso. Keep the Gmail box ticked.
 EOF

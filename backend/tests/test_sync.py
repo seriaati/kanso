@@ -118,7 +118,7 @@ def test_list_id_is_kept_and_fetched_for_older_mail(gmail: FakeGmail) -> None:
     assert ids["m1"] == ""  # none
     assert not any(r.endswith(" metadata") for r in gmail.requests)
 
-    # Mirrored before kanso kept List-Id: the next sync fetches the headers.
+    # Mirrored before Kanso kept List-Id: the next sync fetches the headers.
     run(_forget_list_ids())
     sync(gmail)
     assert run(_list_ids()) == ids
@@ -221,7 +221,7 @@ def test_changes_during_backfill_are_replayed_from_history(gmail: FakeGmail) -> 
     gmail.failures["GET /messages/m3 raw"] = [400]
     with pytest.raises(client.GmailError):
         sync(gmail)
-    # While kanso was down: m5 (already mirrored) is read, m6 arrives.
+    # While Kanso was down: m5 (already mirrored) is read, m6 arrives.
     gmail.relabel("m5", add=("STARRED",))
     gmail.add("m6", "t5", ["INBOX", "UNREAD"], make_raw("New", "Hello"))
     sync(gmail)
@@ -339,7 +339,7 @@ def test_attachments_are_metadata_only_and_downloadable(
     response = logged_in.get(f"/api/attachments/{attachment.id}")
     assert response.status_code == 200
     assert response.content == b"%PDF-1.4 contract"
-    # Inline and frameable by kanso alone, for the reader's attachment viewer.
+    # Inline and frameable by Kanso alone, for the reader's attachment viewer.
     assert response.headers["content-disposition"] == "inline; filename*=UTF-8''contract.pdf"
     assert response.headers["x-frame-options"] == "SAMEORIGIN"
     assert response.headers["content-security-policy"] == "frame-ancestors 'self'"
