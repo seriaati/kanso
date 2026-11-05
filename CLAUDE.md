@@ -104,7 +104,8 @@ backend/                     Python package (uv), tests, migrations
     main.py                  FastAPI app; mounts the API routers and the built frontend
     worker.py                worker entry point: runs the sync, outbox, push and AI labeling loops
     api/                     one router per area: threads, actions, compose, labels, accounts,
-                             assistant, ai, auth, events (SSE), notifications, prefs, sync, health
+                             assistant, ai, auth, events (SSE), notifications, prefs, sync, health,
+                             releases (the Android app's update check)
     sync/                    engine (backfill + history sync), store (writes to the mirror),
                              outbox (write-back), push (Pub/Sub), scheduler, drafts, photos,
                              notify (web push)

@@ -60,15 +60,14 @@ function listen(add: (App: AppPlugin) => Promise<PluginListenerHandle>) {
   return () => void handle.then((h) => h.remove())
 }
 
-// Releases of the app are on GitHub (.github/workflows/android.yml). The app asks GitHub for the
-// latest one when it starts and every few hours while open, so GitHub sees the phone's address.
-const REPO = 'seriaati/kanso'
+// Releases of the app are on GitHub (.github/workflows/android.yml). The app asks its server for
+// the latest one (api/releases.py, which asks GitHub) when it starts and every few hours while open.
 const RELEASE_CHECK_MS = 6 * 60 * 60 * 1000
 
 let release: string | null = null // a newer app's download
 const releaseListeners = new Set<() => void>()
 
-type Release = { tag_name: string; html_url: string; assets: { name: string; browser_download_url: string }[] }
+type Release = { tag: string; url: string }
 
 void app
   ?.then(({ App }) => App.getInfo())
@@ -76,15 +75,15 @@ void app
     const mine = semver(version)
     if (!mine) return // a local build (dev)
     const check = () =>
-      fetch(`https://api.github.com/repos/${REPO}/releases/latest`)
+      fetch('/api/app/release')
         .then((response) => (response.ok ? (response.json() as Promise<Release>) : null))
         .then((latest) => {
-          const theirs = latest && semver(latest.tag_name)
+          const theirs = latest && semver(latest.tag)
           if (!latest || !theirs || !newer(theirs, mine)) return
-          release = latest.assets.find((a) => a.name.endsWith('.apk'))?.browser_download_url ?? latest.html_url
+          release = latest.url
           releaseListeners.forEach((listener) => listener())
         })
-        .catch(() => undefined) // offline, or GitHub's rate limit: next time
+        .catch(() => undefined) // offline, or GitHub unreachable: next time
     void check()
     setInterval(() => void check(), RELEASE_CHECK_MS)
   })

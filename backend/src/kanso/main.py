@@ -20,6 +20,7 @@ from kanso.api import (
     labels,
     notifications,
     prefs,
+    releases,
     sync,
     threads,
     unsubscribe,
@@ -45,6 +46,7 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 # Added last, so it runs first.
 app.add_middleware(Hardening)
 app.include_router(health.router, prefix="/api")
+app.include_router(releases.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 protected = APIRouter(prefix="/api", dependencies=[Depends(require_session)])
 for router in (

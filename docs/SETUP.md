@@ -292,8 +292,9 @@ to allow installing apps from your browser (or wherever you opened it).
 
 **Updates.** When a newer release is out, the app says "A new version of the app is out." Tap
 **Update**: your browser downloads the new `kanso.apk`; open it, and Android installs it over the
-old app, keeping your login and settings. To check, the app asks GitHub for the latest
-release when it starts and every few hours, so GitHub sees your phone's IP address. Apps like
+old app, keeping your login and settings. To check, the app asks your kanso server when it starts
+and every few hours, and the server asks GitHub for the latest release (at most once an hour), so
+GitHub sees your server's IP address, not your phone's. Apps like
 [Obtainium](https://github.com/ImranR98/Obtainium) can also track the Releases page.
 
 **Building it yourself** (optional). You need Docker; no Android tools are needed:
