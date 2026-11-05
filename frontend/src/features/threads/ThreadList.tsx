@@ -168,18 +168,6 @@ export function ThreadList(props: Props) {
         ) : (
           <h1 className={styles.title}>{title}</h1>
         )}
-        {!phone && onRefresh && (
-          <button
-            type="button"
-            className={`${styles.refresh} ${refreshing ? styles.spinning : ''}`}
-            aria-label="Refresh"
-            title="Refresh"
-            aria-busy={refreshing}
-            onClick={refresh}
-          >
-            <Icon name="refresh" size={15} />
-          </button>
-        )}
         {phone && <InstallButton />}
         {selected.size > 0 && !selectionBar && (
           <span className={styles.selection} role="status">
@@ -236,6 +224,18 @@ export function ThreadList(props: Props) {
           />
           {suggest.list}
         </form>
+        )}
+        {!phone && onRefresh && (
+          <button
+            type="button"
+            className={`${styles.refresh} ${refreshing ? styles.spinning : ''}`}
+            aria-label="Refresh"
+            title="Refresh"
+            aria-busy={refreshing}
+            onClick={refresh}
+          >
+            <Icon name="refresh" size={16} />
+          </button>
         )}
         {onAsk && (
           <button type="button" className={styles.ask} aria-label="Ask the assistant" title="Ask the assistant (q)" onClick={onAsk}>

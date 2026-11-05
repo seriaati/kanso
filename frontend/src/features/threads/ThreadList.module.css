@@ -166,12 +166,12 @@
   overflow-y: auto;
 }
 
-/* Beside the title, desktop: reloads the list and syncs the account with Gmail now. */
+/* Desktop, between search and the assistant: reloads the list and syncs the account with Gmail now. */
 .refresh {
   flex: none;
-  width: 28px;
-  height: 28px;
-  margin-left: -6px;
+  width: 32px;
+  height: 32px;
+  margin-left: -4px;
   border: 0;
   border-radius: var(--radius);
   background: transparent;
