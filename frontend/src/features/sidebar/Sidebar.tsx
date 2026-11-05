@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { Link } from 'react-router'
 import type { Account } from '../../app/accounts'
 import type { Label, NamedLabel, SyncStatus } from '../../app/mail'
@@ -106,6 +106,7 @@ export function Sidebar(props: Props) {
               <Link
                 to={to(view)}
                 className={`${styles.nav} ${styles.label} ${current ? styles.active : ''}`}
+                style={{ '--label': label.color } as CSSProperties}
                 aria-current={current ? 'page' : undefined}
                 title={collapsed ? label.name : undefined}
               >

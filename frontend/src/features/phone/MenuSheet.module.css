@@ -93,7 +93,7 @@
   text-align: left;
 }
 
-.item svg {
+.item > svg {
   flex: none;
   color: var(--muted);
 }
@@ -103,7 +103,7 @@
   font-weight: 700;
 }
 
-.item.active svg {
+.item.active > svg {
   color: var(--accent);
 }
 

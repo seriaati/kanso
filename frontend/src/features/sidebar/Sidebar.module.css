@@ -35,14 +35,14 @@
   background: var(--hover);
 }
 
-.nav svg {
+.nav > svg {
   flex-shrink: 0;
   color: var(--muted);
   transition: color var(--fast) ease;
 }
 
-.nav:hover svg,
-.active svg {
+.nav:hover > svg,
+.active > svg {
   color: var(--ink);
 }
 
@@ -75,6 +75,10 @@
 
 .label {
   padding: 6px 10px;
+}
+
+.label:hover {
+  color: var(--label);
 }
 
 .heading {
