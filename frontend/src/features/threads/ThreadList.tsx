@@ -124,6 +124,21 @@ export function ThreadList(props: Props) {
   // Row heights change with the layout and the density.
   useEffect(() => virtualizer.measure(), [phone, comfortable, virtualizer])
 
+  // Rows glide (a transform) into the place of one that left, and browsers don't re-hover what
+  // slides under a still mouse: mark that row until the mouse moves again.
+  const mouse = useRef<{ x: number; y: number } | null>(null)
+  const rehover = () => {
+    const list = scrollRef.current
+    list?.querySelector('[data-hover]')?.removeAttribute('data-hover')
+    if (!list || !mouse.current) return
+    const row = document.elementFromPoint(mouse.current.x, mouse.current.y)?.closest(`.${styles.row}`)
+    if (row && list.contains(row) && !row.matches(':hover')) row.setAttribute('data-hover', '')
+  }
+  useEffect(() => {
+    const frame = requestAnimationFrame(rehover) // no glide under reduced motion
+    return () => cancelAnimationFrame(frame)
+  }, [rows])
+
   const cursorIndex = rows.findIndex((row) => row.kind === 'thread' && row.thread.id === cursorId)
   useEffect(() => {
     if (cursorIndex >= 0) virtualizer.scrollToIndex(cursorIndex)
@@ -202,7 +217,20 @@ export function ThreadList(props: Props) {
         )}
       </header>
 
-      <div ref={scrollRef} className={`${styles.scroll} ${selectionBar ? styles.underBar : ''}`}>
+      <div
+        ref={scrollRef}
+        className={`${styles.scroll} ${selectionBar ? styles.underBar : ''}`}
+        onPointerMove={(event) => {
+          if (event.pointerType !== 'mouse') return
+          mouse.current = { x: event.clientX, y: event.clientY }
+          scrollRef.current?.querySelector('[data-hover]')?.removeAttribute('data-hover')
+        }}
+        onPointerLeave={() => {
+          mouse.current = null
+          rehover()
+        }}
+        onTransitionEnd={(event) => event.propertyName === 'transform' && rehover()}
+      >
         {status === 'error' && <p className={styles.empty}>Couldn’t load threads: {error?.message}</p>}
         {status === 'success' && rows.length === 0 && <p className={styles.empty}>{empty}</p>}
         <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>

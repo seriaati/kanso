@@ -228,7 +228,9 @@
     background-color var(--fast) ease;
 }
 
-.row:hover {
+/* data-hover: the row that slid under a still mouse, which :hover misses (ThreadList). */
+.row:hover,
+.row[data-hover] {
   background: var(--hover);
 }
 
@@ -427,24 +429,24 @@
 
 /* Mouse only: touch screens swipe rows, and a tap would leave a row "hovered". */
 @media (hover: hover) {
-  .row:hover .time,
-  .row:hover .star,
-  .row:hover .important {
+  .row:is(:hover, [data-hover]) .time,
+  .row:is(:hover, [data-hover]) .star,
+  .row:is(:hover, [data-hover]) .important {
     display: none;
   }
 
-  .row:hover .actions {
+  .row:is(:hover, [data-hover]) .actions {
     display: flex;
   }
 
   @starting-style {
-    .row:hover .actions {
+    .row:is(:hover, [data-hover]) .actions {
       opacity: 0;
       translate: 4px 0;
     }
   }
 
-  .row:hover .main {
+  .row:is(:hover, [data-hover]) .main {
     padding-right: 0;
   }
 }
