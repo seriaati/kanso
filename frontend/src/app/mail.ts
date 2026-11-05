@@ -2,6 +2,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { useEffect, useEffectEvent } from 'react'
 import type { IconName } from '../components/Icon'
 import { api, queryClient } from './api'
+import { letterAvatar } from './format'
 import { preloadGlyphs } from './fonts'
 import type { View } from './nav'
 
@@ -125,12 +126,21 @@ export function viewParams(view: View, accountId: number | null, labelIds: numbe
 // A page shows once the fonts for its rows are in (see preloadGlyphs).
 async function threadPage(params: URLSearchParams, cursor: string) {
   const page = await api<ThreadPage>(`/threads?${params}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`)
+  // The avatars draw the initials in bold, without the thread's language.
+  const initials = (names: string[]) => ({ text: names.map((name) => letterAvatar(name).letter).join(''), bold: true })
   await preloadGlyphs([
-    ...page.threads.flatMap((t) => [
-      { text: [...t.senders, ...(t.recipients ?? []), t.subject].join(''), lang: t.lang, bold: t.unread },
-      { text: t.snippet, lang: t.lang },
-    ]),
-    ...(page.bundles ?? []).flatMap((b) => [{ text: b.name, bold: true }, { text: b.senders.map((sender) => sender.name).join('') }]),
+    ...page.threads.flatMap((t) => {
+      const people = [...t.senders, ...(t.recipients ?? [])]
+      return [
+        { text: [...people, t.subject].join(''), lang: t.lang, bold: t.unread },
+        { text: t.snippet, lang: t.lang },
+        initials(people),
+      ]
+    }),
+    ...(page.bundles ?? []).flatMap((b) => {
+      const names = b.senders.map((sender) => sender.name)
+      return [{ text: b.name, bold: true }, { text: names.join('') }, initials(names)]
+    }),
   ])
   return page
 }
