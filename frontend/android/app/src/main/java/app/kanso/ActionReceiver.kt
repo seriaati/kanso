@@ -2,9 +2,12 @@ package app.kanso
 
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.RemoteInput
 import org.json.JSONArray
@@ -14,10 +17,11 @@ import kotlin.concurrent.thread
 
 // A new-mail notification's Done, Delete and Reply buttons: the change or reply goes to Kanso in
 // the background, so the notification shade stays open. Done and Delete remove the notification;
-// a reply shows under it once sent.
+// a reply shows under it once sent. A verification mail has Copy code instead of Reply.
 class ActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.getStringExtra(ACTION) ?: return
+        if (action == COPY) return copy(context, intent.getStringExtra(CODE).orEmpty())
         val accountId = intent.getIntExtra(ACCOUNT_ID, -1)
         val threadId = intent.getIntExtra(THREAD_ID, -1)
         val text = if (action == REPLY) RemoteInput.getResultsFromIntent(intent)?.getCharSequence(REPLY)?.toString()?.trim() else null
@@ -35,6 +39,12 @@ class ActionReceiver : BroadcastReceiver() {
                 pending.finish()
             }
         }
+    }
+
+    private fun copy(context: Context, code: String) {
+        context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Verification code", code))
+        // Android 13+ confirms a copy itself.
+        if (Build.VERSION.SDK_INT < 33) Toast.makeText(context, "Code copied", Toast.LENGTH_SHORT).show()
     }
 
     /** null when it worked, else what to tell. */
@@ -65,11 +75,16 @@ class ActionReceiver : BroadcastReceiver() {
         private const val THREAD_ID = "thread_id"
         private const val MESSAGE_ID = "message_id"
         private const val URL = "url"
+        private const val CODE = "code"
+        private const val COPY = "copy"
         private const val REPLY = "reply" // the action, and the RemoteInput's key
         private val FAILED = mapOf("done" to "Couldn’t mark it done", "delete" to "Couldn’t delete it")
 
         fun intent(context: Context, action: String, accountId: Int, account: String, threadId: Int, url: String): PendingIntent =
             pending(context, base(context, action, accountId, account, threadId, url), threadId, mutable = false)
+
+        fun copyIntent(context: Context, accountId: Int, account: String, threadId: Int, url: String, code: String): PendingIntent =
+            pending(context, base(context, COPY, accountId, account, threadId, url).putExtra(CODE, code), threadId, mutable = false)
 
         /** The Reply button, with its text field. Its PendingIntent is mutable: Android adds the
          * typed text to it. */

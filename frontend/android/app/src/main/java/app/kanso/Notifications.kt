@@ -81,7 +81,13 @@ object Notifications {
                 for ((action, title) in listOf("done" to "Done", "delete" to "Delete")) {
                     builder.addAction(0, title, ActionReceiver.intent(context, action, accountId, account, threadId, url))
                 }
-                data["message_id"]?.toIntOrNull()?.let { builder.addAction(ActionReceiver.replyAction(context, accountId, account, threadId, url, it)) }
+                // A verification mail gets Copy code instead of Reply.
+                val code = data["code"]
+                if (code != null) {
+                    builder.addAction(0, "Copy code", ActionReceiver.copyIntent(context, accountId, account, threadId, url, code))
+                } else {
+                    data["message_id"]?.toIntOrNull()?.let { builder.addAction(ActionReceiver.replyAction(context, accountId, account, threadId, url, it)) }
+                }
                 post(context, accountId, account, THREAD, threadId, builder)
             }
             "summary" -> {

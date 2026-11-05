@@ -25,9 +25,10 @@ from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from google.auth import crypt, jwt
-from sqlalchemy import delete, exists, select
+from sqlalchemy import delete, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kanso import codes
 from kanso.api.threads import _images
 from kanso.core.settings import settings
 from kanso.db.models import (
@@ -266,6 +267,7 @@ async def new_mail(
                     Message.from_email,
                     Message.subject,
                     Message.snippet,
+                    func.left(Message.body_text, codes.HEAD).label("text"),
                 )
                 .where(
                     Message.account_id == account_id,
@@ -311,18 +313,20 @@ async def new_mail(
                         "image": image,
                     }
                 )
-                messages.append(
-                    {
-                        "type": "mail",
-                        "thread_id": str(r.thread_id),
-                        "message_id": str(r.id),  # what the Reply button answers
-                        "sender": _clip(sender, 100),
-                        "subject": subject,
-                        "snippet": snippet,
-                        "image": image or "",
-                        "url": url,
-                    }
-                )
+                message = {
+                    "type": "mail",
+                    "thread_id": str(r.thread_id),
+                    "message_id": str(r.id),  # what the Reply button answers
+                    "sender": _clip(sender, 100),
+                    "subject": subject,
+                    "snippet": snippet,
+                    "image": image or "",
+                    "url": url,
+                }
+                # A verification mail's code: the app offers Copy code instead of Reply.
+                if code := codes.find_code(r.subject, r.text):
+                    message["code"] = code
+                messages.append(message)
         await _web_push(db, http, subscriptions, payloads)
         if tokens:
             # One channel and one group per account: the app names them after its address.

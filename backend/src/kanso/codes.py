@@ -1,6 +1,6 @@
 """The one-time code in a verification mail (sign-in, 2FA, confirming an address), offered for
-copying in the thread list. Plain rules, not AI: the code is wanted the moment the mail arrives,
-and this works without an API key."""
+copying in the thread list and the Android app's notifications. Plain rules, not AI: the code is
+wanted the moment the mail arrives, and this works without an API key."""
 
 import re
 from datetime import timedelta

@@ -427,6 +427,14 @@ def test_new_mail_goes_to_the_app_and_the_browser(
     assert phone.token_requests == 1  # the access token is reused
 
 
+def test_a_verification_code_goes_to_the_app(mail: tuple[FakeGmail, Browser], phone: Phone) -> None:
+    gmail, _ = mail
+    sync(gmail)
+    gmail.add("m2", "t2", ["INBOX", "UNREAD"], make_raw("Your sign-in code", "Code: 482 913"))
+    sync(gmail)
+    assert phone.received[0]["code"] == "482913"
+
+
 def test_many_new_messages_make_one_app_notification(
     mail: tuple[FakeGmail, Browser], phone: Phone
 ) -> None:
