@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kanso.core.security import encrypt
 from kanso.core.settings import settings
-from kanso.db.models import Account
+from kanso.db.models import Account, Thread
 from kanso.db.redis import redis
 from kanso.db.session import get_session
 from kanso.gmail import oauth
@@ -29,6 +29,7 @@ class AccountOut(BaseModel):
     display_name: str
     color: str
     avatar_url: str | None
+    unread: int = 0  # unread threads in the inbox
 
 
 class AccountOrder(BaseModel):
@@ -45,7 +46,16 @@ async def _get(db: AsyncSession, account_id: int) -> Account:
 @router.get("")
 async def list_accounts(db: DB) -> list[AccountOut]:
     accounts = await db.scalars(select(Account).order_by(Account.position, Account.id))
-    return [AccountOut.model_validate(a) for a in accounts]
+    unread_threads = (
+        select(Thread.account_id, func.count())
+        .where(Thread.in_inbox, Thread.unread, ~Thread.in_trash, ~Thread.in_spam)
+        .group_by(Thread.account_id)
+    )
+    unread: dict[int, int] = dict((await db.execute(unread_threads)).all())
+    return [
+        AccountOut.model_validate(a).model_copy(update={"unread": unread.get(a.id, 0)})
+        for a in accounts
+    ]
 
 
 @router.put("/order")

@@ -195,7 +195,7 @@ export function useLiveUpdates(onWriteFailed: (action: string) => void, onSendFa
         return
       }
       flush = undefined
-      refresh('threads', 'labels')
+      refresh('threads', 'labels', 'accounts')
       for (const id of changed) void queryClient.invalidateQueries({ queryKey: ['thread', id] })
       changed.clear()
     }
@@ -203,7 +203,7 @@ export function useLiveUpdates(onWriteFailed: (action: string) => void, onSendFa
     const connect = () => {
       source = new EventSource('/api/events')
       source.onopen = () => {
-        if (connected) refresh('threads', 'thread', 'labels', 'sync')
+        if (connected) refresh('threads', 'thread', 'labels', 'accounts', 'sync')
         connected = true
       }
       source.onmessage = (message: MessageEvent<string>) => {

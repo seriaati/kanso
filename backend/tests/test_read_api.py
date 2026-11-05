@@ -372,6 +372,8 @@ def test_labels_with_counts(demo: TestClient) -> None:
     assert inbox["threads_total"] == len(subjects(demo, mailbox="inbox"))
     assert inbox["threads_unread"] == len(subjects(demo, mailbox="inbox", q="is:unread"))
     assert labels["TRASH"]["threads_total"] == 1
+    [account] = demo.get("/api/accounts").json()
+    assert account["unread"] == inbox["threads_unread"] > 0
 
 
 def test_sync_status(demo: TestClient) -> None:

@@ -115,6 +115,12 @@
   scale: none;
 }
 
+.count {
+  flex: none;
+  font-size: var(--text-small);
+  color: var(--muted);
+}
+
 .row[aria-current='true'] {
   background: var(--selected);
 }

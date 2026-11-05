@@ -101,6 +101,7 @@ def test_connect_creates_account(logged_in: TestClient, google: FakeGoogle) -> N
             "display_name": "Me Myself",
             "color": "#2F4B6E",
             "avatar_url": PHOTO,
+            "unread": 0,
         }
     ]
     [stored] = asyncio.run(_stored_accounts())

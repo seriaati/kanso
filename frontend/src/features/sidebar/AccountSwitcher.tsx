@@ -133,6 +133,11 @@ export function AccountSwitcher({ accounts, selected, ai, compact = false, onSel
                 <span className={styles.name}>{account.display_name}</span>
                 <span className={styles.sub}>{account.email}</span>
               </span>
+              {account.unread > 0 && (
+                <span className={styles.count} title={`${account.unread} unread`}>
+                  {account.unread}
+                </span>
+              )}
             </button>
           ))}
           {!demo && (

@@ -183,7 +183,7 @@ function patchCaches(input: ActionInput): Snapshot {
 }
 
 export const refreshAll = () => {
-  for (const key of ['threads', 'thread', 'labels', 'cleanup']) void queryClient.invalidateQueries({ queryKey: [key] })
+  for (const key of ['threads', 'thread', 'labels', 'accounts', 'cleanup']) void queryClient.invalidateQueries({ queryKey: [key] })
 }
 
 const mutationKey = ['thread-action']
