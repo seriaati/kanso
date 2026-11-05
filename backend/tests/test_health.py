@@ -22,7 +22,7 @@ def test_health_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(health, "check_redis", ok)
     response = client.get("/api/health")
     assert response.status_code == 200
-    assert response.json() == {"db": "ok", "redis": "ok"}
+    assert response.json() == {"app": "kanso", "db": "ok", "redis": "ok"}
 
 
 def test_health_reports_failure(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -30,7 +30,7 @@ def test_health_reports_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(health, "check_redis", fail)
     response = client.get("/api/health")
     assert response.status_code == 503
-    assert response.json() == {"db": "ok", "redis": "error"}
+    assert response.json() == {"app": "kanso", "db": "ok", "redis": "error"}
 
 
 def test_fonts_are_served_as_woff2() -> None:
