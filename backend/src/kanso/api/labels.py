@@ -207,6 +207,14 @@ async def create_label(body: LabelCreate, db: DB) -> LabelOut:
 @router.patch("/labels/{label_id}")
 async def update_label(label_id: int, body: LabelUpdate, db: DB) -> LabelOut:
     label, account = await _user_label(db, label_id)
+    await edit(db, label, account, body)
+    await db.commit()
+    return _out(label)
+
+
+async def edit(db: AsyncSession, label: Label, account: Account, body: LabelUpdate) -> None:
+    """Changes a user label in Gmail and the mirror (also the assistant's edit_label). The caller
+    commits."""
     request: dict[str, Any] = {}
     if body.name is not None and body.name != label.name:
         await _check_name(db, account.id, body.name, label.id)
@@ -217,10 +225,7 @@ async def update_label(label_id: int, body: LabelUpdate, db: DB) -> LabelOut:
         label.description = body.description
     if body.icon is not None:
         label.icon = body.icon or None
-    if not request:
-        await db.commit()
-        return _out(label)
-    if not account.demo:
+    if request and not account.demo:
         async with gmail_client.http_client() as http:
             try:
                 await gmail_client.Gmail(account, http).update_label(label.gmail_id, request)
@@ -230,8 +235,6 @@ async def update_label(label_id: int, body: LabelUpdate, db: DB) -> LabelOut:
         label.name = request["name"]
     if "color" in request:
         label.color = request["color"]["backgroundColor"]
-    await db.commit()
-    return _out(label)
 
 
 @router.delete("/labels/{label_id}", status_code=204)

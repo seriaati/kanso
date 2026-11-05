@@ -48,7 +48,8 @@ _DOES = {
 }
 LABELED = {"apply_label", "remove_label"}  # the changes that name a label
 BATCHES = {"change_matching", "change_batch"}
-PROPOSALS = set(CHANGES) | BATCHES
+PROPOSALS = set(CHANGES) | BATCHES | {"edit_label"}
+NAME_LIMIT, DESCRIPTION_LIMIT = 225, 500  # as kanso.api.labels
 READS = {"search_threads", "get_thread", "list_labels"}
 
 _TARGETS = {
@@ -137,6 +138,27 @@ TOOLS: list[dict[str, Any]] = [
         }
         for name, does in _DOES.items()
     ),
+    {
+        "name": "edit_label",
+        "description": (
+            "Propose renaming one of the user's labels (in Gmail too), changing its description "
+            "(what belongs under it, which AI labeling follows), or both." + _CONFIRMED
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "label": {"type": "string", "description": "The label's name from list_labels."},
+                "new_name": {"type": "string", "minLength": 1, "maxLength": NAME_LIMIT},
+                "description": {
+                    "type": "string",
+                    "maxLength": DESCRIPTION_LIMIT,
+                    "description": "The whole new description; empty clears it.",
+                },
+            },
+            "required": ["label"],
+            "additionalProperties": False,
+        },
+    },
     {
         "name": "change_matching",
         "description": (
@@ -233,6 +255,12 @@ class PartIn(_Input):
 
 class BatchIn(_Input):
     changes: list[PartIn] = Field(min_length=2, max_length=MAX_PARTS)
+
+
+class EditLabelIn(_Input):
+    label: str
+    new_name: str | None = Field(None, min_length=1, max_length=NAME_LIMIT)
+    description: str | None = Field(None, max_length=DESCRIPTION_LIMIT)
 
 
 def _parse[T: BaseModel](model: type[T], data: Any) -> T:
@@ -459,6 +487,45 @@ async def _part(
     }
 
 
+async def _edit_label(db: AsyncSession, account_id: int, data: Any) -> dict[str, Any]:
+    args = _parse(EditLabelIn, data)
+    label = await db.scalar(
+        select(Label).where(
+            Label.type == "user",
+            Label.account_id == account_id,
+            func.lower(Label.name) == args.label.strip().lower(),
+        )
+    )
+    if label is None:
+        raise ToolError(f"There is no label named “{args.label}”")
+    name = args.new_name.strip() if args.new_name is not None else None
+    description = args.description.strip() if args.description is not None else None
+    if name == label.name:
+        name = None
+    if description == label.description:
+        description = None
+    if name is None and description is None:
+        raise ToolError("Give a new name or description that differs from the label's own")
+    if name is not None and name.lower() != label.name.lower():
+        clash = await db.scalar(
+            select(Label.id).where(
+                Label.account_id == account_id, func.lower(Label.name) == name.lower()
+            )
+        )
+        if clash is not None:
+            raise ToolError(f"A label named “{name}” already exists")
+    return {
+        "tool": "edit_label",
+        "action": None,
+        "label": label.name,
+        "query": None,
+        "threads": [],
+        "label_id": label.id,
+        "edit": {"name": name, "description": description},
+        "before": {"name": label.name, "description": label.description},
+    }
+
+
 def parts(action: dict[str, Any]) -> list[dict[str, Any]]:
     """A batch's changes, or the one change of any other proposal."""
     return action.get("parts") or [action]
@@ -478,6 +545,8 @@ async def propose(
             raise ToolError(f"A batch may change at most {MAX_MATCHING} threads in all")
         proposal = {"tool": name, "action": None, "label": None, "query": None, "threads": []}
         proposal["parts"] = changes
+    elif name == "edit_label":
+        proposal = await _edit_label(db, account_id, data)
     elif name == "change_matching":
         matching = _parse(MatchingIn, data)
         proposal = await _part(
@@ -507,6 +576,12 @@ DONE = {
 
 
 def _done(part: dict[str, Any]) -> str:
+    if part["tool"] == "edit_label":
+        name, description = part["edit"]["name"], part["edit"]["description"]
+        done = [f"renamed it “{name}”"] if name is not None else []
+        if description is not None:
+            done.append("changed its description" if description else "cleared its description")
+        return f"Label “{part['label']}”: {' and '.join(done)}"
     count = len(part["threads"])
     label = f" “{part['label']}”" if part["label"] else ""
     return f"{DONE[part['tool']]}{label}: {count} thread{'s' if count != 1 else ''}"

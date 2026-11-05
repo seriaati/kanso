@@ -12,6 +12,7 @@ import httpx2 as httpx
 import pytest
 import test_summaries as mail
 from conftest import TEST_DATABASE_URL, run, set_key
+from fake_gmail import FakeGmail
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -32,6 +33,8 @@ from kanso.db.models import (
     Thread,
 )
 from kanso.db.session import Session
+from kanso.gmail import client as gmail_client
+from kanso.gmail import oauth
 from kanso.sync import store
 
 pytestmark = pytest.mark.usefixtures("db", "unpooled", "ai_on")
@@ -559,6 +562,7 @@ def test_change_waits_for_confirm_then_goes_through_the_outbox(
         "query": None,
         "threads": [{"id": news, "subject": "Tea weekly"}],
         "parts": None,
+        "edit": None,
         "status": "pending",
         "entries": [],
         "error": None,
@@ -839,6 +843,63 @@ def test_change_batch_is_confirmed_and_undone_together(
     url = f"/api/assistant/conversations/{got[0]['id']}/actions/{batch['id']}/undo"
     assert logged_in.post(url).status_code == 200
     assert thread(news).in_inbox and not thread(lease).starred
+
+
+async def _travel() -> Label:
+    async with Session() as db:
+        found = await db.scalar(select(Label).where(Label.gmail_id == "Label_1"))
+        assert found is not None
+        return found
+
+
+def test_edit_label_renames_and_describes_after_confirm_and_undoes(
+    mailbox: dict[str, int],
+    claude: FakeClaude,
+    logged_in: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gmail = FakeGmail()
+    monkeypatch.setattr(gmail_client, "http_client", gmail.client)
+    oauth._access_tokens[1] = ("access-token", 9e9)
+    gmail_label = next(x for x in gmail.labels if x["id"] == "Label_1")
+    claude.answers = [
+        [
+            tool("edit_label", label="travel", new_name="Trips", description="Bookings, tickets"),
+            tool("edit_label", label="Home", new_name="travel"),  # clashes
+            tool("edit_label", label="Home", new_name="Home"),  # changes nothing
+            tool("edit_label", label="Nope", description="x"),
+        ]
+    ]
+    got = ask(logged_in, "rename Travel to Trips and describe it")
+    [proposal] = [e["action"] for e in got if e["type"] == "action"]
+    assert (proposal["tool"], proposal["label"], proposal["threads"]) == (
+        "edit_label",
+        "Travel",
+        [],
+    )
+    assert proposal["edit"] == {"name": "Trips", "description": "Bookings, tickets"}
+    assert run(_travel()).name == "Travel" and gmail.writes == []
+
+    claude.answers = [["Renamed."]]
+    conversation = got[0]["id"]
+    confirmed = decide(logged_in, conversation, proposal["id"], True)
+    assert confirmed[0]["action"]["status"] == "confirmed"
+    label = run(_travel())
+    assert (label.name, label.description) == ("Trips", "Bookings, tickets")
+    assert gmail_label["name"] == "Trips"
+    done, clash, same, missing = results_in(claude.requests[-1])
+    assert done["content"] == (
+        "The user confirmed. Label “Travel”: renamed it “Trips” and changed its description."
+    )
+    assert "already exists" in clash["content"]
+    assert "differs" in same["content"]
+    assert "no label named “Nope”" in missing["content"]
+
+    url = f"/api/assistant/conversations/{conversation}/actions/{proposal['id']}/undo"
+    assert logged_in.post(url).json() == {"thread_ids": []}
+    label = run(_travel())
+    assert (label.name, label.description) == ("Travel", "")
+    assert gmail_label["name"] == "Travel"
 
 
 def test_a_new_message_instead_of_a_decision_changes_nothing(

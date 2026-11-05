@@ -169,11 +169,13 @@ export type AssistantChange = {
   threads: { id: number; subject: string }[]
 }
 
-/** A proposal: one change, or a batch of them (`parts`) confirmed together. */
+/** A proposal: one change, a batch of them (`parts`) confirmed together, or an edit of the
+ * label `label` (`edit`: its new name and description, null where unchanged). */
 export type AssistantAction = Omit<AssistantChange, 'tool'> & {
   id: string
-  tool: AssistantChange['tool'] | 'change_batch'
+  tool: AssistantChange['tool'] | 'change_batch' | 'edit_label'
   parts?: AssistantChange[] | null
+  edit?: { name: string | null; description: string | null } | null
   status: 'pending' | 'confirmed' | 'declined' | 'skipped' | 'failed' | 'undone'
   entries: number[]
   error: string | null

@@ -198,6 +198,15 @@
   margin: 0;
 }
 
+/* edit_label's proposed description */
+.quote {
+  margin: 4px 0 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--line);
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+
 .targets {
   margin: 4px 0 0;
   padding-left: 18px;

@@ -373,9 +373,18 @@ function Item({ item, busy, threadHref, onOpenThread, onDecide, onUndo }: ItemPr
 const count = (n: number) => (n === 1 ? '1 thread' : `${n} threads`)
 
 function describe(action: AssistantAction, done: boolean): string {
+  if (action.tool === 'edit_label') return describeEdit(action, done)
   if (action.tool !== 'change_batch') return describeChange({ ...action, tool: action.tool }, done)
   const n = action.parts?.length ?? 0
   return done ? `Made ${n} changes.` : `Make these ${n} changes?`
+}
+
+function describeEdit(action: AssistantAction, done: boolean): string {
+  const { name, description } = action.edit ?? { name: null, description: null }
+  const changes = []
+  if (name !== null) changes.push(`${done ? 'renamed' : 'rename'} it “${name}”`)
+  if (description !== null) changes.push(`${done ? (description ? 'changed' : 'cleared') : description ? 'change' : 'clear'} its description`)
+  return `Label “${action.label}”: ${changes.join(' and ')}${done ? '.' : '?'}`
 }
 
 function describeChange(change: AssistantChange, done: boolean): string {
@@ -453,6 +462,8 @@ function Proposal({ action, busy, threadHref, onOpenThread, onDecide, onUndo }: 
             <Targets threads={part.threads} threadHref={threadHref} onOpenThread={onOpenThread} />
           </div>
         ))
+      ) : action.edit ? (
+        action.edit.description && <blockquote className={styles.quote}>{action.edit.description}</blockquote>
       ) : (
         <Targets threads={action.threads} threadHref={threadHref} onOpenThread={onOpenThread} />
       )}
