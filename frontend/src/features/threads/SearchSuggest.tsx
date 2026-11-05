@@ -104,12 +104,15 @@ export function useSearchSuggest(inputRef: RefObject<HTMLInputElement | null>, l
   const operator = /^(\w+):"?(.*)$/.exec(token)
   const key = operator?.[1].toLowerCase()
   const value = operator?.[2] ?? ''
+  // A plain word (dai) also suggests the people it matches, to search by sender.
+  const word = !operator && token.length >= 2 && !token.startsWith('"') ? token : ''
+  const person = key && PEOPLE.has(key) ? value.trim() : word
 
   const [contactQuery, setContactQuery] = useState('')
   useEffect(() => {
-    const timer = setTimeout(() => setContactQuery(key && PEOPLE.has(key) ? value.trim() : ''), 120)
+    const timer = setTimeout(() => setContactQuery(person), 120)
     return () => clearTimeout(timer)
-  }, [key, value])
+  }, [person])
   const contacts = useContacts(contactQuery)
 
   let suggestions: Suggestion[] = []
@@ -132,6 +135,10 @@ export function useSearchSuggest(inputRef: RefObject<HTMLInputElement | null>, l
   } else if (!operator && token) {
     const typed = token.toLowerCase()
     suggestions = OPERATORS.filter(([name]) => name.startsWith(typed)).map(([name, detail]) => ({ label: name, detail, insert: name }))
+    if (word)
+      suggestions.push(
+        ...(contacts.data ?? []).map((c) => ({ label: c.name || c.email, detail: `from:${c.email}`, insert: `from:${c.email} `, name: true })),
+      )
   } else if (!text.trim()) {
     suggestions = [...OPERATORS.map(([name, detail]) => ({ label: name, detail, insert: name })), ...SYNTAX]
   }
