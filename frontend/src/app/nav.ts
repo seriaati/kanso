@@ -39,6 +39,8 @@ export function parse(pathname: string, params: URLSearchParams): Route | null {
   const accountId = Number(params.get('account')) || null
   const thread = (segment: string | undefined) => (segment && /^\d+$/.test(segment) ? Number(segment) : null)
   if ((first === 'settings' || first === 'labels' || first === 'cleanup') && !second) return { view: { kind: 'mailbox', mailbox: 'inbox' }, threadId: null, accountId, page: first }
+  // A message to start from a link (App opens Compose over the inbox).
+  if (first === 'compose' && !second) return { view: { kind: 'mailbox', mailbox: 'inbox' }, threadId: null, accountId }
   if (first === 'label' && second) return { view: { kind: 'label', name: second }, threadId: thread(third), accountId }
   if (first === 'search') return { view: { kind: 'search', q: params.get('q') ?? '' }, threadId: thread(second), accountId }
   if (isMailbox(first)) return { view: { kind: 'mailbox', mailbox: first }, threadId: thread(second), accountId }

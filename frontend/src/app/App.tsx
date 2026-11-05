@@ -32,7 +32,7 @@ import { pickAccount, rememberAccount, useAccounts, type Account } from './accou
 import { applied, bundleActions, inList, quickAction, quickTarget, redundant, unsubscribe, useThreadAction, useUndo, type BundleAction, type BundleScope, type LabelScope, type Quick, type ThreadAction } from './actions'
 import { useConfig } from './ai'
 import { ApiError, queryClient, Unauthorized } from './api'
-import { createDraft, openDraft, type ComposeMode } from './compose'
+import { createDraft, linkedDraft, openDraft, type ComposeMode, type LinkedDraft } from './compose'
 import styles from './App.module.css'
 import { useCreateLabel } from './labels'
 import {
@@ -479,16 +479,31 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
       .catch((error: Error) => say(`Couldn’t start the message: ${error.message}`))
       .finally(() => (starting.current = false))
   }
-  const compose = () => {
-    if (composing) return setComposing({ ...composing, minimized: false })
+  // `linked`: filled in from a link, which opens it over the inbox.
+  const compose = (linked?: LinkedDraft) => {
+    if (composing) {
+      if (linked) say('Close the open message to start another.')
+      return setComposing({ ...composing, minimized: false })
+    }
+    const under = linked ? href(route) : { pathname: location.pathname, search: location.search }
     startDraft(
-      () => createDraft('new', { accountId: accountId ?? undefined }).then((d) => d.id),
+      () => createDraft('new', { accountId: accountId ?? undefined }, linked).then((d) => d.id),
       (draftId) => {
         setComposing({ draftId, minimized: false })
-        if (phone) void navigate({ pathname: location.pathname, search: location.search }, { state: { compose: draftId } })
+        if (phone) void navigate(under, { state: { compose: draftId } })
       },
     )
   }
+  // /compose?to=…&subject=… (linkedDraft): Compose, filled in, over the inbox.
+  const linked = location.pathname === '/compose' ? location.search : null
+  const openLinked = useEffectEvent((search: string) => {
+    void navigate(href(route), { replace: true })
+    compose(linkedDraft(new URLSearchParams(search)))
+  })
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the URL asks for a draft, created once
+    if (linked !== null) openLinked(linked)
+  }, [linked])
   // On a phone the window covers the app, so it has a history entry of its own: Back closes it
   // (as Close does), and closing it leaves the entry.
   const composeEntry = (location.state as { compose?: number } | null)?.compose
@@ -749,7 +764,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
           collapsed={sidebarCollapsed}
           onToggle={toggleSidebar}
           onSelectAccount={selectAccount}
-          onCompose={compose}
+          onCompose={() => compose()}
           onLabelChanged={(name, { renamed, deleted }) => {
             if (view.kind !== 'label' || view.name !== name) return
             if (deleted) go({ view: { kind: 'mailbox', mailbox: 'inbox' }, threadId: null }, true)
@@ -844,7 +859,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
                   inboxHref={href({ view: { kind: 'mailbox', mailbox: 'inbox' }, threadId: null, accountId })}
                   onSearch={search}
                   labels={labelNames}
-                  onCompose={compose}
+                  onCompose={() => compose()}
                   onAsk={ai && accountId !== null ? () => setAsking(true) : undefined}
                   onMenu={() => setMenu({ open: true, at: location.key })}
                 />

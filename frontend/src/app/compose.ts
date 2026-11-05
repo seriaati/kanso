@@ -31,13 +31,54 @@ export const ATTACHMENTS_LIMIT = 25 * 1024 * 1024 // Gmail's, enforced by the se
 
 const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
 
-export async function createDraft(mode: ComposeMode, from: { messageId?: number; accountId?: number }) {
+/** `fields`: filled in from a link (linkedDraft), and unsaved until edited, like any new message. */
+export async function createDraft(mode: ComposeMode, from: { messageId?: number; accountId?: number }, fields?: LinkedDraft) {
   const draft = await api<Draft>('/drafts', {
     method: 'POST',
     body: { mode, message_id: from.messageId, account_id: from.accountId, tz: timeZone },
   })
-  queryClient.setQueryData(['draft', draft.id], draft)
+  queryClient.setQueryData(['draft', draft.id], { ...draft, ...fields })
   return draft
+}
+
+export type LinkedDraft = Pick<Draft, 'to' | 'cc' | 'bcc' | 'subject' | 'body_html'>
+
+/** A message started from a link: /compose?to=…&cc=…&bcc=…&subject=…&body=…, or ?mailto= with a
+ * whole mailto: link, as the Android app and the browser's mailto: handler pass it. */
+export function linkedDraft(params: URLSearchParams): LinkedDraft {
+  const fields = [...params]
+  const mailto = params.get('mailto')
+  if (mailto && /^mailto:/i.test(mailto)) fields.push(...mailtoFields(mailto.slice('mailto:'.length)))
+  const all = (name: string) => fields.filter(([key]) => key === name).map(([, value]) => value)
+  const addresses = (name: string) => parseAddresses(all(name).join(',')).addresses
+  const body = document.createElement('div')
+  body.textContent = all('body')[0] ?? ''
+  return {
+    to: addresses('to'),
+    cc: addresses('cc'),
+    bcc: addresses('bcc'),
+    subject: all('subject')[0] ?? '',
+    body_html: body.innerHTML.replace(/\r?\n/g, '<br>'),
+  }
+}
+
+// RFC 6068: the addresses, then ?name=value&…, percent-encoded ("+" is a plus, not a space).
+function mailtoFields(link: string): [string, string][] {
+  const decode = (text: string) => {
+    try {
+      return decodeURIComponent(text)
+    } catch {
+      return text // malformed percent-encoding
+    }
+  }
+  const query = link.indexOf('?')
+  const fields: [string, string][] = [['to', decode(query < 0 ? link : link.slice(0, query))]]
+  if (query < 0) return fields
+  for (const pair of link.slice(query + 1).split('&')) {
+    const equals = pair.indexOf('=')
+    if (equals > 0) fields.push([decode(pair.slice(0, equals)).toLowerCase(), decode(pair.slice(equals + 1))])
+  }
+  return fields
 }
 
 async function openByMessage(messageId: number) {

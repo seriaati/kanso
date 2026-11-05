@@ -32,6 +32,8 @@ const pwa = VitePWA({
       { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
       { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
+    // Installed, kanso can be the browser's mailto: handler (app/compose.ts, linkedDraft).
+    protocol_handlers: [{ protocol: 'mailto', url: '/compose?mailto=%s' }],
   },
   workbox: {
     // Only the first paint's Latin fonts; the rest (~1 MB of CSS and subsets) is cached on use.
