@@ -32,7 +32,7 @@ retry() {
   "$@"
 }
 
-for cmd in gcloud docker openssl base64 awk; do
+for cmd in gcloud docker openssl base64 awk curl; do
   command -v "$cmd" >/dev/null || die "$cmd is not installed."
 done
 [[ -n $(gcloud auth list --filter=status:ACTIVE --format='value(account)') ]] \
@@ -104,13 +104,80 @@ if [[ $PUBSUB == yes ]]; then
   fi
 fi
 
+say "4. Firebase for the Android app's notifications (optional)"
+if [[ $PUBSUB != yes ]]; then
+  echo "Skipped: the app's notifications are sent with the Pub/Sub service account."
+elif [[ $(ask 'Set up Firebase for the Android app? (y/n)' n) == y ]]; then
+  PACKAGE=app.kanso
+  gcloud services enable firebase.googleapis.com fcm.googleapis.com --project "$PROJECT"
+  # The Firebase Management API has no gcloud commands. METHOD PATH [BODY]
+  firebase_api() {
+    curl -sS --fail-with-body -X "$1" "https://firebase.googleapis.com/v1beta1/$2" \
+      -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+      -H "x-goog-user-project: $PROJECT" -H "Content-Type: application/json" ${3:+-d "$3"}
+  }
+  json_get() { sed -n "s/.*\"$1\": *\"\([^\"]*\)\".*/\1/p" | head -n1; }
+  wait_operation() {
+    local name reply i
+    name=$(json_get name <<<"$1")
+    for i in $(seq 40); do
+      reply=$(firebase_api GET "$name") || die "Firebase: $reply"
+      if grep -q '"done": *true' <<<"$reply"; then
+        grep -q '"error"' <<<"$reply" && die "Firebase: $reply"
+        return 0
+      fi
+      sleep 3
+    done
+    die "Firebase didn't finish $name in time. Re-run: scripts/setup.sh $PROJECT"
+  }
+  # Each app is a flat object, so splitting the list at "}" leaves one app per line.
+  app_id() {
+    local apps
+    apps=$(firebase_api GET "projects/$PROJECT/androidApps") \
+      || die "Listing the project's Firebase apps failed: $apps"
+    # sed, not grep: no match (e.g. "{}" before the first app) must not end the script.
+    tr -d '\n' <<<"$apps" | tr '}' '\n' | sed -n "/\"packageName\": *\"$PACKAGE\"/p" | json_get appId
+  }
+
+  if firebase_api GET "projects/$PROJECT" >/dev/null 2>&1; then
+    echo "Firebase is already on in $PROJECT."
+  else
+    REPLY_JSON=$(firebase_api POST "projects/$PROJECT:addFirebase" '{}') || die "Adding Firebase \
+failed: $REPLY_JSON
+If it mentions the terms of service, open https://console.firebase.google.com/, accept them once, \
+then re-run: scripts/setup.sh $PROJECT"
+    wait_operation "$REPLY_JSON"
+  fi
+
+  APP_ID=$(app_id)
+  if [[ -z $APP_ID ]]; then
+    REPLY_JSON=$(firebase_api POST "projects/$PROJECT/androidApps" \
+      "{\"packageName\": \"$PACKAGE\", \"displayName\": \"kanso\"}") \
+      || die "Registering the Android app failed: $REPLY_JSON"
+    wait_operation "$REPLY_JSON"
+    APP_ID=$(app_id)
+    [[ -n $APP_ID ]] || die "Registered the Android app, but couldn't find it. Re-run the script."
+  fi
+  REPLY_JSON=$(firebase_api GET "projects/$PROJECT/androidApps/$APP_ID/config") \
+    || die "Downloading google-services.json failed: $REPLY_JSON"
+  # The app's google-services.json, base64-encoded as Firebase sends it; the app gets it from kanso.
+  FIREBASE_CONFIG=$(json_get configFileContents <<<"$REPLY_JSON")
+  [[ -n $FIREBASE_CONFIG ]] || die "Firebase sent no google-services.json: $REPLY_JSON"
+  env_set FIREBASE_ANDROID_CONFIG "$FIREBASE_CONFIG"
+  echo "Set FIREBASE_ANDROID_CONFIG in $ENV_FILE for the Android app $PACKAGE."
+
+  retry gcloud projects add-iam-policy-binding "$PROJECT" --condition=None \
+    --member="serviceAccount:$SA_EMAIL" --role=roles/firebasecloudmessaging.admin >/dev/null \
+    || die "Could not let $SA_EMAIL send notifications."
+fi
+
 PUBLIC_URL=$(ask 'Address you will open kanso at (no trailing slash)' "$(env_get PUBLIC_URL || true)")
 PUBLIC_URL="${PUBLIC_URL:-http://localhost:8000}"
 env_set PUBLIC_URL "$PUBLIC_URL"
 
 if [[ -z $(env_get GOOGLE_CLIENT_ID) || -z $(env_get GOOGLE_CLIENT_SECRET) ]]; then
   C="https://console.cloud.google.com/auth"
-  say "4. OAuth consent screen and client (in the browser; gcloud cannot do these)"
+  say "5. OAuth consent screen and client (in the browser; gcloud cannot do these)"
   cat <<EOF
   a) Consent screen: $C/branding?project=$PROJECT
      Get started -> app name "kanso", your email -> Audience: External -> your email -> Create.
@@ -134,7 +201,7 @@ else
   echo "Keeping the OAuth client already in .env (redirect URI: $PUBLIC_URL/api/accounts/callback)."
 fi
 
-say "5. Secrets and your login password"
+say "6. Secrets and your login password"
 PG=$(env_get POSTGRES_PASSWORD)
 [[ -z $PG || $PG == change-me ]] && env_set POSTGRES_PASSWORD "$(openssl rand -hex 24)"
 [[ -z $(env_get SECRET_KEY) ]] && env_set SECRET_KEY "$(openssl rand -hex 32)"
