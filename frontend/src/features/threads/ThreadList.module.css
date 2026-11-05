@@ -175,8 +175,7 @@
   color: var(--muted);
 }
 
-/* Inbox zero: the ensō is painted in one brush stroke (a mask along its centreline), then
-   breathes out once as the words appear. */
+/* Inbox zero: the ensō is painted in one brush stroke (a mask along its centreline). */
 .enso {
   display: block;
   width: 88px;
@@ -184,7 +183,6 @@
   margin: 10vh auto 20px;
   fill: var(--ink);
   opacity: 0.88;
-  animation: settle 1.6s ease-in-out 1.75s;
 }
 
 .brush {
@@ -212,14 +210,7 @@
   animation: rise var(--slow) var(--ease) 1.65s forwards;
 }
 
-@keyframes settle {
-  50% {
-    scale: 1.04;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .enso,
   .brush,
   .zeroTitle,
   .zero {

@@ -375,7 +375,7 @@ const ENSO = 'M311.8 106.6 L304.8 102.6 L297.5 98.9 L289.9 95.6 L282.1 92.7 L274
 // Its centreline, from the ink drop round to the tail: the brush that paints it in.
 const BRUSH = 'M322.9 123.7A151 151 0 0 0 154.9 372.7A151 151 0 0 0 371.0 164.0'
 
-/** The ensō is painted in one stroke and settles: the circle is closed, nothing is left in it. */
+/** The ensō is painted in one stroke: the circle is closed, nothing is left in it. */
 export function InboxZero() {
   const mask = useId()
   return (
