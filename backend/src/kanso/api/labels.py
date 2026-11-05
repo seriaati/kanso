@@ -240,6 +240,17 @@ async def edit(db: AsyncSession, label: Label, account: Account, body: LabelUpda
 @router.delete("/labels/{label_id}", status_code=204)
 async def delete_label(label_id: int, db: DB) -> None:
     label, account = await _user_label(db, label_id)
+    thread_ids = await remove(db, label, account)
+    await db.commit()
+    try:
+        await events.threads_changed(account.id, thread_ids)
+    except Exception as error:
+        log.warning("could not publish to Redis: %s", error)
+
+
+async def remove(db: AsyncSession, label: Label, account: Account) -> set[int]:
+    """Deletes a user label in Gmail and the mirror (also the assistant's delete_label); the mail
+    stays. Returns the threads that had it. The caller commits."""
     if not account.demo:
         async with gmail_client.http_client() as http:
             try:
@@ -253,8 +264,4 @@ async def delete_label(label_id: int, db: DB) -> None:
     await db.delete(label)  # its message_labels rows cascade
     await db.flush()
     await store.refresh_threads(db, thread_ids)
-    await db.commit()
-    try:
-        await events.threads_changed(account.id, thread_ids)
-    except Exception as error:
-        log.warning("could not publish to Redis: %s", error)
+    return thread_ids

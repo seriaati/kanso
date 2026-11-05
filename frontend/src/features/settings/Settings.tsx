@@ -287,7 +287,7 @@ function Assistant() {
           Ask before changing mail
           <span className={styles.muted}>
             The assistant proposes archiving, labeling, starring and marking read, and waits for your Confirm. Turned off, it makes those
-            changes at once; each one still shows in the chat with Undo. It never sends or deletes mail.
+            changes at once; each one still shows in the chat with Undo. Deleting a label always asks. It never sends or deletes mail.
           </span>
         </span>
       </label>

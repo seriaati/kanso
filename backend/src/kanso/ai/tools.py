@@ -48,7 +48,8 @@ _DOES = {
 }
 LABELED = {"apply_label", "remove_label"}  # the changes that name a label
 BATCHES = {"change_matching", "change_batch"}
-PROPOSALS = set(CHANGES) | BATCHES | {"edit_label"}
+PROPOSALS = set(CHANGES) | BATCHES | {"edit_label", "delete_label"}
+ALWAYS_ASK = {"delete_label"}  # can't be undone: asks even with confirmation off
 NAME_LIMIT, DESCRIPTION_LIMIT = 225, 500  # as kanso.api.labels
 READS = {"search_threads", "get_thread", "list_labels"}
 
@@ -160,6 +161,22 @@ TOOLS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "delete_label",
+        "description": (
+            "Propose deleting one of the user's labels, in Gmail too. The mail stays; only the "
+            "label goes, and it can't be undone. To take a label off threads instead, use "
+            "remove_label." + _CONFIRMED
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "label": {"type": "string", "description": "The label's name from list_labels."}
+            },
+            "required": ["label"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "change_matching",
         "description": (
             "Propose one change to every thread a search matches, up to "
@@ -261,6 +278,10 @@ class EditLabelIn(_Input):
     label: str
     new_name: str | None = Field(None, min_length=1, max_length=NAME_LIMIT)
     description: str | None = Field(None, max_length=DESCRIPTION_LIMIT)
+
+
+class DeleteLabelIn(_Input):
+    label: str
 
 
 def _parse[T: BaseModel](model: type[T], data: Any) -> T:
@@ -487,17 +508,22 @@ async def _part(
     }
 
 
-async def _edit_label(db: AsyncSession, account_id: int, data: Any) -> dict[str, Any]:
-    args = _parse(EditLabelIn, data)
+async def _user_label(db: AsyncSession, account_id: int, name: str) -> Label:
     label = await db.scalar(
         select(Label).where(
             Label.type == "user",
             Label.account_id == account_id,
-            func.lower(Label.name) == args.label.strip().lower(),
+            func.lower(Label.name) == name.strip().lower(),
         )
     )
     if label is None:
-        raise ToolError(f"There is no label named “{args.label}”")
+        raise ToolError(f"There is no label named “{name}”")
+    return label
+
+
+async def _edit_label(db: AsyncSession, account_id: int, data: Any) -> dict[str, Any]:
+    args = _parse(EditLabelIn, data)
+    label = await _user_label(db, account_id, args.label)
     name = args.new_name.strip() if args.new_name is not None else None
     description = args.description.strip() if args.description is not None else None
     if name == label.name:
@@ -526,6 +552,18 @@ async def _edit_label(db: AsyncSession, account_id: int, data: Any) -> dict[str,
     }
 
 
+async def _delete_label(db: AsyncSession, account_id: int, data: Any) -> dict[str, Any]:
+    label = await _user_label(db, account_id, _parse(DeleteLabelIn, data).label)
+    return {
+        "tool": "delete_label",
+        "action": None,
+        "label": label.name,
+        "query": None,
+        "threads": [],
+        "label_id": label.id,
+    }
+
+
 def parts(action: dict[str, Any]) -> list[dict[str, Any]]:
     """A batch's changes, or the one change of any other proposal."""
     return action.get("parts") or [action]
@@ -547,6 +585,8 @@ async def propose(
         proposal["parts"] = changes
     elif name == "edit_label":
         proposal = await _edit_label(db, account_id, data)
+    elif name == "delete_label":
+        proposal = await _delete_label(db, account_id, data)
     elif name == "change_matching":
         matching = _parse(MatchingIn, data)
         proposal = await _part(
@@ -582,6 +622,8 @@ def _done(part: dict[str, Any]) -> str:
         if description is not None:
             done.append("changed its description" if description else "cleared its description")
         return f"Label “{part['label']}”: {' and '.join(done)}"
+    if part["tool"] == "delete_label":
+        return f"Deleted the label “{part['label']}”"
     count = len(part["threads"])
     label = f" “{part['label']}”" if part["label"] else ""
     return f"{DONE[part['tool']]}{label}: {count} thread{'s' if count != 1 else ''}"

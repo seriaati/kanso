@@ -140,7 +140,7 @@ export function Assistant({ accountId, threadId, threadHref, onOpenThread, onNot
           if (action.status === 'confirmed' && id !== null) {
             const conversation = id
             refreshAll()
-            onNotice(describe(action, true), () => void undo(conversation, action))
+            onNotice(describe(action, true), undoable(action) ? () => void undo(conversation, action) : undefined)
           }
           break
         }
@@ -370,10 +370,14 @@ function Item({ item, busy, threadHref, onOpenThread, onDecide, onUndo }: ItemPr
   }
 }
 
+// A deleted label can't be restored.
+const undoable = (action: AssistantAction) => action.tool !== 'delete_label'
+
 const count = (n: number) => (n === 1 ? '1 thread' : `${n} threads`)
 
 function describe(action: AssistantAction, done: boolean): string {
   if (action.tool === 'edit_label') return describeEdit(action, done)
+  if (action.tool === 'delete_label') return done ? `Deleted the label “${action.label}”.` : `Delete the label “${action.label}”? The mail stays.`
   if (action.tool !== 'change_batch') return describeChange({ ...action, tool: action.tool }, done)
   const n = action.parts?.length ?? 0
   return done ? `Made ${n} changes.` : `Make these ${n} changes?`
@@ -432,9 +436,11 @@ function Proposal({ action, busy, threadHref, onOpenThread, onDecide, onUndo }: 
       footer = (
         <p className={styles.outcome}>
           {auto ? 'Done without asking.' : describe(action, true)}{' '}
-          <button type="button" className={styles.link} onClick={() => onUndo(action)}>
-            Undo
-          </button>
+          {undoable(action) && (
+            <button type="button" className={styles.link} onClick={() => onUndo(action)}>
+              Undo
+            </button>
+          )}
         </p>
       )
       break
@@ -464,7 +470,7 @@ function Proposal({ action, busy, threadHref, onOpenThread, onDecide, onUndo }: 
         ))
       ) : action.edit ? (
         action.edit.description && <blockquote className={styles.quote}>{action.edit.description}</blockquote>
-      ) : (
+      ) : action.tool === 'delete_label' ? null : (
         <Targets threads={action.threads} threadHref={threadHref} onOpenThread={onOpenThread} />
       )}
       {footer}

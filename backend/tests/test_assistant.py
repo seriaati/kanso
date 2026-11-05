@@ -902,6 +902,46 @@ def test_edit_label_renames_and_describes_after_confirm_and_undoes(
     assert gmail_label["name"] == "Travel"
 
 
+def test_delete_label_always_asks_and_cant_be_undone(
+    mailbox: dict[str, int],
+    claude: FakeClaude,
+    logged_in: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gmail = FakeGmail()
+    monkeypatch.setattr(gmail_client, "http_client", gmail.client)
+    oauth._access_tokens[1] = ("access-token", 9e9)
+    lisbon = mailbox["lisbon"]
+    travel = run(_travel()).id
+    assert travel in thread(lisbon).label_ids
+    logged_in.patch("/api/settings", json={"assistant_confirm": False})
+    claude.answers = [[tool("delete_label", label="travel"), tool("delete_label", label="Nope")]]
+    got = ask(logged_in, "delete the Travel label")
+    [proposal] = [e["action"] for e in got if e["type"] == "action"]
+    # Confirmation is off, but a deleted label can't come back: it still asks.
+    assert (proposal["tool"], proposal["label"], proposal["status"], proposal["auto"]) == (
+        "delete_label",
+        "Travel",
+        "pending",
+        False,
+    )
+    assert any(x["id"] == "Label_1" for x in gmail.labels)
+
+    claude.answers = [["Deleted."]]
+    conversation = got[0]["id"]
+    confirmed = decide(logged_in, conversation, proposal["id"], True)
+    assert confirmed[0]["action"]["status"] == "confirmed"
+    assert not any(x["id"] == "Label_1" for x in gmail.labels)
+    assert all(label.id != travel for label in rows(Label))
+    assert travel not in thread(lisbon).label_ids
+    done, missing = results_in(claude.requests[-1])
+    assert done["content"] == "The user confirmed. Deleted the label “Travel”."
+    assert "no label named “Nope”" in missing["content"]
+
+    url = f"/api/assistant/conversations/{conversation}/actions/{proposal['id']}/undo"
+    assert logged_in.post(url).status_code == 409
+
+
 def test_a_new_message_instead_of_a_decision_changes_nothing(
     mailbox: dict[str, int], claude: FakeClaude, logged_in: TestClient
 ) -> None:
