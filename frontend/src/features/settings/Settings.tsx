@@ -3,6 +3,7 @@ import { useDisconnectAccount, type Account } from '../../app/accounts'
 import { useAiUsage, useApiKeys, useRemoveApiKey, useSaveApiKey, type KeyProvider } from '../../app/ai'
 import type { SyncStatus } from '../../app/mail'
 import { usePhone } from '../../app/media'
+import { inApp, kanso } from '../../app/native'
 import { usePush } from '../../app/notifications'
 import { modelName, useChangePassword, useDemoPassword, useLogoutEverywhere, useSettings, useUpdateSettings } from '../../app/settings'
 import { Dialog } from '../../components/Dialog'
@@ -43,6 +44,7 @@ export function Settings({ accounts, sync, ai, labeling, onMenu }: Props) {
             </Section>
           )}
           {!demo && <Notifications />}
+          {inApp && <Server />}
           <ApiKeys />
           {ai && <Assistant />}
           <Labeling />
@@ -159,8 +161,9 @@ function Notifications() {
     <Section title="Notifications">
       {state === 'unsupported' ? (
         <p className={styles.intro}>
-          This browser can’t show notifications from kanso. They need kanso opened over HTTPS; on an iPhone or iPad, add kanso to the Home
-          Screen (Share → Add to Home Screen) and turn them on in the app.
+          {inApp
+            ? 'This kanso server isn’t set up for notifications in the app: its .env needs FIREBASE_ANDROID_CONFIG (see the setup guide).'
+            : 'This browser can’t show notifications from kanso. They need kanso opened over HTTPS; on an iPhone or iPad, add kanso to the Home Screen (Share → Add to Home Screen) and turn them on in the app.'}
         </p>
       ) : (
         <label className={styles.toggle}>
@@ -169,7 +172,9 @@ function Notifications() {
             New inbox mail on this device
             <span className={styles.muted}>
               {state === 'denied'
-                ? 'Notifications are blocked for kanso in this browser’s site settings. Allow them there, then turn this on.'
+                ? inApp
+                  ? 'Notifications are off for kanso in Android’s app settings. Allow them there, then turn this on.'
+                  : 'Notifications are blocked for kanso in this browser’s site settings. Allow them there, then turn this on.'
                 : 'A notification for each new unread message in the inbox, with its sender, subject and first line. Turn it on in each browser or installed app where you want them.'}
             </span>
           </span>
@@ -177,6 +182,66 @@ function Notifications() {
       )}
       {error && <p className={styles.note}>Couldn’t change notifications: {error}</p>}
     </Section>
+  )
+}
+
+/** The Android app's kanso server, which it asked for at its first start. */
+function Server() {
+  const [changing, setChanging] = useState(false)
+  return (
+    <Section title="Server">
+      <div className={styles.row}>
+        <div className={styles.text}>
+          <span>{location.host}</span>
+          <span className={styles.muted}>The kanso this app shows.</span>
+        </div>
+        <button type="button" className={styles.disconnect} onClick={() => setChanging(true)}>
+          Change
+        </button>
+      </div>
+      {changing && (
+        <Dialog title="Change server" onClose={() => setChanging(false)}>
+          <ChangeServer onDone={() => setChanging(false)} />
+        </Dialog>
+      )}
+    </Section>
+  )
+}
+
+function ChangeServer({ onDone }: { onDone: () => void }) {
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const change = () => {
+    setPending(true)
+    setError(null)
+    // On success the app leaves this page for its server screen.
+    kanso
+      ?.then(({ plugin }) => plugin.changeServer())
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : String(e))
+        setPending(false)
+      })
+  }
+  return (
+    <div className={styles.confirm}>
+      <p className={styles.note}>
+        The app forgets {location.host}: it logs out, its notifications on this phone stop, and widgets need their account picked again. Then it asks
+        for the new address. Your mail and settings on the server stay as they are.
+      </p>
+      {error && (
+        <p role="alert" className={styles.note}>
+          {error}
+        </p>
+      )}
+      <div className={styles.actions}>
+        <button type="button" className={styles.cancel} onClick={onDone}>
+          Cancel
+        </button>
+        <button type="button" className={styles.primary} disabled={pending} autoFocus onClick={change}>
+          Change server
+        </button>
+      </div>
+    </div>
   )
 }
 

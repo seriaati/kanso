@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from './api'
+import { kanso } from './native'
 
 // Web Push, turned on per browser or installed app; public/push-sw.js shows the notifications.
+// The Android app uses FCM instead, and draws them itself (android/…/Notifications.kt).
 
-/** `unsupported`: plain http, no service worker, or iOS outside a Home Screen app. */
+/** `unsupported`: plain http, no service worker, or iOS outside a Home Screen app; in the Android
+ * app, a kanso server without Firebase settings for it (FIREBASE_ANDROID_CONFIG). */
 export type PushState = 'unsupported' | 'denied' | 'off' | 'on'
 
 async function registration(): Promise<ServiceWorkerRegistration | undefined> {
@@ -42,20 +45,42 @@ async function disable() {
   await subscription.unsubscribe()
 }
 
+// The Android app's: the plugin asks Android, and kanso gets the FCM token.
+const app = kanso && appPush(kanso)
+
+function appPush(native: NonNullable<typeof kanso>) {
+  return {
+    current: async (): Promise<PushState> => (await (await native).plugin.notificationState()).state,
+    async set(on: boolean) {
+      const { plugin } = await native
+      if (on) {
+        const { token } = await plugin.requestNotifications()
+        if (!token) return
+        await api('/notifications/fcm', { method: 'PUT', body: { token } })
+        await plugin.rememberNotifications({ token })
+      } else {
+        const { token } = await plugin.notificationState()
+        if (token) await api('/notifications/fcm', { method: 'DELETE', body: { token } })
+        await plugin.rememberNotifications({ token: null })
+      }
+    },
+  }
+}
+
 export function usePush() {
   const [state, setState] = useState<PushState>()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  useEffect(() => void current().then(setState), [])
+  useEffect(() => void (app?.current ?? current)().then(setState), [])
 
   const set = useCallback((on: boolean) => {
     // Asked for at once, inside the click: Safari only shows the prompt for a user gesture.
-    const change = on ? enable(Notification.requestPermission()) : disable()
+    const change = app ? app.set(on) : on ? enable(Notification.requestPermission()) : disable()
     setPending(true)
     setError(null)
     change
       .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
-      .then(current)
+      .then(app?.current ?? current)
       .then(setState)
       .finally(() => setPending(false))
   }, [])

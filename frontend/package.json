@@ -11,6 +11,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.5.3",
     "@fontsource/noto-sans-sc": "^5.3.1",
     "@fontsource/noto-sans-tc": "^5.3.1",
     "@fontsource/noto-serif-sc": "^5.3.1",
@@ -25,6 +28,7 @@
     "workbox-window": "^7.4.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "8.5.3",
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The paper color of styles/tokens.css, until the page paints. -->
+    <color name="paper">#F1EFE7</color>
+    <!-- Its ink and muted text colors, for the home-screen widget and the server screen, and the
+         line around the server screen's field. -->
+    <color name="ink">#242520</color>
+    <color name="muted">#63655C</color>
+    <color name="line">#DAD6C8</color>
+</resources>

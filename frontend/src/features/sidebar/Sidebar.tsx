@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import type { Account } from '../../app/accounts'
 import type { Label, NamedLabel, SyncStatus } from '../../app/mail'
 import { href, mailboxNav, sameView, type Route, type View } from '../../app/nav'
+import { applyAppUpdate } from '../../app/native'
 import { applyUpdate } from '../../app/update'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
@@ -24,6 +25,8 @@ type Props = {
   ai: boolean
   labeling: boolean
   update: boolean
+  /** A newer Android app's download (app/native.ts). */
+  appUpdate: string | null
   /** An icon rail: names show as tooltips, label editing hides and notices float. */
   collapsed: boolean
   onToggle: () => void
@@ -33,7 +36,7 @@ type Props = {
 }
 
 export function Sidebar(props: Props) {
-  const { accounts, route, labels, userLabels, sync, notice, ai, labeling, update, collapsed, onToggle, onSelectAccount, onCompose, onLabelChanged } = props
+  const { accounts, route, labels, userLabels, sync, notice, ai, labeling, update, appUpdate, collapsed, onToggle, onSelectAccount, onCompose, onLabelChanged } = props
   // `editing` is '' for a new label.
   const [menu, setMenu] = useState<{ name: string; anchor: HTMLElement } | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
@@ -189,7 +192,16 @@ export function Sidebar(props: Props) {
             )}
           </div>
         )}
-        {update && (
+        {/* One at a time, the app first: installing it restarts the app, which also loads the new kanso. */}
+        {appUpdate && (
+          <div className={styles.notice} role="status">
+            <span>A new version of the app is out.</span>
+            <button type="button" onClick={() => applyAppUpdate(appUpdate)}>
+              Update
+            </button>
+          </div>
+        )}
+        {!appUpdate && update && (
           <div className={styles.notice} role="status">
             <span>A new version of kanso is ready.</span>
             <button type="button" onClick={applyUpdate}>

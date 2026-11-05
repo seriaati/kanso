@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The server screen's button: ink, with paper text. -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="@color/muted">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/ink" />
+            <corners android:radius="8dp" />
+        </shape>
+    </item>
+</ripple>

@@ -51,12 +51,14 @@ import {
   type ThreadSummary,
 } from './mail'
 import { usePhone } from './media'
+import { applyAppUpdate, useAppLinks, useAppUpdate, useBackButton, useSystemBars } from './native'
 import { href, parse, useRoute, type Mailbox, type Route } from './nav'
 import { applyUpdate, useUpdateReady } from './update'
 
 export function App() {
   const accounts = useAccounts()
   const route = useRoute()
+  useSystemBars()
   // Offline (the shell still starts from the service worker): retry once back online.
   const { isError, refetch } = accounts
   useEffect(() => {
@@ -207,6 +209,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const labeling = config?.labeling ?? false
   const phone = usePhone()
   const update = useUpdateReady()
+  const appUpdate = useAppUpdate()
   // The phone's menu sheet closes whenever the page changes (back too).
   const [menu, setMenu] = useState({ open: false, at: location.key })
   if (menu.at !== location.key) setMenu({ open: false, at: location.key })
@@ -504,6 +507,12 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     // eslint-disable-next-line react-hooks/set-state-in-effect -- the URL asks for a draft, created once
     if (linked !== null) openLinked(linked)
   }, [linked])
+  // The Android app's mailto: links, and its notifications' links to a thread (on this server).
+  useAppLinks((url) => {
+    if (/^mailto:/i.test(url)) void navigate(`/compose?${new URLSearchParams({ mailto: url })}`)
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- useAppLinks calls this from an Effect Event
+    else if (url.startsWith(`${window.location.origin}/`)) openLink(url.slice(window.location.origin.length))
+  })
   // On a phone the window covers the app, so it has a history entry of its own: Back closes it
   // (as Close does), and closing it leaves the entry.
   const composeEntry = (location.state as { compose?: number } | null)?.compose
@@ -715,6 +724,25 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const showAssistant = ai && accountId !== null && asking
   const paneOpen = phone || threadId !== null
   const screen = route.page ? route.page : phone && showAssistant ? 'assistant' : threadId !== null ? 'thread' : 'list'
+  // The Android app's Back: closes what's open over the page first, then follows the history; at
+  // its start it goes to the inbox, and from there leaves the app.
+  useBackButton((canGoBack) => {
+    // Esc for an open dialog or menu, but not for the shortcuts above (there it leaves the thread).
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    const stop = (event: Event) => event.stopPropagation()
+    document.addEventListener('keydown', stop)
+    ;(document.querySelector('dialog[open]') ?? document.body).dispatchEvent(escape)
+    document.removeEventListener('keydown', stop)
+    if (escape.defaultPrevented) return true
+    const inbox = !route.page && threadId === null && view.kind === 'mailbox' && view.mailbox === 'inbox'
+    if (rowMenu) setRowMenu(null)
+    else if (menuOpen) setMenu({ open: false, at: location.key })
+    else if (phone && showAssistant) setAsking(false)
+    else if (canGoBack) navigate(-1)
+    else if (!inbox) go({ view: { kind: 'mailbox', mailbox: 'inbox' }, threadId: null, page: undefined }, true)
+    else return false
+    return true
+  })
   const assistant = showAssistant && (
     <Assistant
       key={accountId}
@@ -761,6 +789,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
           ai={ai}
           labeling={labeling}
           update={update}
+          appUpdate={appUpdate}
           collapsed={sidebarCollapsed}
           onToggle={toggleSidebar}
           onSelectAccount={selectAccount}
@@ -976,8 +1005,8 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
           />
         </ComposeWindow>
       )}
-      {phone && (notice || update) && (
-        <Toast notice={notice} update={update} place={screen === 'list' || (screen === 'thread' && !reply) ? 'bar' : screen === 'assistant' ? 'sheet' : 'bottom'} />
+      {phone && (notice || update || appUpdate) && (
+        <Toast notice={notice} update={update} appUpdate={appUpdate} place={screen === 'list' || (screen === 'thread' && !reply) ? 'bar' : screen === 'assistant' ? 'sheet' : 'bottom'} />
       )}
       {help && <ShortcutHelp ai={ai} onClose={() => setHelp(false)} />}
       {commanding && (
@@ -1044,10 +1073,19 @@ function ComposeWindow({ minimized, movable, children }: { minimized: boolean; m
   )
 }
 
-function Toast({ notice, update, place }: { notice: Notice | null; update: boolean; place: 'bar' | 'sheet' | 'bottom' }) {
+function Toast({ notice, update, appUpdate, place }: { notice: Notice | null; update: boolean; appUpdate: string | null; place: 'bar' | 'sheet' | 'bottom' }) {
   return (
     <div className={`${styles.toast} ${styles[place] ?? ''}`} role="status">
-      {update && (
+      {/* One at a time, the app first: installing it restarts the app, which also loads the new kanso. */}
+      {appUpdate && (
+        <p>
+          <span>A new version of the app is out.</span>
+          <button type="button" onClick={() => applyAppUpdate(appUpdate)}>
+            Update
+          </button>
+        </p>
+      )}
+      {!appUpdate && update && (
         <p>
           <span>A new version of kanso is ready.</span>
           <button type="button" onClick={applyUpdate}>
