@@ -21,22 +21,19 @@ const quicks: Quick[] = ['done', 'delete', 'star', 'important']
 export type LabelChip = { name: string; color: string; icon: LabelIcon | null }
 
 export type ListRow =
-  | { kind: 'thread'; thread: ThreadSummary }
+  /** `nested`: under its bundle, indented. */
+  | { kind: 'thread'; thread: ThreadSummary; nested?: boolean }
   | { kind: 'bundle'; bundle: Bundle; open: boolean }
-  /** Between the bundles and the unlabeled threads. */
-  | { kind: 'divider' }
 
 const ROW = 31
 const COMFORTABLE_ROW = 40
 const BUNDLE = 32
-const DIVIDER = 17 // a margin, a hairline and padding
 // Phone sizes match ThreadList.module.css (max-width: 767px): two-line rows, 44px+ tap targets.
 const PHONE_ROW = 64
 const PHONE_BUNDLE = 48
 
 function rowHeight(row: ListRow, phone: boolean, comfortable: boolean) {
   if (row.kind === 'thread') return phone ? PHONE_ROW : comfortable ? COMFORTABLE_ROW : ROW
-  if (row.kind === 'divider') return DIVIDER
   return phone ? PHONE_BUNDLE : BUNDLE
 }
 
@@ -100,7 +97,7 @@ export function ThreadList(props: Props) {
     estimateSize: (index) => rowHeight(rows[index], phone, comfortable),
     getItemKey: (index) => {
       const row = rows[index]
-      return row.kind === 'thread' ? row.thread.id : row.kind === 'bundle' ? `bundle:${row.bundle.name}` : 'divider'
+      return row.kind === 'thread' ? row.thread.id : `bundle:${row.bundle.name}`
     },
     overscan: 12,
     paddingStart: 6,
@@ -284,7 +281,6 @@ export function ThreadList(props: Props) {
                   onMenu={onBundleMenu}
                 />
               )
-            if (row.kind === 'divider') return <div key={item.key} className={styles.divider} style={{ transform: `translateY(${item.start}px)` }} aria-hidden="true" />
             const thread = row.thread
             const chips = hideChips
               ? []
@@ -298,6 +294,7 @@ export function ThreadList(props: Props) {
                 thread={thread}
                 chips={chips}
                 top={item.start}
+                nested={row.nested}
                 reveal={revealed.get(thread.id)}
                 cursor={thread.id === cursorId}
                 open={thread.id === openId}
@@ -438,6 +435,7 @@ type RowProps = {
   thread: ThreadSummary
   chips: LabelChip[]
   top: number
+  nested?: boolean
   /** Just revealed by opening its bundle: its place in the bundle, for the fade-in. */
   reveal?: number
   cursor: boolean
@@ -452,12 +450,12 @@ type RowProps = {
 }
 
 function ThreadRow(props: RowProps) {
-  const { thread, chips, top, reveal, cursor, open, menu, checked, href, onOpen, onQuick, onMenu, onSelectClick } = props
+  const { thread, chips, top, nested, reveal, cursor, open, menu, checked, href, onOpen, onQuick, onMenu, onSelectClick } = props
   const swipe = useSwipe(
     (direction) => onQuick(direction === 'right' ? 'done' : 'delete', thread),
     onMenu && ((point) => onMenu(thread, point)),
   )
-  const rowClass = [styles.row, thread.unread && styles.unread, (cursor || open) && styles.selected, checked && styles.checked, menu && styles.menuOpen, reveal !== undefined && styles.revealed]
+  const rowClass = [styles.row, nested && styles.nested, thread.unread && styles.unread, (cursor || open) && styles.selected, checked && styles.checked, menu && styles.menuOpen, reveal !== undefined && styles.revealed]
     .filter(Boolean)
     .join(' ')
   const lang = thread.lang ?? undefined
@@ -575,8 +573,8 @@ function ThreadRow(props: RowProps) {
 function inOpenBundles(rows: ListRow[]) {
   let open = false
   return rows.flatMap((row) => {
-    if (row.kind !== 'thread') open = row.kind === 'bundle' && row.open
-    return open && row.kind === 'thread' ? [row.thread.id] : []
+    if (row.kind === 'bundle') open = row.open
+    return open && row.kind === 'thread' && row.nested ? [row.thread.id] : []
   })
 }
 

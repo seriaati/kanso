@@ -629,9 +629,26 @@ def test_grouped_inbox_unlabeled_then_bundles(synced: TestClient) -> None:
     walked = [t["subject"] for p in (first, second) for t in p["threads"]]
     assert walked == ["Dinner?", "Your bill for October"] and second["next_cursor"] is None
     assert second["bundles"] is None
+    assert bundle["threads"][0]["bundle"] == "Newsletters"
 
 
-async def _add_threads(threads_: dict[str, list[str]]) -> None:
+def test_grouped_inbox_shows_a_bundles_new_threads(synced: TestClient) -> None:
+    # Newsletters' three newest from the last day come with the unlabeled threads; older stay in.
+    now = int(time.time() * 1000)
+    run(_add_threads({f"n{i}": ["INBOX", "Label_3"] for i in range(4)}, now - 3_600_000))
+    run(_add_threads({"old": ["INBOX", "Label_3"]}, now - 25 * 3_600_000))
+    page = _grouped(synced)
+    assert [(t["subject"], t["bundle"]) for t in page["threads"]] == [
+        ("Extra n3", "Newsletters"),
+        ("Extra n2", "Newsletters"),
+        ("Extra n1", "Newsletters"),
+        ("Dinner?", None),
+        ("Your bill for October", None),
+    ]
+    assert next(b for b in page["bundles"] if b["name"] == "Newsletters")["count"] == 6
+
+
+async def _add_threads(threads_: dict[str, list[str]], start: int = 1_750_000_000_000) -> None:
     from kanso.gmail import mime
     from kanso.sync import store
 
@@ -644,7 +661,7 @@ async def _add_threads(threads_: dict[str, list[str]]) -> None:
                 "id": f"x{gmail_thread}",
                 "threadId": gmail_thread,
                 "labelIds": label_ids,
-                "internalDate": str(1_800_000_000_000 + n * 60_000),
+                "internalDate": str(start + n * 60_000),
             }
             ids.add(await store.save_message(db, 1, meta, mime.parse(raw), labels))
         await store.refresh_threads(db, ids)
@@ -778,7 +795,8 @@ def test_senders_and_clearing_one(synced: TestClient) -> None:
     assert listed["senders"] == [
         {"email": "daniel@example.com", "name": "Daniel", "threads": 2, "thread_id": ids["t4"].id}
     ]
-    run(_add_threads({"t9": ["INBOX"]}))  # Daniel again, after the list was loaded: left alone
+    # Daniel again, after the list was loaded: left alone
+    run(_add_threads({"t9": ["INBOX"]}, 1_800_000_000_000))
     scope = {"account_id": 1, "sender": "Daniel@Example.com", "before": listed["as_of"]}
     synced.post("/api/threads/actions", json={"action": "done", "inbox": scope})
     assert {g for g, t in threads().items() if t.in_inbox} == {"t1", "t5", "t9"}

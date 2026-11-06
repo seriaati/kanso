@@ -32,6 +32,8 @@ export type ThreadSummary = {
   sender_photo: string | null
   /** The one-time code of a recent verification mail, offered for copying. */
   code: string | null
+  /** The inbox: the bundle the thread is in. */
+  bundle: string | null
 }
 
 export type BundleSender = { name: string; photo: string | null }

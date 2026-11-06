@@ -1,12 +1,12 @@
 import asyncio
 import base64
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import ColumnElement, exists, func, select, true, tuple_
+from sqlalchemy import ColumnElement, exists, func, null, select, true, tuple_
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -60,6 +60,8 @@ class ThreadOut(BaseModel):
     sender_photo: str | None = None
     # The one-time code in the newest message, when it is a recent verification mail (codes.py).
     code: str | None = None
+    # The inbox's grouped lists: the bundle the thread is in.
+    bundle: str | None = None
 
 
 class BundleSender(BaseModel):
@@ -284,8 +286,11 @@ MAILBOXES: dict[str, Any] = {
 }
 
 
-# The grouped inbox: each label's threads collapsed into a bundle, then the unlabeled threads.
-# A thread with several labels goes in one bundle only, its first label's by name.
+# The grouped inbox: each label's threads collapsed into a bundle, among the unlabeled threads by
+# time. A thread with several labels goes in one bundle only, its first label's by name. A bundle's
+# newest threads from the last day stay in view under it, so new mail isn't hidden.
+NEW_FOR = timedelta(days=1)
+NEW_SHOWN = 3
 
 
 def _placed(account_id: int) -> Any:
@@ -296,9 +301,15 @@ def _placed(account_id: int) -> Any:
         .limit(1)
         .lateral("first_label")
     )
+    newest = func.row_number().over(
+        partition_by=first.c.name, order_by=(Thread.last_message_at.desc(), Thread.id.desc())
+    )
     stmt = (
         select(
-            Thread.id.label("id"), Thread.last_message_at.label("at"), first.c.name.label("bundle")
+            Thread.id.label("id"),
+            Thread.last_message_at.label("at"),
+            first.c.name.label("bundle"),
+            newest.label("rank"),  # 1: the bundle's newest
         )
         .select_from(Thread)
         .outerjoin(first, true())
@@ -367,16 +378,21 @@ async def list_threads(
 ) -> ThreadPage:
     """Trash and Spam are left out unless asked for (mailbox, label or label: in the query).
 
-    `grouped`: the inbox's unlabeled threads, with its bundles on the first page. `bundle`: the
-    inbox threads in that bundle."""
+    `grouped`: the inbox's unlabeled threads and each bundle's new ones, with its bundles on the
+    first page. `bundle`: the inbox threads in that bundle."""
     if grouped or bundle is not None:
         if mailbox != "inbox" or label_id or q.strip():
             raise HTTPException(status_code=400, detail="Only the inbox is grouped")
-    stmt = select(Thread)
+    stmt = select(Thread, null())
     if grouped or bundle is not None:
         placed = _placed(account_id)
-        in_bundle = placed.c.bundle.is_(None) if grouped else placed.c.bundle == bundle
-        stmt = stmt.join(placed, placed.c.id == Thread.id).where(in_bundle)
+        if grouped:
+            new = (placed.c.rank <= NEW_SHOWN) & (placed.c.at >= datetime.now(UTC) - NEW_FOR)
+            in_bundle = placed.c.bundle.is_(None) | new
+        else:
+            in_bundle = placed.c.bundle == bundle
+        stmt = select(Thread, placed.c.bundle).join(placed, placed.c.id == Thread.id)
+        stmt = stmt.where(in_bundle)
     wants_trash_or_spam = mailbox in ("trash", "spam")
     stmt = stmt.where(Thread.account_id == account_id)
     if mailbox:
@@ -396,9 +412,10 @@ async def list_threads(
     if cursor:
         stmt = stmt.where(tuple_(Thread.last_message_at, Thread.id) < _decode_cursor(cursor))
     stmt = stmt.order_by(Thread.last_message_at.desc(), Thread.id.desc()).limit(limit + 1)
-    threads = list(await db.scalars(stmt))
+    found = (await db.execute(stmt)).all()
+    threads = [t for t, _ in found]
     next_cursor = _encode_cursor(threads[limit - 1]) if len(threads) > limit else None
-    out = [ThreadOut.model_validate(t) for t in threads[:limit]]
+    out = [ThreadOut.model_validate(t).model_copy(update={"bundle": b}) for t, b in found[:limit]]
     recipients = mailbox in ("sent", "drafts")
     return ThreadPage(
         threads=await _codes(db, await _people(db, out, recipients)),

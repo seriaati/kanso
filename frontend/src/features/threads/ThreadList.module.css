@@ -335,6 +335,11 @@
   background: var(--hover);
 }
 
+/* A thread under its bundle. */
+.nested .main {
+  padding-left: 24px;
+}
+
 /* Threads a bundle just opened fade in under it, one after another. */
 .row.revealed {
   animation: rise var(--medium) var(--ease) both;
@@ -598,15 +603,6 @@
   height: 32px;
 }
 
-/* The mockup's 10px gap, hairline and 6px padding between the bundles and the other threads. */
-.divider {
-  position: absolute;
-  top: 10px;
-  left: 8px;
-  right: 8px;
-  border-top: 1px solid var(--line);
-}
-
 /* A thread row inside the bundle's slot; any density keeps the slot's height. */
 .bundle > .row {
   position: relative;
@@ -802,6 +798,10 @@
     border-radius: 0;
   }
 
+  .nested .main {
+    padding-left: 32px;
+  }
+
   .unreadDot,
   .check {
     grid-area: 1 / 1;
@@ -851,11 +851,6 @@
     left: 0;
     right: 0;
     height: 48px;
-  }
-
-  .divider {
-    left: 0;
-    right: 0;
   }
 
   /* One line, not a thread row's two. */

@@ -106,6 +106,7 @@ def test_thread_list_item_shape(demo: TestClient) -> None:
         "id", "account_id", "subject", "snippet", "senders", "last_message_at", "message_count",
         "label_ids", "unread", "starred", "important", "in_inbox", "in_trash", "in_spam",
         "has_attachments", "lang", "me", "recipients", "sender_name", "sender_photo", "code",
+        "bundle",
     }  # fmt: skip
 
 

@@ -145,7 +145,6 @@ function patchCaches(input: ActionInput): Snapshot {
     if (!data) continue
     snapshot.push([key, data])
     const params = new URLSearchParams(String(key[1]))
-    const bundle = params.get('bundle')
     queryClient.setQueryData<InfiniteData<ThreadPage>>(key, {
       ...data,
       pages: data.pages.map((page) => ({
@@ -153,8 +152,8 @@ function patchCaches(input: ActionInput): Snapshot {
         threads: page.threads.flatMap((t) => {
           if (!ids.has(t.id)) return [t]
           const next = applied(t, input)
-          if (inList(params, next, input.action === 'label')) return [next]
-          if (bundle !== null) left.set(t.id, bundle)
+          if (inList(params, next, input.action === 'label' && !t.bundle)) return [next]
+          if (t.bundle) left.set(t.id, t.bundle)
           return []
         }),
       })),

@@ -247,23 +247,33 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   const bundleThreads = useMemo(() => unique(bundleList.data?.pages), [bundleList.data])
   const bundles = useMemo(() => (grouped ? (list.data?.pages[0]?.bundles ?? []).filter((b) => b.count > 0) : []), [grouped, list.data])
 
-  // In the inbox: a row per label, the open bundle's threads under it, then the unlabeled threads.
-  const { rows, threads, bundlesEnd } = useMemo(() => {
+  // In the inbox: bundles among the unlabeled threads by time, each where its newest thread is, with
+  // its new threads under it (all of them when open). A bundle past the loaded threads waits for them.
+  const { rows, threads, openEnd } = useMemo(() => {
     const rows: ListRow[] = []
-    for (const bundle of bundles) {
+    let openEnd = -1
+    const addBundle = (bundle: Bundle) => {
       const open = bundle.name === openBundle
       rows.push({ kind: 'bundle', bundle, open })
-      if (open) for (const thread of bundleThreads) rows.push({ kind: 'thread', thread })
+      const under = open ? bundleThreads : listThreads.filter((t) => t.bundle === bundle.name)
+      for (const thread of under) rows.push({ kind: 'thread', thread, nested: true })
+      if (open) openEnd = rows.length - 1
     }
-    const bundlesEnd = rows.length - 1
-    if (rows.length && listThreads.length) rows.push({ kind: 'divider' })
-    for (const thread of listThreads) rows.push({ kind: 'thread', thread })
-    const opened = bundles.some((b) => b.name === openBundle)
-    return { rows, threads: opened ? [...bundleThreads, ...listThreads] : listThreads, bundlesEnd }
-  }, [listThreads, bundleThreads, bundles, openBundle])
+    const time = (iso: string) => Date.parse(iso)
+    const loaded = hasNextPage ? listThreads.at(-1) : undefined
+    const placed = bundles.filter((b) => !loaded || time(b.newest_at) >= time(loaded.last_message_at))
+    let next = 0
+    for (const thread of listThreads) {
+      if (thread.bundle) continue
+      while (next < placed.length && time(placed[next].newest_at) >= time(thread.last_message_at)) addBundle(placed[next++])
+      rows.push({ kind: 'thread', thread })
+    }
+    for (const bundle of placed.slice(next)) addBundle(bundle)
+    return { rows, threads: rows.flatMap((row) => (row.kind === 'thread' ? [row.thread] : [])), openEnd }
+  }, [listThreads, bundleThreads, bundles, openBundle, hasNextPage])
   const onRangeEnd = (last: number) => {
     if (hasNextPage && last >= rows.length - 10) loadMore()
-    if (bundleList.hasNextPage && !bundleList.isFetching && last >= bundlesEnd - 10) void bundleList.fetchNextPage()
+    if (bundleList.hasNextPage && !bundleList.isFetching && last >= openEnd - 10) void bundleList.fetchNextPage()
   }
 
   const [cursor, setCursor] = useState<number | null>(null)
@@ -326,7 +336,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     if (on.length === 0 && !scope) return
     const label = withLabel && { name: withLabel.name, id: withLabel.id }
     // Labeled, an unlabeled inbox thread moves into that label's bundle.
-    const moves = (t: ThreadSummary) => action === 'label' && !bundleThreads.some((b) => b.id === t.id)
+    const moves = (t: ThreadSummary) => action === 'label' && !t.bundle
     const leaving = new Set(on.filter((t) => !inList(listParams, applied(t, { action, label }), moves(t))).map((t) => t.id))
     if (leaving.size) {
       select(new Set())
@@ -379,7 +389,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
   // Every thread the user has seen (newer arrivals stay), loaded here or not.
   const bundleAction = (action: BundleAction, bundle: Bundle) => {
     if (accountId === null) return
-    const loaded = bundle.name === openBundle ? bundleThreads : []
+    const loaded = bundle.name === openBundle ? bundleThreads : listThreads.filter((t) => t.bundle === bundle.name)
     const scope = { name: bundle.name, account_id: accountId, until: bundle.newest_at }
     run(action, loaded, undefined, { bundle: scope, count: bundle.count })
   }
