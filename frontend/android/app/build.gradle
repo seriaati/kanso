@@ -6,10 +6,10 @@ def keystore = new Properties()
 if (rootProject.file('keystore.properties').exists()) rootProject.file('keystore.properties').withInputStream { keystore.load(it) }
 
 android {
-    namespace = "app.kanso"
+    namespace = "moe.seria.kanso"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "app.kanso"
+        applicationId "moe.seria.kanso"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // A release build sets them (scripts/build-android.sh: VERSION_NAME, VERSION_CODE):

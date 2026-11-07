@@ -5,7 +5,7 @@ import type { CapacitorConfig } from '@capacitor/cli'
 // No server here: the app asks for it at its first start (ServerActivity) and adds it as server.url
 // at runtime (MainActivity.load), so one app works with any Kanso.
 const config: CapacitorConfig = {
-  appId: 'app.kanso',
+  appId: 'moe.seria.kanso',
   appName: 'Kanso',
   // Never shown: the app loads the server. Capacitor needs a page to bundle all the same.
   webDir: 'android/web',

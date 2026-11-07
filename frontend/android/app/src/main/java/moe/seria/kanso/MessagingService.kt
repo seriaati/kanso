@@ -1,4 +1,4 @@
-package app.kanso
+package moe.seria.kanso
 
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage

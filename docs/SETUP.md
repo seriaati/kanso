@@ -351,7 +351,7 @@ by hand:
    project**, or lists `Kanso` when you type its name. Google Analytics isn't needed: turn it
    off. Firebase's free plan is enough.
 2. **Register the app.** In the Firebase project, open **Project settings → General → Your apps**,
-   click the Android icon (**Add app**), and enter the package name `app.kanso` exactly. The
+   click the Android icon (**Add app**), and enter the package name `moe.seria.kanso` exactly. The
    nickname and signing certificate are optional (FCM doesn't use the certificate). Click
    **Register app**, then **Download google-services.json**, and skip the remaining steps (the
    app is already set up for it). Put the file on one line into `.env`:
@@ -374,7 +374,7 @@ The app is signed with a different key than any you registered in Firebase, and 
 doesn't check it. Firebase's auto-created **Android key** has no app restriction either, only a
 list of Firebase APIs it may call. If you restricted that key to Android apps yourself (Google
 Cloud console → **APIs & Services → Credentials**), the app can't get its notification token: add
-`app.kanso` with the SHA-1 fingerprint the app is signed with (any JDK's `keytool -printcert
+`moe.seria.kanso` with the SHA-1 fingerprint the app is signed with (any JDK's `keytool -printcert
 -jarfile kanso.apk` shows it), or remove the restriction.
 
 If you also turned on notifications in the installed web app or in Chrome on the same phone

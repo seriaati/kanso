@@ -108,7 +108,7 @@ say "4. Firebase for the Android app's notifications (optional)"
 if [[ $PUBSUB != yes ]]; then
   echo "Skipped: the app's notifications are sent with the Pub/Sub service account."
 elif [[ $(ask 'Set up Firebase for the Android app? (y/n)' n) == y ]]; then
-  PACKAGE=app.kanso
+  PACKAGE=moe.seria.kanso
   gcloud services enable firebase.googleapis.com fcm.googleapis.com --project "$PROJECT"
   # The Firebase Management API has no gcloud commands. METHOD PATH [BODY]
   firebase_api() {

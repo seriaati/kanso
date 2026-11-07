@@ -19,7 +19,7 @@ router = APIRouter(prefix="/notifications")
 DB = Annotated[AsyncSession, Depends(get_session)]
 log = logging.getLogger(__name__)
 
-ANDROID_PACKAGE = "app.kanso"
+ANDROID_PACKAGE = "moe.seria.kanso"
 
 
 class Keys(BaseModel):

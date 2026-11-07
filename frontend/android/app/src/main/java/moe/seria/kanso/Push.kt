@@ -1,4 +1,4 @@
-package app.kanso
+package moe.seria.kanso
 
 import android.content.Context
 import com.google.android.gms.tasks.Tasks

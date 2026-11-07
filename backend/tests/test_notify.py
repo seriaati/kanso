@@ -370,7 +370,7 @@ def test_firebase_settings_for_the_app(
 ) -> None:
     monkeypatch.setattr(settings, "google_pubsub_credentials", "a service account key")
     monkeypatch.setattr(
-        settings, "firebase_android_config", _google_services("x.other", "app.kanso")
+        settings, "firebase_android_config", _google_services("x.other", "moe.seria.kanso")
     )
     response = logged_in.get("/api/notifications/firebase")
     assert response.status_code == 200
@@ -386,8 +386,8 @@ def test_firebase_settings_for_the_app(
     ("config", "credentials"),
     [
         ("", True),  # not set up
-        (_google_services("app.kanso"), False),  # nothing to send with
-        (_google_services("x.other"), True),  # no app.kanso in it
+        (_google_services("moe.seria.kanso"), False),  # nothing to send with
+        (_google_services("x.other"), True),  # no moe.seria.kanso in it
         ("not base64 json", True),
     ],
 )

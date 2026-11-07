@@ -1,4 +1,4 @@
-package app.kanso
+package moe.seria.kanso
 
 import android.app.Activity
 import android.content.Context

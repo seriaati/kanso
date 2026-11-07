@@ -1,4 +1,4 @@
-package app.kanso
+package moe.seria.kanso
 
 import android.content.Intent
 import android.content.res.Configuration
@@ -17,7 +17,7 @@ import kotlin.concurrent.thread
 // with Retry and Change server, instead of the WebView's error page.
 class ServerActivity : AppCompatActivity() {
     companion object {
-        const val UNREACHABLE = "app.kanso.unreachable"
+        const val UNREACHABLE = "moe.seria.kanso.unreachable"
     }
 
     private lateinit var title: TextView

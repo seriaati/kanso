@@ -9,7 +9,7 @@ export const inApp = !!(window as { Capacitor?: { isNativePlatform?: () => boole
 
 const app = inApp ? import('@capacitor/app') : null
 
-// The app's own plugin: android/app/src/main/java/app/kanso/KansoPlugin.kt. Wrapped, as a plugin
+// The app's own plugin: android/app/src/main/java/moe/seria/kanso/KansoPlugin.kt. Wrapped, as a plugin
 // answers any property, `then` too, so a promise can't resolve to it.
 type Kanso = {
   setSystemBars(options: { color: string; dark: boolean }): Promise<void>

@@ -1,4 +1,4 @@
-package app.kanso
+package moe.seria.kanso
 
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -101,7 +101,7 @@ class ActionReceiver : BroadcastReceiver() {
 
         private fun base(context: Context, action: String, accountId: Int, account: String, threadId: Int, url: String) =
             Intent(context, ActionReceiver::class.java)
-                .setAction("app.kanso.$action") // with the thread as the request code, one per button
+                .setAction("moe.seria.kanso.$action") // with the thread as the request code, one per button
                 .putExtra(ACTION, action)
                 .putExtra(ACCOUNT_ID, accountId)
                 .putExtra(ACCOUNT, account)

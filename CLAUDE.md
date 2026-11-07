@@ -127,7 +127,7 @@ frontend/
   public/                    service-worker push handler, theme bootstrap, headers
   functions/                 optional Cloudflare Pages proxy for /api
   capacitor.config.ts        the Android app's Capacitor config; the server is entered in the app
-  android/                   Capacitor Android project; Kotlin in app/src/main/java/app/kanso/
+  android/                   Capacitor Android project; Kotlin in app/src/main/java/moe/seria/kanso/
                              (MainActivity, KansoPlugin); src/app/native.ts is the web side
 docs/SETUP.md                self-hosting guide (Google Cloud, OAuth, Pub/Sub, .env)
 docker-compose.yml           production stack; docker-compose.demo.yml + demo.sh run a demo

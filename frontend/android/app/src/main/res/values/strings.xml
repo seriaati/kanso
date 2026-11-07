@@ -2,8 +2,8 @@
 <resources>
     <string name="app_name">Kanso</string>
     <string name="title_activity_main">Kanso</string>
-    <string name="package_name">app.kanso</string>
-    <string name="custom_url_scheme">app.kanso</string>
+    <string name="package_name">moe.seria.kanso</string>
+    <string name="custom_url_scheme">moe.seria.kanso</string>
     <string name="widget_description">An account’s unread inbox</string>
     <string name="widget_setup_title">Show which account?</string>
     <string name="widget_setup_loading">Loading your accounts…</string>

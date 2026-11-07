@@ -1,4 +1,4 @@
-package app.kanso
+package moe.seria.kanso
 
 import android.Manifest
 import android.app.PendingIntent
@@ -36,7 +36,7 @@ object Notifications {
     private const val THREAD = "thread" // tag of a thread's notification, its id the thread's
     private const val BURST = "burst" // tag of a "summary" message, its id the account's
     private const val GROUP = "account" // tag of an account's group summary, its id the account's
-    private const val SENT = "app.kanso.sent" // extra: when FCM got the message it shows
+    private const val SENT = "moe.seria.kanso.sent" // extra: when FCM got the message it shows
 
     /** The FCM token Kanso has, when notifications are on in this app. */
     fun token(context: Context): String? = prefs(context).getString(TOKEN, null)
