@@ -405,6 +405,22 @@ async def _queue_directly(gmail_thread: str) -> None:
         await db.commit()
 
 
+async def _enqueue_repeatedly(gmail_thread: str, times: int) -> None:
+    async with Session() as db:
+        thread = await db.scalar(select(Thread).where(Thread.gmail_id == gmail_thread))
+        assert thread is not None
+        for _ in range(times):
+            await labeling._enqueue(db, [{"account_id": thread.account_id, "thread_id": thread.id}])
+        await db.commit()
+
+
+def test_enqueue_survives_postgres_generic_plan(synced: TestClient) -> None:
+    # After 5 runs on one connection Postgres may switch the prepared statement to a generic
+    # plan, which can't match the partial index if its predicate is a bound parameter.
+    run(_enqueue_repeatedly("t2", 8))
+    assert queued() == {"t2": "pending"}
+
+
 def test_label_changed_in_gmail_is_final(
     ai_on: None, synced: TestClient, gmail: FakeGmail, claude: FakeClaude
 ) -> None:

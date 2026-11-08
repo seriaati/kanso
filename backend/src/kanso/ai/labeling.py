@@ -10,7 +10,7 @@ from typing import Any
 import anthropic
 import httpx2 as httpx
 from pydantic import BaseModel, ValidationError
-from sqlalchemy import delete, exists, func, select
+from sqlalchemy import delete, exists, func, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -216,8 +216,10 @@ async def _enqueue(db: AsyncSession, rows: list[dict[str, Any]]) -> int:
     result = await db.execute(
         insert(AiQueue)
         .values(rows)
+        # A literal, not a bound parameter: Postgres's generic plan for the prepared statement
+        # (used after 5 runs) can't match a parameter to the partial index.
         .on_conflict_do_nothing(
-            index_elements=["thread_id"], index_where=AiQueue.status == "pending"
+            index_elements=["thread_id"], index_where=text("status = 'pending'")
         )
         .returning(AiQueue.id)
     )
