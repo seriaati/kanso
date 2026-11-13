@@ -70,7 +70,14 @@ export function Assistant({ accountId, threadId, threadHref, onOpenThread, onNot
   const busy = live !== null && live.endedAt === null
   const abort = useRef<AbortController | null>(null)
   useEffect(() => () => abort.current?.abort(), [])
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  // Grows with the draft, up to the max-height in the CSS.
+  useLayoutEffect(() => {
+    const input = inputRef.current
+    if (!input) return
+    input.style.height = 'auto'
+    input.style.height = `${input.scrollHeight}px`
+  }, [draft])
   const bodyRef = useRef<HTMLDivElement>(null)
   const atBottom = useRef(true)
 
@@ -303,9 +310,9 @@ export function Assistant({ accountId, threadId, threadHref, onOpenThread, onNot
               attach(chosen)
             }}
           />
-          <input
+          <textarea
             ref={inputRef}
-            type="text"
+            rows={1}
             value={draft}
             maxLength={4000}
             aria-label="Ask the assistant"
@@ -319,6 +326,11 @@ export function Assistant({ accountId, threadId, threadHref, onOpenThread, onNot
             }}
             onKeyDown={(event) => {
               if (event.key === 'Escape') event.currentTarget.blur()
+              // Enter while an IME is composing picks a candidate.
+              if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+                event.preventDefault()
+                send()
+              }
             }}
           />
           <button type="submit" className={styles.send} aria-label="Send" title="Send (Enter)" disabled={busy || (!draft.trim() && !files.length)}>
