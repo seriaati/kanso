@@ -168,6 +168,10 @@ button.open:hover {
   gap: 8px;
 }
 
+.title .size {
+  flex: none;
+}
+
 .barButton {
   flex: none;
   display: grid;
@@ -184,6 +188,13 @@ button.open:hover {
 .barButton:hover {
   background: var(--hover);
   color: var(--ink);
+}
+
+.barButton:disabled {
+  opacity: 0.4;
+  background: none;
+  color: var(--muted);
+  cursor: default;
 }
 
 .stage {
@@ -208,7 +219,7 @@ button.open:hover {
 }
 
 /* A PDF and text use the whole stage. */
-.stage:has(.frame, .text) {
+.stage:has(.frame, .pages, .text) {
   padding: 0;
 }
 
@@ -228,6 +239,68 @@ button.open:hover {
   font-size: var(--text-ui);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* pdf.js pages, one canvas each, as wide as the stage until zoomed. */
+.pages {
+  align-self: stretch;
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+}
+
+.page {
+  display: block;
+  margin: 12px auto;
+  aspect-ratio: 210 / 297; /* A4, until the page gives its own */
+  background: var(--surface);
+}
+
+.password {
+  width: 100%;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--muted);
+}
+
+.field input {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.field input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.unlock {
+  height: 38px;
+  border: 0;
+  border-radius: var(--radius-card);
+  background: var(--accent);
+  color: var(--surface);
+  font-weight: 700;
+}
+
+.unlock:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.wrong {
+  margin: 0;
 }
 
 .note {

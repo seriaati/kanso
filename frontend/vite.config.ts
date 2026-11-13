@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process'
+import { readdirSync, readFileSync } from 'node:fs'
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // Drops @fontsource's legacy .woff fallbacks so they're never emitted. A PostCSS plugin, so it
@@ -39,7 +40,7 @@ const pwa = VitePWA({
   workbox: {
     // Only the first paint's Latin fonts; the rest (~1 MB of CSS and subsets) is cached on use.
     globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}', 'assets/{zen-maru-gothic,shippori-mincho-b1}-latin-*.woff2'],
-    globIgnores: ['**/fonts-full-*.css'],
+    globIgnores: ['**/fonts-full-*.css', 'pdfjs/**'],
     navigateFallback: '/index.html',
     navigateFallbackDenylist: [/^\/api(\/|$)/],
     cleanupOutdatedCaches: true,
@@ -60,6 +61,21 @@ const pwa = VitePWA({
   },
 })
 
+// pdf.js (features/reader/PdfView.tsx) fetches its CMaps and its plain-script image decoders by
+// name, so they are copied to /pdfjs/ under their own names. The dev server has node_modules.
+const pdfjsAssets: Plugin = {
+  name: 'kanso-pdfjs-assets',
+  generateBundle() {
+    const from = new URL('./node_modules/pdfjs-dist/', import.meta.url)
+    const files = [
+      ...readdirSync(new URL('cmaps/', from)).filter((name) => name.endsWith('.bcmap')).map((name) => `cmaps/${name}`),
+      'wasm/jbig2_nowasm_fallback.js',
+      'wasm/openjpeg_nowasm_fallback.js',
+    ]
+    for (const file of files) this.emitFile({ type: 'asset', fileName: `pdfjs/${file}`, source: readFileSync(new URL(file, from)) })
+  },
+}
+
 // The commit this build is from, for Settings → About: KANSO_COMMIT in the Docker build (which has
 // no .git), else git's, else "dev".
 function commit(): string {
@@ -72,7 +88,7 @@ function commit(): string {
 }
 
 export default defineConfig({
-  plugins: [react(), pwa],
+  plugins: [react(), pwa, pdfjsAssets],
   define: { __KANSO_COMMIT__: JSON.stringify(commit()) },
   css: { postcss: { plugins: [woff2Only] } },
   // `bun run dev` talks to the backend running on its default port.

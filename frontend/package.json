@@ -22,6 +22,7 @@
     "@fontsource/zen-maru-gothic": "^5.3.1",
     "@tanstack/react-query": "^5.105.1",
     "@tanstack/react-virtual": "^3.14.25",
+    "pdfjs-dist": "^6.5.438",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router": "^8.5.1",

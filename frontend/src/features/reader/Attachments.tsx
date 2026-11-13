@@ -1,21 +1,26 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { fileSize } from '../../app/format'
 import type { Attachment } from '../../app/mail'
 import { Icon } from '../../components/Icon'
 import styles from './Attachments.module.css'
 
-type Kind = 'image' | 'video' | 'audio' | 'pdf' | 'text'
+// pdf.js is large, so it loads with the first PDF that needs it.
+const PdfView = lazy(() => import('./PdfView'))
+
+type Kind = 'image' | 'video' | 'audio' | 'pdf' | 'pdfjs' | 'text'
 
 // The types the server sends inline. An SVG never renders, even as an <img>.
 const IMAGES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
 const TEXT = new Set(['text/plain', 'text/csv'])
 
 /** How the viewer shows it, or null when only a download makes sense. */
-function kindOf(mime: string): Kind | null {
+function kindOf({ mime_type: mime, filename }: Attachment): Kind | null {
   if (IMAGES.has(mime)) return 'image'
   if (TEXT.has(mime)) return 'text'
-  // Android's Chrome has no built-in PDF viewer to frame one in.
-  if (mime === 'application/pdf') return navigator.pdfViewerEnabled ? 'pdf' : null
+  // The browser's own viewer frames a PDF. pdf.js draws it where that can't: Android has no
+  // viewer, and a PDF sent as a generic download (as banks do) isn't served to be framed.
+  if (mime === 'application/pdf') return navigator.pdfViewerEnabled ? 'pdf' : 'pdfjs'
+  if (/\.pdf$/i.test(filename)) return 'pdfjs'
   const media = mime.split('/')[0]
   if ((media === 'video' || media === 'audio') && document.createElement(media).canPlayType(mime)) return media
   return null
@@ -34,7 +39,7 @@ export function Attachments({ attachments }: { attachments: Attachment[] }) {
     <>
       <ul className={styles.list} aria-label="Attachments">
         {attachments.map((a) => {
-          const kind = kindOf(a.mime_type)
+          const kind = kindOf(a)
           const body = (
             <>
               <Thumb attachment={a} kind={kind} />
@@ -89,11 +94,14 @@ function Thumb({ attachment, kind }: { attachment: Attachment; kind: Kind | null
   )
 }
 
+const ZOOMS = [1, 1.5, 2, 3]
+
 type ViewerProps = { attachment: Attachment; kind: Kind; onClose: () => void }
 
 // A native modal <dialog>, like Dialog, but sized for the file rather than a form.
 function Viewer({ attachment, kind, onClose }: ViewerProps) {
   const ref = useRef<HTMLDialogElement>(null)
+  const [zoom, setZoom] = useState(0)
   useEffect(() => {
     const dialog = ref.current
     dialog?.showModal()
@@ -124,6 +132,16 @@ function Viewer({ attachment, kind, onClose }: ViewerProps) {
           <b className={styles.name}>{attachment.filename}</b>
           <span className={styles.size}>{fileSize(attachment.size)}</span>
         </span>
+        {kind === 'pdfjs' && (
+          <>
+            <button type="button" className={styles.barButton} onClick={() => setZoom(zoom - 1)} disabled={zoom === 0} title="Zoom out">
+              <Icon name="minus" />
+            </button>
+            <button type="button" className={styles.barButton} onClick={() => setZoom(zoom + 1)} disabled={zoom === ZOOMS.length - 1} title="Zoom in">
+              <Icon name="plus" />
+            </button>
+          </>
+        )}
         <a className={styles.barButton} href={url(attachment)} download={attachment.filename} title="Download">
           <Icon name="install" />
         </a>
@@ -139,6 +157,11 @@ function Viewer({ attachment, kind, onClose }: ViewerProps) {
       >
         {kind === 'image' && <img className={styles.media} src={url(attachment)} alt={attachment.filename} />}
         {kind === 'pdf' && <iframe className={styles.frame} src={url(attachment)} title={attachment.filename} />}
+        {kind === 'pdfjs' && (
+          <Suspense fallback={<p className={styles.note}>Loading…</p>}>
+            <PdfView src={url(attachment)} zoom={ZOOMS[zoom]} />
+          </Suspense>
+        )}
         {(kind === 'video' || kind === 'audio' || kind === 'text') && <Fetched attachment={attachment} kind={kind} />}
       </div>
     </dialog>
