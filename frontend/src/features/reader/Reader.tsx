@@ -26,6 +26,7 @@ type Props = {
   accounts: Account[]
   reply: ThreadDraft | null
   onComposeFinished: (notice: string, threadId?: number | null) => void
+  onSendHeld: (draftId: number, seconds: number) => void
   onCloseReply: () => void
   onReply: (mode: Exclude<ComposeMode, 'new'>) => void
   onCloseThread: () => void
@@ -49,7 +50,7 @@ type Props = {
 }
 
 export function Reader(props: Props) {
-  const { threadId, accounts, reply, onComposeFinished, onCloseReply, onCloseThread } = props
+  const { threadId, accounts, reply, onComposeFinished, onSendHeld, onCloseReply, onCloseThread } = props
   const thread = useThread(threadId)
   const detail = thread.data && thread.data.id === threadId ? thread.data : undefined
   const drafts = detail?.messages.filter((m) => m.draft) ?? []
@@ -95,6 +96,11 @@ export function Reader(props: Props) {
       onFinished={(notice, sentThread) => {
         closeDraft(draft.draftId, true)
         onComposeFinished(notice, sentThread)
+        if (!docked) onCloseThread()
+      }}
+      onHeld={(seconds) => {
+        closeDraft(draft.draftId, true)
+        onSendHeld(draft.draftId, seconds)
         if (!docked) onCloseThread()
       }}
     />

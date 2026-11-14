@@ -5,6 +5,7 @@ import type { Label, NamedLabel, SyncStatus } from '../../app/mail'
 import { href, mailboxNav, sameView, type Route, type View } from '../../app/nav'
 import { applyAppUpdate } from '../../app/native'
 import { applyUpdate } from '../../app/update'
+import { Countdown } from '../../components/Countdown'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
 import { LabelMark } from '../../components/LabelMark'
@@ -14,6 +15,8 @@ import { DeleteLabel, LabelEditor } from './LabelEditor'
 import styles from './Sidebar.module.css'
 
 export type Notice = { id: number; text: string; undo?: () => void }
+/** A message Send holds back until `at` (undo send). */
+export type HeldSend = { at: number; undo: () => void }
 
 type Props = {
   accounts: Account[]
@@ -22,6 +25,7 @@ type Props = {
   userLabels: NamedLabel[]
   sync: SyncStatus[]
   notice: Notice | null
+  held: HeldSend | null
   ai: boolean
   labeling: boolean
   update: boolean
@@ -36,7 +40,7 @@ type Props = {
 }
 
 export function Sidebar(props: Props) {
-  const { accounts, route, labels, userLabels, sync, notice, ai, labeling, update, appUpdate, collapsed, onToggle, onSelectAccount, onCompose, onLabelChanged } = props
+  const { accounts, route, labels, userLabels, sync, notice, held, ai, labeling, update, appUpdate, collapsed, onToggle, onSelectAccount, onCompose, onLabelChanged } = props
   // `editing` is '' for a new label.
   const [menu, setMenu] = useState<{ name: string; anchor: HTMLElement } | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
@@ -190,6 +194,16 @@ export function Sidebar(props: Props) {
                 Undo <kbd>z</kbd>
               </button>
             )}
+          </div>
+        )}
+        {held && (
+          <div className={styles.notice} role="status" key={held.at}>
+            <span>
+              Sending in <Countdown at={held.at} />
+            </span>
+            <button type="button" onClick={held.undo} title="Undo (z)">
+              Undo <kbd>z</kbd>
+            </button>
           </div>
         )}
         {/* One at a time, the app first: installing it restarts the app, which also loads the new Kanso. */}

@@ -314,7 +314,13 @@ async def _setup(gmail: FakeGmail) -> None:
 @pytest.fixture
 def synced(gmail: FakeGmail, logged_in: TestClient) -> TestClient:
     run(_setup(gmail))
+    send_at_once(logged_in)
     return logged_in
+
+
+def send_at_once(api: TestClient) -> None:
+    """Undo send is on by default; the tests of sending itself turn it off."""
+    assert api.patch("/api/settings", json={"undo_send": False}).status_code == 200
 
 
 def sync(gmail: FakeGmail) -> None:
@@ -548,12 +554,74 @@ def test_unanswered_send_is_pending_then_retried_once(
         "subject": "Once only",
     }
     response = synced.post(f"/api/drafts/{draft_id}/send", json=body)
-    assert response.json() == {"status": "pending", "thread_id": None}
+    assert response.json() == {"status": "pending", "thread_id": None, "undo_seconds": None}
     assert draft_rows()[0].sending_since is not None
     retry = synced.post(f"/api/drafts/{draft_id}/send", json=body | {"subject": "ignored"})
     assert retry.json()["status"] == "sent"
     assert len(gmail.sent) == 1
     assert mime.parse(gmail.sent[0]).subject == "Once only"
+
+
+async def _send_held(gmail: FakeGmail, due: bool) -> None:
+    if due:
+        async with Session() as db:
+            past = datetime.now(UTC) - timedelta(seconds=1)
+            await db.execute(update(Draft).where(Draft.send_at.is_not(None)).values(send_at=past))
+            await db.commit()
+    async with gmail.client() as http:
+        await drafts.send_held(http)
+
+
+def held_draft(api: TestClient) -> tuple[str, dict[str, Any]]:
+    assert api.patch("/api/settings", json={"undo_send": True}).status_code == 200
+    draft = new_draft(api)
+    body = content(draft, to=[{"name": "", "email": "ana@example.com"}], subject="Held")
+    url = f"/api/drafts/{draft['id']}"
+    held = api.post(f"{url}/send", json=body)
+    assert held.json() == {"status": "held", "thread_id": None, "undo_seconds": 10}
+    return url, body
+
+
+@db_test
+def test_undo_send_holds_the_message_until_its_time(synced: TestClient, gmail: FakeGmail) -> None:
+    url, body = held_draft(synced)
+    assert gmail.sent == [] and thread_subjects(synced, "drafts") == ["Held"]
+    # What Send was pressed on is what goes out.
+    assert synced.put(url, json=body | {"subject": "changed"}).status_code == 409
+    assert synced.delete(url).status_code == 409
+    run(_send_held(gmail, due=False))
+    assert gmail.sent == []
+
+    run(_send_held(gmail, due=True))
+    assert len(gmail.sent) == 1 and mime.parse(gmail.sent[0]).subject == "Held"
+    assert draft_rows() == [] and thread_subjects(synced, "drafts") == []
+    assert thread_subjects(synced, "sent")[0] == "Held"
+    assert synced.delete(f"{url}/send").status_code == 409  # too late to undo
+
+
+@db_test
+def test_undone_send_is_a_draft_again(synced: TestClient, gmail: FakeGmail) -> None:
+    url, body = held_draft(synced)
+    undone = synced.delete(f"{url}/send")
+    assert undone.status_code == 200 and undone.json()["subject"] == "Held"
+    run(_send_held(gmail, due=True))
+    assert gmail.sent == [] and thread_subjects(synced, "drafts") == ["Held"]
+    assert synced.put(url, json=body | {"subject": "Fixed"}).status_code == 200
+    # Sent again and left alone, it goes out once.
+    assert synced.post(f"{url}/send", json=body | {"subject": "Fixed"}).json()["status"] == "held"
+    run(_send_held(gmail, due=True))
+    run(_send_held(gmail, due=True))
+    assert [mime.parse(raw).subject for raw in gmail.sent] == ["Fixed"]
+
+
+@db_test
+def test_held_send_gmail_refuses_is_a_draft_again(synced: TestClient, gmail: FakeGmail) -> None:
+    url, body = held_draft(synced)
+    gmail.failures["POST /drafts/send"] = [400]
+    run(_send_held(gmail, due=True))
+    [row] = draft_rows()
+    assert row.send_at is None and row.sending_since is None and gmail.sent == []
+    assert synced.put(url, json=body).status_code == 200
 
 
 @db_test
@@ -584,7 +652,7 @@ def test_reply_from_a_notification_unanswered_is_pending_then_resumed_once(
     body = {"message_id": message_id("m1"), "text": "On my way"}
     response = synced.post("/api/reply", json=body)
     assert response.status_code == 202
-    assert response.json() == {"status": "pending", "thread_id": None}
+    assert response.json() == {"status": "pending", "thread_id": None, "undo_seconds": None}
     assert draft_rows()[0].sending_since is not None
     monkeypatch.setattr(drafts, "RESUME_AFTER", timedelta(0))
     run(_resume(gmail))
@@ -735,6 +803,7 @@ def test_draft_written_in_gmail_opens_in_the_composer(synced: TestClient, gmail:
 @pytest.fixture
 def demo(logged_in: TestClient) -> TestClient:
     run(demo_seed.seed())
+    send_at_once(logged_in)
     return logged_in
 
 
@@ -754,7 +823,7 @@ def test_demo_account_drafts_and_sends_locally(demo: TestClient) -> None:
     assert saved["saved"] and saved["thread_id"] == daniel["id"]
     assert "Re: Dinner on Saturday?" in thread_subjects(demo, "drafts")
     sent = demo.post(f"/api/drafts/{draft['id']}/send", json=body).json()
-    assert sent == {"status": "sent", "thread_id": daniel["id"]}
+    assert sent == {"status": "sent", "thread_id": daniel["id"], "undo_seconds": None}
     messages = demo.get(f"/api/threads/{daniel['id']}").json()["messages"]
     assert messages[-1]["body_text"] is None and "好的" in (messages[-1]["body_html"] or "")
     assert not any(m["draft"] for m in messages)

@@ -9,7 +9,8 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
-import { Link, Navigate, useLocation, useNavigate } from 'react-router'
+import { Link, Navigate, useLocation, useNavigate, type To } from 'react-router'
+import { Countdown } from '../components/Countdown'
 import { Menu, type MenuItem } from '../components/Menu'
 import { Resizer } from '../components/Resizer'
 import { Assistant, type AssistantHandle } from '../features/assistant/Assistant'
@@ -26,13 +27,13 @@ import { Selection } from '../features/reader/Selection'
 import { Cleanup } from '../features/cleanup/Cleanup'
 import { Labels } from '../features/labels/Labels'
 import { Settings } from '../features/settings/Settings'
-import { Sidebar, type Notice } from '../features/sidebar/Sidebar'
+import { Sidebar, type HeldSend, type Notice } from '../features/sidebar/Sidebar'
 import { InboxZero, ThreadList, type LabelChip, type ListRow } from '../features/threads/ThreadList'
 import { pickAccount, rememberAccount, useAccounts, type Account } from './accounts'
 import { applied, bundleActions, inList, quickAction, quickTarget, redundant, unsubscribe, useThreadAction, useUndo, type BundleAction, type BundleScope, type LabelScope, type Quick, type ThreadAction } from './actions'
 import { useConfig } from './ai'
 import { ApiError, queryClient, Unauthorized } from './api'
-import { createDraft, linkedDraft, openDraft, type ComposeMode, type LinkedDraft } from './compose'
+import { createDraft, linkedDraft, openDraft, undoSend, type ComposeMode, type LinkedDraft } from './compose'
 import styles from './App.module.css'
 import { useCreateLabel } from './labels'
 import {
@@ -161,6 +162,20 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     const timer = setTimeout(() => setNotice(null), notice.undo ? UNDO_MS : NOTICE_MS)
     return () => clearTimeout(timer)
   }, [notice])
+  // A message Send holds back (undo send, in Settings): the server sends it at `at`.
+  const [held, setHeld] = useState<{ draftId: number; at: number; inThread: boolean } | null>(null)
+  const hold = (draftId: number, seconds: number, inThread: boolean) => {
+    setNotice(null)
+    setHeld({ draftId, at: Date.now() + seconds * 1000, inThread })
+  }
+  useEffect(() => {
+    if (!held) return
+    const timer = setTimeout(() => {
+      setHeld(null)
+      say('Message sent.')
+    }, held.at - Date.now())
+    return () => clearTimeout(timer)
+  }, [held, say])
   useLiveUpdates(
     (action) => say(`Gmail didn’t accept a change (${action}), so it was undone here too.`),
     (message) => say(`A message wasn’t sent: ${message} It is back in Drafts.`),
@@ -502,12 +517,29 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
     const under = linked ? href(route) : { pathname: location.pathname, search: location.search }
     startDraft(
       () => createDraft('new', { accountId: accountId ?? undefined }, linked).then((d) => d.id),
-      (draftId) => {
-        setComposing({ draftId, minimized: false })
-        if (phone) void navigate(under, { state: { compose: draftId } })
-      },
+      (draftId) => openWindow(draftId, under),
     )
   }
+  const openWindow = (draftId: number, under: To) => {
+    setComposing({ draftId, minimized: false })
+    if (phone) void navigate(under, { state: { compose: draftId } })
+  }
+  // The draft opens again where it was sent from.
+  const unsend = () => {
+    if (!held) return
+    setHeld(null)
+    undoSend(held.draftId).then(
+      (draft) => {
+        if (held.inThread && draft.thread_id !== null) {
+          if (draft.thread_id !== threadId) open(draft.thread_id)
+          setReply({ threadId: draft.thread_id, draftId: draft.id, focus: 'body' })
+        } else if (!composing) openWindow(draft.id, { pathname: location.pathname, search: location.search })
+        else say('Send undone. The message is in Drafts.')
+      },
+      (error: Error) => say(error.message),
+    )
+  }
+  const heldSend: HeldSend | null = held && { at: held.at, undo: unsend }
   // /compose?to=…&subject=… (linkedDraft): Compose, filled in, over the inbox.
   const linked = location.pathname === '/compose' ? location.search : null
   const openLinked = useEffectEvent((search: string) => {
@@ -695,8 +727,9 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
         startReply('forward')
         break
       case 'z':
-        if (!notice?.undo) return
-        notice.undo()
+        if (notice?.undo) notice.undo()
+        else if (held) unsend()
+        else return
         break
       case 'q':
         if (assistantRef.current) assistantRef.current.focus()
@@ -797,6 +830,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
           userLabels={named}
           sync={sync.data ?? []}
           notice={notice}
+          held={heldSend}
           ai={ai}
           labeling={labeling}
           update={update}
@@ -952,6 +986,7 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
                     setReply(null)
                     say(text)
                   }}
+                  onSendHeld={(draftId, seconds) => hold(draftId, seconds, true)}
                   onCloseReply={() => setReply(null)}
                   onReply={startReply}
                   onCloseThread={closeThread}
@@ -1014,11 +1049,15 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
               closeCompose()
               say(text)
             }}
+            onHeld={(seconds) => {
+              closeCompose()
+              hold(composing.draftId, seconds, false)
+            }}
           />
         </ComposeWindow>
       )}
-      {phone && (notice || update || appUpdate) && (
-        <Toast notice={notice} update={update} appUpdate={appUpdate} place={screen === 'list' || (screen === 'thread' && !reply) ? 'bar' : screen === 'assistant' ? 'sheet' : 'bottom'} />
+      {phone && (notice || heldSend || update || appUpdate) && (
+        <Toast notice={notice} held={heldSend} update={update} appUpdate={appUpdate} place={screen === 'list' || (screen === 'thread' && !reply) ? 'bar' : screen === 'assistant' ? 'sheet' : 'bottom'} />
       )}
       {help && <ShortcutHelp ai={ai} onClose={() => setHelp(false)} />}
       {commanding && (
@@ -1085,7 +1124,7 @@ function ComposeWindow({ minimized, movable, children }: { minimized: boolean; m
   )
 }
 
-function Toast({ notice, update, appUpdate, place }: { notice: Notice | null; update: boolean; appUpdate: string | null; place: 'bar' | 'sheet' | 'bottom' }) {
+function Toast({ notice, held, update, appUpdate, place }: { notice: Notice | null; held: HeldSend | null; update: boolean; appUpdate: string | null; place: 'bar' | 'sheet' | 'bottom' }) {
   return (
     <div className={`${styles.toast} ${styles[place] ?? ''}`} role="status">
       {/* One at a time, the app first: installing it restarts the app, which also loads the new Kanso. */}
@@ -1113,6 +1152,16 @@ function Toast({ notice, update, appUpdate, place }: { notice: Notice | null; up
               Undo
             </button>
           )}
+        </p>
+      )}
+      {held && (
+        <p key={held.at}>
+          <span>
+            Sending in <Countdown at={held.at} />
+          </span>
+          <button type="button" onClick={held.undo}>
+            Undo
+          </button>
         </p>
       )}
     </div>

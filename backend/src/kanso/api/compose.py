@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kanso.db import contacts
+from kanso.db import contacts, prefs
 from kanso.db.models import Draft, Thread
 from kanso.db.session import get_session
 from kanso.gmail import client as gmail_client
@@ -79,8 +79,10 @@ class ReplyIn(BaseModel):
 
 class SendOut(BaseModel):
     # "pending": Gmail's answer didn't arrive; Kanso retries and never sends the message twice.
-    status: Literal["sent", "pending"]
+    # "held": undo send is on, so it goes out in undo_seconds unless the send is undone.
+    status: Literal["sent", "pending", "held"]
     thread_id: int | None
+    undo_seconds: int | None = None
 
 
 async def _out(db: AsyncSession, draft: Draft) -> DraftOut:
@@ -267,6 +269,13 @@ async def send_draft(draft_id: int, body: DraftIn, db: DB) -> SendOut:
                 raise _error(error) from error
             await db.commit()
             await drafts.publish(draft.account_id, touched)
+            if await prefs.undo_send(db):
+                seconds = await prefs.undo_send_seconds(db)
+                try:
+                    await drafts.send_later(db, draft, seconds)
+                except drafts.DraftError as error:
+                    raise _error(error) from error
+                return SendOut(status="held", thread_id=None, undo_seconds=seconds)
         try:
             thread_id = await drafts.send(db, draft, http)
         except drafts.DraftError as error:
@@ -275,6 +284,18 @@ async def send_draft(draft_id: int, body: DraftIn, db: DB) -> SendOut:
             log.warning("draft %s: send unconfirmed (%s); the worker resumes it", draft_id, error)
             return SendOut(status="pending", thread_id=None)
     return SendOut(status="sent", thread_id=thread_id)
+
+
+@router.delete("/drafts/{draft_id}/send")
+async def undo_send(draft_id: int, db: DB) -> DraftOut:
+    """Takes back a held send: the message stays a draft, as it was when Send was pressed."""
+    async with drafts.lock(draft_id):
+        draft = await db.get(Draft, draft_id, populate_existing=True)
+        if draft is None or draft.sending_since is not None:
+            raise HTTPException(status_code=409, detail="Too late to undo: the message was sent.")
+        draft.send_at = None
+        await db.commit()
+    return await _out(db, draft)
 
 
 @router.post("/reply")

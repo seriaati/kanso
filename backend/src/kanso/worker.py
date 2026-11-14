@@ -42,6 +42,7 @@ async def run() -> None:
     refreshes = asyncio.create_task(listen(scheduler))
     writes = asyncio.create_task(outbox.run(http))
     housekeeping = asyncio.create_task(drafts.run(http))
+    held_sends = asyncio.create_task(drafts.run_held(http))
     contact_photos = asyncio.create_task(photos.run(http))
     classify = asyncio.create_task(labeling.run())  # idle until an API key is set in Settings
     if ignored := keys.ignored_env():
@@ -65,6 +66,7 @@ async def run() -> None:
     refreshes.cancel()
     writes.cancel()
     housekeeping.cancel()
+    held_sends.cancel()
     contact_photos.cancel()
     classify.cancel()
     if demo_reset:

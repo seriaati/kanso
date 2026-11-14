@@ -13,6 +13,8 @@ EVENTS_CHANNEL = "kanso:events"
 OUTBOX_CHANNEL = "kanso:outbox"
 # Wakes the worker's AI labeling.
 AI_CHANNEL = "kanso:ai"
+# Wakes the worker's sending of held messages (undo send).
+SEND_CHANNEL = "kanso:send"
 # Asks the worker to sync an account with Gmail now (the message is its id).
 SYNC_CHANNEL = "kanso:sync"
 

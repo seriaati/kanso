@@ -13,7 +13,7 @@ const shortcuts = [
   ['u', 'Mark unread / read'],
   ['x', 'Select (or Ctrl/⌘-click; Shift-click for a range); actions apply to all selected'],
   ['Ctrl+A', 'Select every thread in the list'],
-  ['z', 'Undo Done, Delete, Restore or Not spam'],
+  ['z', 'Undo Done, Delete, Restore, Not spam or Send'],
   ['c', 'Compose'],
   ['r / a / f', 'Reply / reply all / forward'],
   ['Ctrl+Enter', 'Send (⌘+Enter on a Mac)'],

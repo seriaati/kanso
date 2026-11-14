@@ -45,6 +45,7 @@ export function Settings({ accounts, sync, ai, labeling, onMenu }: Props) {
           )}
           {!demo && <Notifications />}
           {inApp && <Server />}
+          <Sending />
           <ApiKeys />
           {ai && <Assistant />}
           <Labeling />
@@ -357,6 +358,41 @@ function Assistant() {
           </span>
         </span>
       </label>
+      {update.error && <p className={styles.note}>Couldn’t save: {update.error.message}</p>}
+    </Section>
+  )
+}
+
+const undoDelays = [5, 10, 15, 20, 30, 45, 60]
+
+function Sending() {
+  const settings = useSettings()
+  const update = useUpdateSettings()
+  const data = settings.data
+  return (
+    <Section title="Sending">
+      <label className={styles.toggle}>
+        <input type="checkbox" checked={data?.undo_send ?? true} disabled={!data} onChange={(event) => update.mutate({ undo_send: event.target.checked })} />
+        <span>
+          Undo send
+          <span className={styles.muted}>
+            Send holds each message for a few seconds before it goes out. Until then, Undo takes it back and opens it again as a draft.
+          </span>
+        </span>
+      </label>
+      <div className={styles.models}>
+        <div className={styles.model}>
+          <span>Time to undo</span>
+          <Select
+            className={styles.picker}
+            label="Time to undo"
+            value={String(data?.undo_send_seconds ?? '')}
+            options={undoDelays.map((seconds) => ({ value: String(seconds), label: `${seconds} seconds` }))}
+            disabled={!data?.undo_send}
+            onChange={(value) => update.mutate({ undo_send_seconds: Number(value) })}
+          />
+        </div>
+      </div>
       {update.error && <p className={styles.note}>Couldn’t save: {update.error.message}</p>}
     </Section>
   )

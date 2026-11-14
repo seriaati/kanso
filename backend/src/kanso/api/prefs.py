@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kanso.ai import keys, labeling, usage
@@ -24,10 +24,15 @@ class SettingsOut(BaseModel):
     models: list[str]
     # Auto-labeling's choices: the Claude models with an Anthropic key, Jev with a TypeSafe key.
     labeling_models: list[str]
+    # Send waits undo_send_seconds before the message goes out, and can be undone until then.
+    undo_send: bool
+    undo_send_seconds: int
 
 
 class SettingsIn(BaseModel):
     assistant_confirm: bool | None = None
+    undo_send: bool | None = None
+    undo_send_seconds: int | None = Field(default=None, ge=5, le=60)
     ai_labeling: bool | None = None
     labeling_model: str | None = None
     summary_model: str | None = None
@@ -49,6 +54,8 @@ async def get_settings(db: DB) -> SettingsOut:
         assistant_model=await prefs.model(db, "assistant"),
         models=list(usage.PRICES),
         labeling_models=labeling_models,
+        undo_send=await prefs.undo_send(db),
+        undo_send_seconds=await prefs.undo_send_seconds(db),
     )
 
 
@@ -58,6 +65,10 @@ async def update_settings(body: SettingsIn, db: DB) -> SettingsOut:
         await prefs.put(db, prefs.ASSISTANT_CONFIRM, body.assistant_confirm)
     if body.ai_labeling is not None:
         await prefs.put(db, prefs.AI_LABELING, body.ai_labeling)
+    if body.undo_send is not None:
+        await prefs.put(db, prefs.UNDO_SEND, body.undo_send)
+    if body.undo_send_seconds is not None:
+        await prefs.put(db, prefs.UNDO_SEND_SECONDS, body.undo_send_seconds)
     for feature in prefs.MODEL_DEFAULTS:
         model = getattr(body, f"{feature}_model")
         if model is None:

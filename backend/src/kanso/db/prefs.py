@@ -17,6 +17,9 @@ SESSION_EPOCH = "session_epoch"
 AI_KEY_REJECTED = "ai_key_rejected"
 # AI labeling of new inbox mail, with an API key set. On unless turned off.
 AI_LABELING = "ai_labeling"
+# Undo send: Send holds each message this many seconds before it goes out. On unless turned off.
+UNDO_SEND = "undo_send"
+UNDO_SEND_SECONDS = "undo_send_seconds"
 # The Claude model per AI feature, keyed by the usage table's feature names.
 MODEL_DEFAULTS = {
     "labeling": "claude-haiku-5-5",
@@ -46,6 +49,14 @@ async def assistant_confirm(db: AsyncSession) -> bool:
 
 async def ai_labeling(db: AsyncSession) -> bool:
     return bool(await get(db, AI_LABELING, True))
+
+
+async def undo_send(db: AsyncSession) -> bool:
+    return bool(await get(db, UNDO_SEND, True))
+
+
+async def undo_send_seconds(db: AsyncSession) -> int:
+    return int(await get(db, UNDO_SEND_SECONDS, 10))
 
 
 async def model(db: AsyncSession, feature: str) -> str:

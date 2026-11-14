@@ -113,8 +113,19 @@ export function saveDraft(id: number, fields: DraftFields, keepalive = false) {
   })
 }
 
+/** "held": undo send is on (Settings), so it goes out in `undo_seconds` unless undoSend takes it back. */
+export type SendResult = { status: 'sent' | 'pending'; thread_id: number | null } | { status: 'held'; undo_seconds: number }
+
 export function sendDraft(id: number, fields: DraftFields) {
-  return api<{ status: 'sent' | 'pending'; thread_id: number | null }>(`/drafts/${id}/send`, { method: 'POST', body: fields })
+  return api<SendResult>(`/drafts/${id}/send`, { method: 'POST', body: fields })
+}
+
+/** The draft is as it was when Send was pressed. Fails once the message is sent. */
+export function undoSend(id: number) {
+  return api<Draft>(`/drafts/${id}/send`, { method: 'DELETE' }).then((draft) => {
+    queryClient.setQueryData(['draft', id], draft)
+    return draft
+  })
 }
 
 export function discardDraft(id: number) {

@@ -42,6 +42,8 @@ type Props = {
   closing?: boolean
   onClose?: () => void
   onFinished: (notice: string, threadId?: number | null) => void
+  /** Sent with undo send on: it goes out in `seconds`, unless the send is undone. */
+  onHeld: (seconds: number) => void
 }
 
 export function Composer(props: Props) {
@@ -55,7 +57,7 @@ type Status = { kind: 'idle' | 'saving' | 'saved' | 'error'; text?: string }
 
 const isImage = (file: File) => IMAGE_TYPES.includes(file.type)
 
-function Form({ initial: latest, docked, title, minimized, onToggleMinimize, focus, closing, onClose, onFinished }: Props & { initial: Draft }) {
+function Form({ initial: latest, docked, title, minimized, onToggleMinimize, focus, closing, onClose, onFinished, onHeld }: Props & { initial: Draft }) {
   // Autosaves update the cached draft, not what is on screen.
   const [initial] = useState(latest)
   const id = initial.id
@@ -179,10 +181,12 @@ function Form({ initial: latest, docked, title, minimized, onToggleMinimize, foc
       const result = await sendDraft(id, fields())
       savedVersion.current = Infinity // nothing left to save
       refreshMail()
-      onFinished(
-        result.status === 'sent' ? 'Message sent.' : 'Gmail hasn’t confirmed the send yet; Kanso keeps trying (it never sends twice).',
-        result.thread_id,
-      )
+      if (result.status === 'held') onHeld(result.undo_seconds)
+      else
+        onFinished(
+          result.status === 'sent' ? 'Message sent.' : 'Gmail hasn’t confirmed the send yet; Kanso keeps trying (it never sends twice).',
+          result.thread_id,
+        )
     } catch (error) {
       setSending(false)
       setStatus({ kind: 'error', text: `Not sent: ${(error as Error).message}` })

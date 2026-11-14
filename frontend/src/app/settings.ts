@@ -9,6 +9,8 @@ export type Settings = {
   assistant_model: string
   models: string[] // the choices
   labeling_models: string[] // auto-labeling's choices, by the API keys set
+  undo_send: boolean // Send waits undo_send_seconds (5 to 60), and can be undone until then
+  undo_send_seconds: number
 }
 
 const key = ['settings']

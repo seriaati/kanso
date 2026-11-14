@@ -1,6 +1,8 @@
 """Sending never duplicates: `sending_since` is committed before drafts.send, and Gmail deletes a
 draft when it sends it, so a retry either sends it or gets 404 (sent already). A 4xx refusal
 clears the mark; an unknown outcome keeps it for resume_sends.
+
+With undo send on, Send only sets `send_at`; the worker sends the draft then (send_held).
 """
 
 import asyncio
@@ -17,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx2 as httpx
-from sqlalchemy import delete, select, text, update
+from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kanso import demo_seed
@@ -239,7 +241,7 @@ async def add_attachment(
     draft: Draft, filename: str, mime_type: str, content: bytes, inline: bool = False
 ) -> None:
     """An inline image is shown in the body (cid:) and goes out related to the HTML."""
-    if draft.sending_since:
+    if draft.sending_since or draft.send_at:
         raise DraftError(409, "This message is being sent.")
     if inline and mime_type not in IMAGE_TYPES:
         raise DraftError(400, "Only PNG, JPEG, GIF and WebP images go in the message.")
@@ -261,7 +263,7 @@ async def add_attachment(
 
 
 def remove_attachment(draft: Draft, attachment_id: str) -> None:
-    if draft.sending_since:
+    if draft.sending_since or draft.send_at:
         raise DraftError(409, "This message is being sent.")
     if not any(a["id"] == attachment_id for a in draft.attachments):
         return  # unknown (or not an id at all): no file is touched
@@ -452,7 +454,7 @@ async def save(
     db: AsyncSession, draft: Draft, fields: dict[str, Any], http: httpx.AsyncClient
 ) -> set[int]:
     """The caller commits."""
-    if draft.sending_since:
+    if draft.sending_since or draft.send_at:
         raise DraftError(409, "This message is being sent.")
     touched: set[int] = set()
     if fields["account_id"] != draft.account_id:
@@ -494,7 +496,7 @@ async def _drop_gmail_copy(db: AsyncSession, draft: Draft, http: httpx.AsyncClie
 
 async def discard(db: AsyncSession, draft: Draft, http: httpx.AsyncClient) -> set[int]:
     """The caller commits."""
-    if draft.sending_since:
+    if draft.sending_since or draft.send_at:
         raise DraftError(409, "This message is being sent.")
     touched = await _drop_gmail_copy(db, draft, http)
     await db.delete(draft)
@@ -507,16 +509,30 @@ async def send(db: AsyncSession, draft: Draft, http: httpx.AsyncClient) -> int |
     account = await db.get(Account, draft.account_id)
     assert account is not None
     if draft.sending_since is None:
-        if not (draft.to_addrs or draft.cc_addrs or draft.bcc_addrs):
-            raise DraftError(400, "Add at least one recipient.")
+        _need_recipient(draft)
         if not draft.gmail_message_id:
             try:
                 await push(db, draft, http)
             except (GmailError, httpx.TransportError, oauth.OAuthError) as error:
                 raise DraftError(502, f"Couldn’t save the message to Gmail: {error}") from error
         draft.sending_since = datetime.now(UTC)
+        draft.send_at = None
         await db.commit()
     return await _deliver(db, draft, account, http)
+
+
+def _need_recipient(draft: Draft) -> None:
+    if not (draft.to_addrs or draft.cc_addrs or draft.bcc_addrs):
+        raise DraftError(400, "Add at least one recipient.")
+
+
+async def send_later(db: AsyncSession, draft: Draft, seconds: int) -> None:
+    """Held, so it can still be undone; the worker sends it when the time is up. Commits."""
+    _need_recipient(draft)
+    draft.send_at = datetime.now(UTC) + timedelta(seconds=seconds)
+    await db.commit()
+    with suppress(Exception):  # unheard, the worker still finds it on its next check
+        await events.redis.publish(events.SEND_CHANNEL, "1")
 
 
 async def _deliver(
@@ -642,13 +658,73 @@ async def resume_sends(http: httpx.AsyncClient) -> None:
             try:
                 await _deliver(db, draft, account, http)
             except DraftError as error:
-                log.warning("draft %s was not sent: %s", draft_id, error)
-                with suppress(Exception):
-                    await events.publish({"type": "send_failed", "message": str(error)})
+                await _not_sent(draft_id, error)
             except SendPending as error:
                 log.warning(
                     "draft %s: sending still unconfirmed (%s), retrying later", draft_id, error
                 )
+
+
+async def _not_sent(draft_id: int, error: DraftError) -> None:
+    log.warning("draft %s was not sent: %s", draft_id, error)
+    with suppress(Exception):
+        await events.publish({"type": "send_failed", "message": str(error)})
+
+
+async def send_held(http: httpx.AsyncClient) -> float:
+    """Sends the held messages whose time is up. Returns the seconds until the next check."""
+    now = datetime.now(UTC)
+    async with Session() as db:
+        due = list(await db.scalars(select(Draft.id).where(Draft.send_at <= now)))
+        next_at = await db.scalar(select(func.min(Draft.send_at)).where(Draft.send_at > now))
+    for draft_id in due:
+        async with lock(draft_id), Session() as db:
+            draft = await db.get(Draft, draft_id)
+            if draft is None or draft.send_at is None or draft.send_at > now:
+                continue  # undone just now
+            try:
+                await send(db, draft, http)
+            except DraftError as error:
+                draft.send_at = None  # a draft again
+                await db.commit()
+                await _not_sent(draft_id, error)
+            except SendPending as error:
+                log.warning("draft %s: send unconfirmed (%s), resumed later", draft_id, error)
+    if next_at is None:
+        return LOOP_SECONDS
+    return min(max((next_at - datetime.now(UTC)).total_seconds(), 0.0), LOOP_SECONDS)
+
+
+async def _listen(wake: asyncio.Event) -> None:
+    while True:
+        try:
+            async with events.redis.pubsub() as pubsub:
+                await pubsub.subscribe(events.SEND_CHANNEL)
+                while True:
+                    message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=60)
+                    if message is not None:
+                        wake.set()
+        except Exception as error:
+            log.warning("drafts: Redis wake-ups unavailable (%s)", error)
+            await asyncio.sleep(LOOP_SECONDS)
+
+
+async def run_held(http: httpx.AsyncClient) -> None:
+    """Woken by each held send, then asleep until the first of them is due."""
+    wake = asyncio.Event()
+    listener = asyncio.create_task(_listen(wake))
+    try:
+        while True:
+            wake.clear()
+            try:
+                wait = await send_held(http)
+            except Exception:
+                log.exception("drafts: sending held messages failed")
+                wait = LOOP_SECONDS
+            with suppress(TimeoutError):
+                await asyncio.wait_for(wake.wait(), timeout=wait)
+    finally:
+        listener.cancel()
 
 
 async def run(http: httpx.AsyncClient) -> None:

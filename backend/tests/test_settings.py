@@ -126,6 +126,15 @@ def test_assistant_confirmation_setting(logged_in: TestClient) -> None:
     assert logged_in.get("/api/settings").json()["assistant_confirm"] is True
 
 
+def test_undo_send_setting(logged_in: TestClient) -> None:
+    response = logged_in.patch("/api/settings", json={"undo_send": False, "undo_send_seconds": 30})
+    assert (response.json()["undo_send"], response.json()["undo_send_seconds"]) == (False, 30)
+    for seconds in (4, 61):
+        refused = logged_in.patch("/api/settings", json={"undo_send_seconds": seconds})
+        assert refused.status_code == 422
+    assert logged_in.get("/api/settings").json()["undo_send_seconds"] == 30
+
+
 def test_model_settings(logged_in: TestClient) -> None:
     models = ["claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"]
     assert logged_in.get("/api/settings").json() == {
@@ -136,6 +145,8 @@ def test_model_settings(logged_in: TestClient) -> None:
         "assistant_model": "claude-sonnet-5-5",
         "models": models,
         "labeling_models": [],  # no API key yet
+        "undo_send": True,
+        "undo_send_seconds": 10,
     }
     response = logged_in.patch("/api/settings", json={"assistant_model": "claude-opus-5-5"})
     assert response.json()["assistant_model"] == "claude-opus-5-5"

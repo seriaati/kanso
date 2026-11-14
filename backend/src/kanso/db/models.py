@@ -258,6 +258,8 @@ class Draft(Base):
     # Set right before drafts.send. Such a draft is never saved again, only sent, so a retry
     # after a crash can't send it twice.
     sending_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Undo send: Send holds the draft until then, and the worker sends it. Not saved meanwhile.
+    send_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
