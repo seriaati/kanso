@@ -27,7 +27,7 @@ import { Selection } from '../features/reader/Selection'
 import { Cleanup } from '../features/cleanup/Cleanup'
 import { Labels } from '../features/labels/Labels'
 import { Settings } from '../features/settings/Settings'
-import { Sidebar, type HeldSend, type Notice } from '../features/sidebar/Sidebar'
+import { Sidebar } from '../features/sidebar/Sidebar'
 import { InboxZero, ThreadList, type LabelChip, type ListRow } from '../features/threads/ThreadList'
 import { pickAccount, rememberAccount, useAccounts, type Account } from './accounts'
 import { applied, bundleActions, inList, quickAction, quickTarget, redundant, unsubscribe, useThreadAction, useUndo, type BundleAction, type BundleScope, type LabelScope, type Quick, type ThreadAction } from './actions'
@@ -829,12 +829,8 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
           labels={labels.data ?? []}
           userLabels={named}
           sync={sync.data ?? []}
-          notice={notice}
-          held={heldSend}
           ai={ai}
           labeling={labeling}
-          update={update}
-          appUpdate={appUpdate}
           collapsed={sidebarCollapsed}
           onToggle={toggleSidebar}
           onSelectAccount={selectAccount}
@@ -1056,8 +1052,14 @@ function Mail({ accounts, route: urlRoute }: { accounts: Account[]; route: Route
           />
         </ComposeWindow>
       )}
-      {phone && (notice || heldSend || update || appUpdate) && (
-        <Toast notice={notice} held={heldSend} update={update} appUpdate={appUpdate} place={screen === 'list' || (screen === 'thread' && !reply) ? 'bar' : screen === 'assistant' ? 'sheet' : 'bottom'} />
+      {(notice || heldSend || update || appUpdate) && (
+        <Toast
+          notice={notice}
+          held={heldSend}
+          update={update}
+          appUpdate={appUpdate}
+          place={!phone ? (multi ? 'over' : 'list') : screen === 'list' || (screen === 'thread' && !reply) ? 'bar' : screen === 'assistant' ? 'sheet' : 'bottom'}
+        />
       )}
       {help && <ShortcutHelp ai={ai} onClose={() => setHelp(false)} />}
       {commanding && (
@@ -1124,7 +1126,21 @@ function ComposeWindow({ minimized, movable, children }: { minimized: boolean; m
   )
 }
 
-function Toast({ notice, held, update, appUpdate, place }: { notice: Notice | null; held: HeldSend | null; update: boolean; appUpdate: string | null; place: 'bar' | 'sheet' | 'bottom' }) {
+type Notice = { id: number; text: string; undo?: () => void }
+/** A message Send holds back until `at` (undo send). */
+type HeldSend = { at: number; undo: () => void }
+
+type ToastProps = {
+  notice: Notice | null
+  held: HeldSend | null
+  update: boolean
+  /** A newer Android app's download (app/native.ts). */
+  appUpdate: string | null
+  /** Desktop: the foot of the thread list, `over` its selection bar. Phones: above what the screen has at its foot. */
+  place: 'list' | 'over' | 'bar' | 'sheet' | 'bottom'
+}
+
+function Toast({ notice, held, update, appUpdate, place }: ToastProps) {
   return (
     <div className={`${styles.toast} ${styles[place] ?? ''}`} role="status">
       {/* One at a time, the app first: installing it restarts the app, which also loads the new Kanso. */}
@@ -1148,8 +1164,8 @@ function Toast({ notice, held, update, appUpdate, place }: { notice: Notice | nu
         <p key={notice.id}>
           <span>{notice.text}</span>
           {notice.undo && (
-            <button type="button" onClick={notice.undo}>
-              Undo
+            <button type="button" onClick={notice.undo} title="Undo (z)">
+              Undo <kbd>z</kbd>
             </button>
           )}
         </p>
@@ -1159,8 +1175,8 @@ function Toast({ notice, held, update, appUpdate, place }: { notice: Notice | nu
           <span>
             Sending in <Countdown at={held.at} />
           </span>
-          <button type="button" onClick={held.undo}>
-            Undo
+          <button type="button" onClick={held.undo} title="Undo (z)">
+            Undo <kbd>z</kbd>
           </button>
         </p>
       )}

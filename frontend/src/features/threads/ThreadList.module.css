@@ -7,6 +7,7 @@
   flex-direction: column;
   border-right: 1px solid var(--line);
   transition: flex-basis var(--slow) var(--ease);
+  anchor-name: --toast; /* App.module.css */
 }
 
 :global([data-pane='closed']) .list {

@@ -76,7 +76,7 @@
   height: 46px;
 }
 
-/* Phones only, from here down. */
+/* Phones: across the screen, in paper. */
 .toast {
   position: fixed;
   z-index: 20;
@@ -86,6 +86,33 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* Desktop: centred over the foot of the thread list or page (their anchor-name; without anchor
+   positioning, of the window), in ink so it stands out from the paper. */
+.toast:is(.list, .over) {
+  left: anchor(--toast left, 12px);
+  right: anchor(--toast right, 12px);
+  align-items: center;
+  pointer-events: none; /* only the toasts take clicks, not the strip around them */
+}
+
+.toast.over {
+  bottom: 68px; /* above the selection bar */
+}
+
+.toast:is(.list, .over) p {
+  pointer-events: auto;
+  min-width: 280px;
+  max-width: min(440px, 100%);
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: var(--float-shadow);
+}
+
+.toast:is(.list, .over) button {
+  color: var(--accent-inverse);
 }
 
 .toast.bar {
@@ -134,7 +161,25 @@
   font-weight: 700;
 }
 
+.toast kbd {
+  margin-left: 4px;
+  padding: 0 5px;
+  border: 1px solid;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 16px;
+  color: var(--paper);
+  opacity: 0.75;
+}
+
+/* Phones only, from here down. */
 @media (max-width: 767px) {
+  .toast kbd {
+    display: none;
+  }
+
   .composeWindow,
   .composeWindow.minimized {
     z-index: 35;

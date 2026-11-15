@@ -3,9 +3,6 @@ import { Link } from 'react-router'
 import type { Account } from '../../app/accounts'
 import type { Label, NamedLabel, SyncStatus } from '../../app/mail'
 import { href, mailboxNav, sameView, type Route, type View } from '../../app/nav'
-import { applyAppUpdate } from '../../app/native'
-import { applyUpdate } from '../../app/update'
-import { Countdown } from '../../components/Countdown'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
 import { LabelMark } from '../../components/LabelMark'
@@ -14,24 +11,15 @@ import { AccountSwitcher } from './AccountSwitcher'
 import { DeleteLabel, LabelEditor } from './LabelEditor'
 import styles from './Sidebar.module.css'
 
-export type Notice = { id: number; text: string; undo?: () => void }
-/** A message Send holds back until `at` (undo send). */
-export type HeldSend = { at: number; undo: () => void }
-
 type Props = {
   accounts: Account[]
   route: Route
   labels: Label[]
   userLabels: NamedLabel[]
   sync: SyncStatus[]
-  notice: Notice | null
-  held: HeldSend | null
   ai: boolean
   labeling: boolean
-  update: boolean
-  /** A newer Android app's download (app/native.ts). */
-  appUpdate: string | null
-  /** An icon rail: names show as tooltips, label editing hides and notices float. */
+  /** An icon rail: names show as tooltips and label editing hides. */
   collapsed: boolean
   onToggle: () => void
   onSelectAccount: (id: number) => void
@@ -40,7 +28,7 @@ type Props = {
 }
 
 export function Sidebar(props: Props) {
-  const { accounts, route, labels, userLabels, sync, notice, held, ai, labeling, update, appUpdate, collapsed, onToggle, onSelectAccount, onCompose, onLabelChanged } = props
+  const { accounts, route, labels, userLabels, sync, ai, labeling, collapsed, onToggle, onSelectAccount, onCompose, onLabelChanged } = props
   // `editing` is '' for a new label.
   const [menu, setMenu] = useState<{ name: string; anchor: HTMLElement } | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
@@ -185,45 +173,6 @@ export function Sidebar(props: Props) {
         </Dialog>
       )}
 
-      <div className={styles.notices}>
-        {notice && (
-          <div className={styles.notice} role="status" key={notice.id}>
-            <span>{notice.text}</span>
-            {notice.undo && (
-              <button type="button" onClick={notice.undo} title="Undo (z)">
-                Undo <kbd>z</kbd>
-              </button>
-            )}
-          </div>
-        )}
-        {held && (
-          <div className={styles.notice} role="status" key={held.at}>
-            <span>
-              Sending in <Countdown at={held.at} />
-            </span>
-            <button type="button" onClick={held.undo} title="Undo (z)">
-              Undo <kbd>z</kbd>
-            </button>
-          </div>
-        )}
-        {/* One at a time, the app first: installing it restarts the app, which also loads the new Kanso. */}
-        {appUpdate && (
-          <div className={styles.notice} role="status">
-            <span>A new version of the app is out.</span>
-            <button type="button" onClick={() => applyAppUpdate(appUpdate)}>
-              Update
-            </button>
-          </div>
-        )}
-        {!appUpdate && update && (
-          <div className={styles.notice} role="status">
-            <span>A new version of Kanso is ready.</span>
-            <button type="button" onClick={applyUpdate}>
-              Reload
-            </button>
-          </div>
-        )}
-      </div>
       <SyncNote sync={sync.filter((s) => s.account_id === route.accountId)} />
       <button
         type="button"
