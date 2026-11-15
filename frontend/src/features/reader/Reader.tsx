@@ -256,34 +256,21 @@ function Toolbar(props: ToolbarProps) {
 
 type PhoneProps = Props & { canReply: boolean }
 
-// Phones: Back and the rarer actions at the top, the everyday ones at the bottom (PhoneActions).
-function PhoneHeader({ targets, onQuick, onToggleRead, onUnsubscribe, onReply, canReply, backLabel, onBack, onAsk }: PhoneProps) {
-  const none = targets.length === 0
-  const important = quickAction('important', targets)
+// Phones: Back at the top, the actions at the bottom within thumb reach (PhoneActions).
+function PhoneHeader({ backLabel, onBack }: PhoneProps) {
   return (
     <div className={styles.toolbar}>
       <button type="button" className={styles.back} onClick={onBack}>
         <Icon name="back" size={20} />
         {backLabel}
       </button>
-      <span className={styles.spacer} />
-      <More
-        disabled={none}
-        unread={!none && targets.every((t) => t.unread)}
-        onToggleRead={onToggleRead}
-        onReplyAll={canReply ? () => onReply('reply_all') : undefined}
-        onForward={canReply ? () => onReply('forward') : undefined}
-        important={{ on: !!important.pressed, toggle: () => onQuick('important') }}
-        spam={{ label: name(quickAction('spam', targets).title), icon: quickAction('spam', targets).icon, toggle: () => onQuick('spam') }}
-        onUnsubscribe={canReply ? onUnsubscribe : undefined}
-        onAsk={onAsk}
-      />
     </div>
   )
 }
 
-function PhoneActions({ targets, onQuick, onLabel, picker, onReply, canReply }: PhoneProps) {
+function PhoneActions({ targets, onQuick, onToggleRead, onUnsubscribe, onLabel, picker, onReply, canReply, onAsk }: PhoneProps) {
   const none = targets.length === 0
+  const important = quickAction('important', targets)
   const item = (q: Quick, short: (on: boolean) => string) => {
     const { icon, title, pressed } = quickAction(q, targets)
     // Star and Done show when they're on; Delete turns into Restore, its icon says so.
@@ -306,13 +293,6 @@ function PhoneActions({ targets, onQuick, onLabel, picker, onReply, canReply }: 
     <nav className={`${bar.bar} ${styles.actions}`} aria-label="Email actions">
       {!redundant('done', targets) && item('done', () => 'Done')}
       {item('delete', (back) => (back ? 'Restore' : 'Delete'))}
-      <span className={styles.slot}>
-        <button type="button" className={bar.item} aria-disabled={none || undefined} onClick={none ? undefined : onLabel}>
-          <Icon name="label" size={22} />
-          Label
-        </button>
-        {picker}
-      </span>
       {item('star', (on) => (on ? 'Starred' : 'Star'))}
       <button
         type="button"
@@ -323,17 +303,36 @@ function PhoneActions({ targets, onQuick, onLabel, picker, onReply, canReply }: 
         <Icon name="reply" size={22} />
         Reply
       </button>
+      <span className={styles.slot}>
+        <More
+          tile
+          disabled={none}
+          unread={!none && targets.every((t) => t.unread)}
+          onToggleRead={onToggleRead}
+          onReplyAll={canReply ? () => onReply('reply_all') : undefined}
+          onForward={canReply ? () => onReply('forward') : undefined}
+          onLabel={onLabel}
+          important={{ on: !!important.pressed, toggle: () => onQuick('important') }}
+          spam={{ label: name(quickAction('spam', targets).title), icon: quickAction('spam', targets).icon, toggle: () => onQuick('spam') }}
+          onUnsubscribe={canReply ? onUnsubscribe : undefined}
+          onAsk={onAsk}
+        />
+        {picker}
+      </span>
     </nav>
   )
 }
 
 type MoreProps = {
+  /** Phones: a tile in the bottom bar. */
+  tile?: boolean
   disabled: boolean
   unread: boolean
   onToggleRead: () => void
   onReplyAll?: () => void
   onForward?: () => void
   /** Phones: these live here rather than in a toolbar. */
+  onLabel?: () => void
   important?: { on: boolean; toggle: () => void }
   /** Report spam, or Not spam. */
   spam: { label: string; icon: IconName; toggle: () => void }
@@ -341,11 +340,12 @@ type MoreProps = {
   onAsk?: () => void
 }
 
-function More({ disabled, unread, onToggleRead, onReplyAll, onForward, important, spam, onUnsubscribe, onAsk }: MoreProps) {
+function More({ tile, disabled, unread, onToggleRead, onReplyAll, onForward, onLabel, important, spam, onUnsubscribe, onAsk }: MoreProps) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
   const items: MenuItem[] = [
     ...(onReplyAll ? [{ icon: 'replyAll' as const, label: 'Reply all', shortcut: 'a', onSelect: onReplyAll }] : []),
     ...(onForward ? [{ icon: 'forward' as const, label: 'Forward', shortcut: 'f', onSelect: onForward }] : []),
+    ...(onLabel ? [{ icon: 'label' as const, label: 'Label', shortcut: 'l', onSelect: onLabel }] : []),
     { icon: unread ? 'mailOpen' : 'mail', label: unread ? 'Mark as read' : 'Mark as unread', shortcut: 'u', onSelect: onToggleRead },
     ...(important
       ? [{ icon: 'important' as const, label: important.on ? 'Not important' : 'Mark important', shortcut: '=', onSelect: important.toggle }]
@@ -354,15 +354,17 @@ function More({ disabled, unread, onToggleRead, onReplyAll, onForward, important
     { icon: spam.icon, label: spam.label, shortcut: '!', onSelect: spam.toggle },
     ...(onAsk ? [{ icon: 'assistant' as const, label: 'Ask about this thread', shortcut: 'q', onSelect: onAsk }] : []),
   ]
+  const toggle = (event: MouseEvent<HTMLButtonElement>) => setAnchor(anchor ? null : event.currentTarget)
   return (
     <>
-      <ToolButton
-        icon="more"
-        label="More actions"
-        title="More"
-        disabled={disabled}
-        onClick={(event) => setAnchor(anchor ? null : event.currentTarget)}
-      />
+      {tile ? (
+        <button type="button" className={bar.item} aria-disabled={disabled || undefined} onClick={disabled ? undefined : toggle}>
+          <Icon name="more" size={22} />
+          More
+        </button>
+      ) : (
+        <ToolButton icon="more" label="More actions" title="More" disabled={disabled} onClick={toggle} />
+      )}
       {anchor && !disabled && <Menu anchor={anchor} label="More actions" items={items} onClose={() => setAnchor(null)} />}
     </>
   )

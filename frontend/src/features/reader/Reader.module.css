@@ -392,7 +392,7 @@
     background: var(--surface);
   }
 
-  /* The Label button and its picker (a sheet on a phone, LabelPicker.module.css). */
+  /* The More tile and the label picker it opens (a sheet on a phone, LabelPicker.module.css). */
   .slot {
     display: grid;
   }
