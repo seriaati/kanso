@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react'
 import { api, CSRF, queryClient } from './api'
 
 export function useConfig() {
-  return useQuery({ queryKey: ['config'], queryFn: () => api<{ ai: boolean; labeling: boolean }>('/config'), staleTime: Infinity })
+  return useQuery({ queryKey: ['config'], queryFn: () => api<{ ai: boolean; labeling: boolean; mcp: string | null }>('/config'), staleTime: Infinity })
 }
 
 export type KeyProvider = 'anthropic' | 'jev'

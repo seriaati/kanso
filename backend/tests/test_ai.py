@@ -25,6 +25,7 @@ from kanso.db.session import Session
 from kanso.gmail import client, oauth
 from kanso.sync import engine, outbox
 
+MCP = "http://localhost/api/mcp"  # PUBLIC_URL in conftest
 pytestmark = pytest.mark.usefixtures("db", "unpooled")
 
 
@@ -590,7 +591,7 @@ def test_a_demo_instance_sends_its_demo_mail_to_claude(
 def test_ai_off_hides_and_runs_nothing(
     synced: TestClient, gmail: FakeGmail, claude: FakeClaude
 ) -> None:
-    assert synced.get("/api/config").json() == {"ai": False, "labeling": False}
+    assert synced.get("/api/config").json() == {"ai": False, "labeling": False, "mcp": MCP}
     new_mail(gmail, "m6", "t6", "Bill", "x")
     assert rows(AiQueue) == []
     assert synced.post("/api/ai/label-inbox", json={"account_id": 1}).status_code == 409
@@ -598,14 +599,14 @@ def test_ai_off_hides_and_runs_nothing(
 
 
 def test_config_with_a_key(ai_on: None, logged_in: TestClient) -> None:
-    assert logged_in.get("/api/config").json() == {"ai": True, "labeling": True}
+    assert logged_in.get("/api/config").json() == {"ai": True, "labeling": True, "mcp": MCP}
 
 
 def test_labeling_turned_off_in_settings_runs_nothing(
     ai_on: None, synced: TestClient, gmail: FakeGmail, claude: FakeClaude
 ) -> None:
     assert synced.patch("/api/settings", json={"ai_labeling": False}).json()["ai_labeling"] is False
-    assert synced.get("/api/config").json() == {"ai": True, "labeling": False}
+    assert synced.get("/api/config").json() == {"ai": True, "labeling": False, "mcp": MCP}
     new_mail(gmail, "m6", "t6", "Bill", "x")
     assert rows(AiQueue) == []
     assert synced.post("/api/ai/label-inbox", json={"account_id": 1}).status_code == 409
@@ -1033,7 +1034,7 @@ def process_jev(jev: FakeJev) -> int:
 
 
 def test_jev_alone_turns_on_labeling_only(jev_on: None, logged_in: TestClient) -> None:
-    assert logged_in.get("/api/config").json() == {"ai": False, "labeling": True}
+    assert logged_in.get("/api/config").json() == {"ai": False, "labeling": True, "mcp": MCP}
 
 
 def test_jev_request_sends_only_sender_subject_and_trimmed_body(

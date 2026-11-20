@@ -1094,7 +1094,11 @@ def test_ai_off_has_no_assistant(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     set_key("anthropic", None)
-    assert logged_in.get("/api/config").json() == {"ai": False, "labeling": False}
+    assert logged_in.get("/api/config").json() == {
+        "ai": False,
+        "labeling": False,
+        "mcp": "http://localhost/api/mcp",
+    }
     body = {"account_id": 1, "text": "hi", "timezone": ZONE}
     assert logged_in.post("/api/assistant/messages", json=body).status_code == 409
     assert logged_in.get("/api/assistant/conversations?account_id=1").status_code == 409

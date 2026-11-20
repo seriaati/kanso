@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kanso.ai import icons, keys, labeling, suggestions, summaries, usage
+from kanso.api import mcp
 from kanso.core.settings import settings
 from kanso.db.models import Account, AiQueue, Thread
 from kanso.db.session import get_session
@@ -22,6 +23,7 @@ USAGE_DAYS = 30
 class ConfigOut(BaseModel):
     ai: bool  # an Anthropic API key is set: AI features show
     labeling: bool  # AI labeling is on: an Anthropic or a TypeSafe key, and on in Settings
+    mcp: str | None  # the MCP server's address; None: off (PUBLIC_URL isn't https://)
 
 
 class KeysOut(BaseModel):
@@ -79,7 +81,7 @@ class LabelInboxIn(BaseModel):
 @router.get("/config")
 async def config(db: DB) -> ConfigOut:
     found = await keys.load(db)
-    return ConfigOut(ai=found.ai, labeling=await labeling.on(db))
+    return ConfigOut(ai=found.ai, labeling=await labeling.on(db), mcp=mcp.url())
 
 
 async def _keys_out(db: AsyncSession) -> KeysOut:

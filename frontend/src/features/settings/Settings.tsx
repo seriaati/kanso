@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useDisconnectAccount, type Account } from '../../app/accounts'
-import { useAiUsage, useApiKeys, useRemoveApiKey, useSaveApiKey, type KeyProvider } from '../../app/ai'
+import { useAiUsage, useApiKeys, useConfig, useRemoveApiKey, useSaveApiKey, type KeyProvider } from '../../app/ai'
 import type { SyncStatus } from '../../app/mail'
 import { usePhone } from '../../app/media'
 import { appInfo, inApp, kanso } from '../../app/native'
@@ -53,6 +53,7 @@ export function Settings({ accounts, sync, ai, labeling, onMenu }: Props) {
           {ai && <Usage />}
           {!demo && <Password />}
           <Sessions />
+          <Mcp />
           <About />
         </div>
       </div>
@@ -587,6 +588,25 @@ function Sessions() {
 }
 
 /** Which Kanso this is: the commit it was built from, and in the Android app the app's version. */
+function Mcp() {
+  const url = useConfig().data?.mcp
+  const [copied, setCopied] = useState(false)
+  if (!url) return null
+  return (
+    <Section title="MCP server">
+      <div className={styles.row}>
+        <div className={styles.text}>
+          <span className={styles.url}>{url}</span>
+          <span className={styles.muted}>Lets AI agents search and read your mail, once you allow them. They can’t change anything.</span>
+        </div>
+        <button type="button" className={styles.disconnect} onClick={() => void navigator.clipboard.writeText(url).then(() => setCopied(true))}>
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+    </Section>
+  )
+}
+
 function About() {
   const [app, setApp] = useState<string | null>(null)
   useEffect(() => void appInfo?.then(({ version }) => setApp(version)), [])

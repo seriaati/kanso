@@ -103,6 +103,10 @@
   gap: 1px;
 }
 
+.url {
+  overflow-wrap: anywhere;
+}
+
 .name {
   font-weight: 700;
 }

@@ -191,7 +191,11 @@ def test_api_keys_are_checked_then_stored_encrypted(
     logged_in: TestClient, providers: FakeProviders
 ) -> None:
     assert logged_in.get("/api/ai/keys").json() == {"anthropic": None, "jev": None}
-    assert logged_in.get("/api/config").json() == {"ai": False, "labeling": False}
+    assert logged_in.get("/api/config").json() == {
+        "ai": False,
+        "labeling": False,
+        "mcp": "http://localhost/api/mcp",
+    }
 
     for status, problem in (
         (401, "Anthropic rejected this key."),
@@ -209,7 +213,11 @@ def test_api_keys_are_checked_then_stored_encrypted(
     check = providers.requests[-1]
     assert str(check.url) == "https://api.anthropic.com/v1/models?limit=1"
     assert check.headers["x-api-key"] == "sk-ant-test-1234"
-    assert logged_in.get("/api/config").json() == {"ai": True, "labeling": True}
+    assert logged_in.get("/api/config").json() == {
+        "ai": True,
+        "labeling": True,
+        "mcp": "http://localhost/api/mcp",
+    }
     assert "sk-ant-test-1234" not in json.dumps(run(_stored("api_key_anthropic")))
 
     logged_in.put("/api/ai/keys/jev", json={"key": "ts-key-5678"})
@@ -220,7 +228,11 @@ def test_api_keys_are_checked_then_stored_encrypted(
 
     response = logged_in.delete("/api/ai/keys/anthropic")
     assert response.json() == {"anthropic": None, "jev": "5678"}
-    assert logged_in.get("/api/config").json() == {"ai": False, "labeling": True}
+    assert logged_in.get("/api/config").json() == {
+        "ai": False,
+        "labeling": True,
+        "mcp": "http://localhost/api/mcp",
+    }
     assert logged_in.put("/api/ai/keys/openai", json={"key": "x"}).status_code == 422
     assert logged_in.put("/api/ai/keys/jev", json={"key": ""}).status_code == 422
 
@@ -230,7 +242,11 @@ def test_api_keys_in_the_environment_are_ignored(
 ) -> None:
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-from-env")
     monkeypatch.setenv("JEV_API_KEY", "")
-    assert logged_in.get("/api/config").json() == {"ai": False, "labeling": False}
+    assert logged_in.get("/api/config").json() == {
+        "ai": False,
+        "labeling": False,
+        "mcp": "http://localhost/api/mcp",
+    }
     assert keys.ignored_env() == ["ANTHROPIC_API_KEY"]  # the worker logs a warning
 
 
