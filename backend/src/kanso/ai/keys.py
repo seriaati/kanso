@@ -1,5 +1,5 @@
-"""The AI providers' API keys. They are set in Settings, never in .env, and stored in the
-settings table encrypted with SECRET_KEY, like the Gmail refresh tokens."""
+"""Set in Settings, never in .env, and stored in the settings table encrypted with SECRET_KEY,
+like the Gmail refresh tokens."""
 
 import os
 from dataclasses import dataclass

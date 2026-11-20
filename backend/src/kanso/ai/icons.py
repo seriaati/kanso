@@ -1,6 +1,4 @@
-"""Icons for the labels that have none: Claude picks one per label from the UI's label icons,
-by its name and description. Only a confident pick is kept; the others stay a colored dot.
-Claude only."""
+"""Only a confident icon pick is kept; the other labels stay a colored dot. Claude only."""
 
 import json
 from typing import Any

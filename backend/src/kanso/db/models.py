@@ -371,8 +371,6 @@ class PushSubscription(Base):
 
 
 class FcmToken(Base):
-    """An Android app's Firebase Cloud Messaging registration token."""
-
     __tablename__ = "fcm_tokens"
 
     id: Mapped[int] = mapped_column(primary_key=True)

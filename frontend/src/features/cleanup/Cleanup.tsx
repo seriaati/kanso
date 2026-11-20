@@ -92,7 +92,6 @@ function monthsAgo(months: number): string {
   date.setMonth(date.getMonth() - months)
   return toDay(date)
 }
-/** The start of a day, or of the day after it. */
 function startOf(day: string, next = false): string {
   const date = new Date(`${day}T00:00`)
   if (next) date.setDate(date.getDate() + 1)

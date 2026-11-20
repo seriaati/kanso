@@ -1,5 +1,5 @@
-"""Sender photos from each account's Google Contacts: saved contacts, and "other contacts" (people
-the user has emailed). Synced once a day and stored, so the browser never asks Google for them."""
+"""From saved contacts and "other contacts" (people the user has emailed). Synced once a day
+and stored, so the browser never asks Google for them."""
 
 import asyncio
 import logging

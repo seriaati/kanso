@@ -3,8 +3,6 @@ import { api, queryClient } from './api'
 import type { IconName } from '../components/Icon'
 import type { Bundle, ThreadDetail, ThreadPage, ThreadSummary } from './mail'
 
-// Optimistic triage actions, rolled back if the request fails.
-
 export type ThreadAction =
   | 'done'
   | 'inbox'

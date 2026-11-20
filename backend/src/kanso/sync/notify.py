@@ -1,7 +1,4 @@
-"""New-mail notifications: Web Push for browsers and FCM for the Android app, which also hears
-when a thread leaves the unread inbox, to remove its notification.
-
-The VAPID key (RFC 8292) is derived from SECRET_KEY: changing it means turning notifications
+"""The VAPID key (RFC 8292) is derived from SECRET_KEY: changing it means turning notifications
 on again in each browser."""
 
 import asyncio
@@ -356,7 +353,6 @@ async def unread_threads(db: AsyncSession, thread_ids: Iterable[int]) -> dict[in
 async def unread_threads_of(
     db: AsyncSession, account_id: int, gmail_ids: Iterable[str]
 ) -> dict[int, int]:
-    """unread_threads() of these messages' threads."""
     thread_ids: set[int] = set()
     for chunk in batched(set(gmail_ids), QUERY_CHUNK, strict=False):
         thread_ids.update(

@@ -108,7 +108,6 @@ async def callback(db: DB, state: str = "", code: str = "", error: str = "") -> 
     except oauth.OAuthError as e:
         return PlainTextResponse(f"Could not connect the account: {e}", status_code=400)
 
-    # Google's profile name, else the address before the @.
     name = (grant.name or "").strip()[:100] or grant.email.split("@")[0]
     account = await db.scalar(select(Account).where(Account.email == grant.email))
     if account:  # reconnecting an existing account keeps its color and mail

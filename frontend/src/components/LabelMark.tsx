@@ -11,7 +11,6 @@ type Props = {
   className?: string
 }
 
-/** A label's icon in its color, or without one a colored dot. */
 export function LabelMark({ color, icon, size, dot = 8, className }: Props) {
   return (
     <span className={`${styles.mark} ${className ?? ''}`} style={{ color, width: size, height: size }} aria-hidden="true">

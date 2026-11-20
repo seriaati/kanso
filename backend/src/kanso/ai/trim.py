@@ -1,5 +1,3 @@
-"""Cut an email body down to what its writer wrote before it is sent to Claude."""
-
 import re
 
 # Starts the quoted original in a reply (Gmail in English, Chinese, Japanese; Outlook). Forwards

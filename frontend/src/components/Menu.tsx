@@ -26,7 +26,6 @@ export function Menu({ anchor, label, items, onClose }: Props) {
     let top = box ? box.bottom + 4 : (anchor as { y: number }).y
     // Near the foot of the window, open upwards.
     if (top + menu.offsetHeight > window.innerHeight - 8) top = (box ? box.top - 4 : top) - menu.offsetHeight
-    // At least as wide as its button.
     const width = Math.max(menu.offsetWidth, box?.width ?? 0)
     setPlace({ top: Math.max(8, top), left: Math.max(8, Math.min(x, window.innerWidth - width - 8)), minWidth: box?.width })
   }, [anchor, button])

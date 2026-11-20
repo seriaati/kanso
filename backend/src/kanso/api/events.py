@@ -1,5 +1,3 @@
-"""Live updates over Server-Sent Events: everything the worker publishes to Redis."""
-
 from collections.abc import AsyncGenerator
 
 from fastapi import APIRouter

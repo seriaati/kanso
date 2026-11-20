@@ -39,10 +39,9 @@ function facesOf(family: string, weight: number) {
   return faces.get(`${family} ${weight}`) ?? []
 }
 
-/** Loads every font subset the text needs, so it's in before the text shows: text drawn while its
-    subset is still loading blanks, in Firefox, all text set in the same font for a frame, so new
-    rows flickered the whole page. Resolves when they're in, after a second at most, or at once
-    while the full fonts aren't linked yet (the first page doesn't wait for those). */
+/** Loads the font subsets the text needs before it shows: in Firefox, text drawn while its subset
+    loads blanks all text in that font for a frame. Resolves when they're in, after a second at
+    most, or at once while the full fonts aren't linked yet (the first page doesn't wait for those). */
 export function preloadGlyphs(runs: Run[]): Promise<unknown> {
   if (!isLinked) return Promise.resolve()
   const chars = new Map<string, Set<string>>() // "lang weight" → the characters set in it

@@ -61,7 +61,6 @@ class FakeGmail:
         self.sent: list[bytes] = []
         self.display_name = "Me Myself"
         self._ids = 0
-        # Pub/Sub
         self.pubsub_queue: list[dict[str, Any]] = []
         self.acked: list[str] = []
 

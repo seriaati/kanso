@@ -29,7 +29,7 @@ export function fileSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-/** A letter avatar: the name's first letter, on a color that stays the same for that name. */
+/** The color stays the same for a name. */
 export function letterAvatar(name: string): { letter: string; color: string } {
   const letter = [...name.replace(/[^\p{L}\p{N}]/gu, '')][0]?.toUpperCase() ?? '?'
   let hash = 0

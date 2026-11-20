@@ -672,7 +672,7 @@ async def _not_sent(draft_id: int, error: DraftError) -> None:
 
 
 async def send_held(http: httpx.AsyncClient) -> float:
-    """Sends the held messages whose time is up. Returns the seconds until the next check."""
+    """Returns the seconds until the next check."""
     now = datetime.now(UTC)
     async with Session() as db:
         due = list(await db.scalars(select(Draft.id).where(Draft.send_at <= now)))

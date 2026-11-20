@@ -569,7 +569,6 @@ function ThreadRow(props: RowProps) {
   )
 }
 
-/** The ids of the threads shown inside open bundles. */
 function inOpenBundles(rows: ListRow[]) {
   let open = false
   return rows.flatMap((row) => {

@@ -1,9 +1,9 @@
 import { useSyncExternalStore } from 'react'
 import { inApp } from './native'
 
-// Installing Kanso to the home screen. Android gets the app (.github/workflows/android.yml) from
-// its latest release; elsewhere Chrome, Edge and Samsung Internet offer a prompt, started from
-// Kanso's own button, and Safari on iOS has none, so it gets the steps instead.
+// Android gets the app (.github/workflows/android.yml) from its latest release; elsewhere Chrome,
+// Edge and Samsung Internet offer a prompt, started from Kanso's own button, and Safari on iOS has
+// none, so it gets the steps instead.
 
 /** The latest release's APK: the same app for every Kanso server. */
 export const APP_DOWNLOAD = 'https://github.com/seriaati/kanso/releases/latest/download/kanso.apk'

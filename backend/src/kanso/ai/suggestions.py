@@ -1,6 +1,5 @@
-"""Label suggestions for an inbox that has piled up: Claude reads a sample of its unlabeled
-threads (senders, subjects and snippets only) and proposes labels to sort it into. Claude only:
-Jev picks among labels, it can't make them up."""
+"""Claude reads only the senders, subjects and snippets of a sample of unlabeled threads.
+Claude only: Jev picks among labels, it can't make them up."""
 
 import json
 from typing import Any
