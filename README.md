@@ -6,7 +6,7 @@
 
 Kanso (簡素) stands for "simplicity" in Japanese. It is a open-source, self-hosted email client built for getting to inbox zero. Kanso is inspired by Shortwave, but with no paywall, and everything stays local.
 
-You can try out Kanso at https://demo.kanso.seria.moe with the password `demo`. AI features are off, and the database resets daily.
+You can try out Kanso at [demo.kanso.seria.moe](https://demo.kanso.seria.moe) with the password `demo`. AI features are off, and the database resets daily.
 
 ## Quick start
 
