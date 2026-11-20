@@ -2,8 +2,9 @@
 assistant's read tools, so nothing here can change mail.
 
 Agents sign in with OAuth: the mcp SDK serves the endpoints (/authorize, /token, /register,
-/revoke and their metadata), and the user approves each sign-in on Kanso's consent page
-(/oauth/authorize, which uses `router`). OAuth needs PUBLIC_URL on https:// or localhost."""
+/revoke and their metadata) at API_URL, or PUBLIC_URL without it. The user approves each
+sign-in on the consent page at PUBLIC_URL (/oauth/authorize, which uses `router`), where the
+session cookie is. OAuth needs an https:// address, or localhost."""
 
 import hashlib
 import json
@@ -334,22 +335,26 @@ async def _handle(scope: Scope, receive: Receive, send: Send) -> None:
     await _manager.handle_request(scope, receive, send)
 
 
+def _base() -> str:
+    return (settings.api_url or settings.public_url).rstrip("/")
+
+
 def available() -> bool:
     """OAuth (RFC 8414) needs an https:// issuer, or localhost."""
-    url = urlsplit(settings.public_url)
+    url = urlsplit(_base())
     return url.scheme == "https" or url.hostname in ("localhost", "127.0.0.1", "::1")
 
 
 def url() -> str | None:
     """The MCP server's address, which Settings shows; None when OAuth can't run."""
-    return settings.public_url.rstrip("/") + PATH if available() else None
+    return _base() + PATH if available() else None
 
 
 def routes() -> list[BaseRoute]:
     resource = url()
     if resource is None:
         return []
-    issuer = AnyHttpUrl(settings.public_url)
+    issuer = AnyHttpUrl(_base())
     resource = AnyHttpUrl(resource)
     endpoint = AuthenticationMiddleware(
         RequireAuthMiddleware(_handle, [SCOPE], build_resource_metadata_url(resource)),

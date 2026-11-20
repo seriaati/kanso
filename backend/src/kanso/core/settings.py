@@ -22,6 +22,9 @@ class Settings(BaseSettings):
 
     # https:// makes cookies Secure.
     public_url: str = "http://localhost:8000"
+    # This backend's own address, when the frontend is served from elsewhere (Cloudflare Pages
+    # forwards only /api). AI agents connect to the MCP server here; empty: PUBLIC_URL.
+    api_url: str = ""
     # Changing it signs you out and means reconnecting every account (it encrypts their tokens).
     secret_key: str = Field(min_length=32)
     # From `python -m kanso.hash_password`.

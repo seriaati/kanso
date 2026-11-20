@@ -9,8 +9,11 @@ import pytest
 import test_summaries as mail
 from conftest import run
 from fastapi.testclient import TestClient
+from starlette.applications import Starlette
 
 from kanso import demo_seed
+from kanso.api import mcp
+from kanso.core.settings import settings
 from kanso.db.models import Account
 from kanso.db.session import Session
 from kanso.sync import store
@@ -55,7 +58,7 @@ def start(api: TestClient, client_id: str, verifier: str) -> str:
     )
     assert response.status_code == 302, response.text
     consent = urlsplit(response.headers["location"])
-    assert consent.path == "/oauth/authorize"
+    assert (consent.netloc, consent.path) == ("localhost", "/oauth/authorize")  # PUBLIC_URL
     return parse_qs(consent.query)["request"][0]
 
 
@@ -139,6 +142,19 @@ def test_agents_find_how_to_sign_in(logged_in: TestClient) -> None:
     assert server["registration_endpoint"] == "http://localhost/register"
     assert server["code_challenge_methods_supported"] == ["S256"]
     assert logged_in.get("/authorize").status_code == 400  # not the frontend's index.html
+
+
+def test_agents_can_use_the_backends_own_address(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With the frontend on Cloudflare Pages, which forwards only /api."""
+    monkeypatch.setattr(settings, "api_url", "https://kanso-api.example.com")
+    assert mcp.url() == "https://kanso-api.example.com/api/mcp"
+    with TestClient(Starlette(routes=mcp.routes())) as api:
+        server = api.get("/.well-known/oauth-authorization-server").json()
+        assert server["issuer"] == "https://kanso-api.example.com/"
+        assert server["token_endpoint"] == "https://kanso-api.example.com/token"
+        resource = api.get("/.well-known/oauth-protected-resource/api/mcp").json()
+        assert resource["resource"] == "https://kanso-api.example.com/api/mcp"
+        start(api, register(api), secrets.token_urlsafe(40))  # consent stays on PUBLIC_URL
 
 
 def test_sign_in_and_read(logged_in: TestClient, mailbox: dict[str, int]) -> None:

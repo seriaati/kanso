@@ -23,7 +23,7 @@ USAGE_DAYS = 30
 class ConfigOut(BaseModel):
     ai: bool  # an Anthropic API key is set: AI features show
     labeling: bool  # AI labeling is on: an Anthropic or a TypeSafe key, and on in Settings
-    mcp: str | None  # the MCP server's address; None: off (PUBLIC_URL isn't https://)
+    mcp: str | None  # the MCP server's address; None: off (not on https://)
 
 
 class KeysOut(BaseModel):
