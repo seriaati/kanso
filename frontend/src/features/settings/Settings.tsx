@@ -587,7 +587,6 @@ function Sessions() {
   )
 }
 
-/** Which Kanso this is: the commit it was built from, and in the Android app the app's version. */
 function Mcp() {
   const url = useConfig().data?.mcp
   const [copied, setCopied] = useState(false)

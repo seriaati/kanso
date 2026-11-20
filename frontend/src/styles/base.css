@@ -29,7 +29,6 @@ button {
   cursor: pointer;
 }
 
-/* :where keeps zero specificity, so row-like buttons can opt out with `scale: none`. */
 button,
 a {
   transition:
@@ -38,6 +37,7 @@ a {
     scale var(--fast) ease;
 }
 
+/* :where keeps zero specificity, so row-like buttons can opt out with `scale: none`. */
 :where(button:active:not(:disabled, [aria-disabled='true'])) {
   scale: 0.96;
 }

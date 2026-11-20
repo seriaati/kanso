@@ -1,5 +1,5 @@
-"""The assistant's tools, on the local mirror only. Change tools only propose: nothing changes
-until the user confirms it in the browser (kanso.api.assistant)."""
+"""The assistant's tools, on the local mirror only. Change tools only propose: unless confirmation
+is off, nothing changes until the user confirms it in the browser (kanso.api.assistant)."""
 
 import json
 from datetime import datetime, tzinfo

@@ -1,5 +1,6 @@
-"""Change tools never run from the model: the turn pauses until the user decides (`decide`).
-Turns are stored exactly as sent (thinking blocks must go back unchanged) and append-only."""
+"""Unless confirmation is off, change tools never run from the model: the turn pauses until the
+user decides (`decide`). Turns are stored exactly as sent (thinking blocks must go back
+unchanged) and append-only."""
 
 import asyncio
 import base64
@@ -206,7 +207,7 @@ async def _context(
 
 
 def _file_blocks(files: list[dict[str, str]]) -> list[dict[str, Any]]:
-    """Content blocks for files the user attached ({name, media_type, data: base64})."""
+    """Each file is {name, media_type, data: base64}."""
     if len(files) > FILES_PER_QUESTION:
         raise HTTPException(status_code=400, detail=f"Attach up to {FILES_PER_QUESTION} files.")
     blocks: list[dict[str, Any]] = []

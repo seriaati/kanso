@@ -18,7 +18,7 @@ class MessagingService : FirebaseMessagingService() {
     // reports it gone). Nothing to do while notifications are off. If Kanso can't be reached now,
     // KansoPlugin tries again when the app next starts.
     // Deprecated since firebase-messaging 25.1 for FID registration (register() and
-    // onRegistered), which is new and barely documented yet; tokens still work. See PLAN.md.
+    // onRegistered), which is new and barely documented yet; tokens still work.
     @Suppress("OVERRIDE_DEPRECATION")
     override fun onNewToken(token: String) {
         Notifications.renew(this, token)

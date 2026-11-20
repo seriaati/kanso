@@ -232,7 +232,6 @@ async function chat(path: string, body: unknown, onEvent: (event: ChatEvent) => 
   }).then(() => undefined)
 }
 
-// A new conversation's id comes first, as a "conversation" event.
 /** A file for the assistant to read, as the server takes it (FileIn). */
 export type AskFile = { name: string; media_type: string; data: string }
 
@@ -251,7 +250,8 @@ export function readFile(file: File): Promise<AskFile> {
   })
 }
 
-/** About the open thread, if any: the server gives Claude its content. */
+/** A new conversation's id comes first, as a "conversation" event. About the open thread, if any:
+ * the server gives Claude its content. */
 export function ask(
   accountId: number,
   conversationId: number | null,

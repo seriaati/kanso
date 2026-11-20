@@ -666,13 +666,13 @@
   font-size: 8px;
 }
 
-/* Keyboard: the actions come into view with focus, as they do on hover. */
 /* Within its wrapper, so long sender names shrink rather than push the time out of view. */
 .bundleRow {
   flex: 1;
   min-width: 0;
 }
 
+/* Keyboard: the actions come into view with focus, as they do on hover. */
 .bundleRow:has(:focus-visible) .time {
   display: none;
 }
@@ -681,7 +681,6 @@
   display: flex;
 }
 
-/* Opens the sidebar drawer; phones only. */
 .swipe {
   position: absolute;
   inset: 0;

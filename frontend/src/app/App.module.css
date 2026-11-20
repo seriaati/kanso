@@ -174,7 +174,6 @@
   opacity: 0.75;
 }
 
-/* Phones only, from here down. */
 @media (max-width: 767px) {
   .toast kbd {
     display: none;

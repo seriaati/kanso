@@ -86,7 +86,6 @@ export type Quick = 'done' | 'delete' | 'star' | 'important' | 'spam'
 
 const inTrash = (threads: ThreadSummary[]) => threads.length > 0 && threads.every((t) => t.in_trash)
 
-/** In Trash, Done would only repeat Restore (which moves threads to the inbox), so it isn't shown. */
 /** What a bundle row, or a label's page, can do to all its threads. */
 export type BundleAction = 'done' | 'read' | 'delete'
 
@@ -95,6 +94,7 @@ export const bundleActions: { action: BundleAction; icon: IconName; label: strin
   { action: 'delete', icon: 'delete', label: 'Delete all' },
   { action: 'read', icon: 'mailOpen', label: 'Mark all read' },
 ]
+/** In Trash, Done would only repeat Restore (which moves threads to the inbox), so it isn't shown. */
 export const redundant = (quick: Quick, threads: ThreadSummary[]) => quick === 'done' && inTrash(threads)
 
 export function quickAction(quick: Quick, threads: ThreadSummary[]): { icon: IconName; title: string; pressed?: boolean } {

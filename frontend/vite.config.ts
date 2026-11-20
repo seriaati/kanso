@@ -18,7 +18,7 @@ const woff2Only = {
 // The service worker caches the app shell only: no mail, and nothing under /api.
 const pwa = VitePWA({
   registerType: 'prompt', // a new version waits until the user reloads (app/update.ts)
-  injectRegister: false, // registered from main.tsx
+  injectRegister: false, // registered by app/update.ts
   includeManifestIcons: false, // the precache globs below have them already
   manifest: {
     name: 'Kanso',

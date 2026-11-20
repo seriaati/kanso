@@ -18,7 +18,7 @@ down_revision: str | Sequence[str] | None = "0004"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-# Refreshed by the worker when new mail has arrived (kanso.compose.contacts).
+# Refreshed by the worker when new mail has arrived (kanso.db.contacts).
 CONTACTS = """
 CREATE MATERIALIZED VIEW contacts AS
 WITH mine AS (
