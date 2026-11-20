@@ -41,7 +41,7 @@ class FakeGoogle:
         form = parse_qs(request.content.decode())
         assert form["client_secret"] == ["client-secret"]
         assert form["code"] == ["auth-code"]
-        assert form["redirect_uri"] == ["http://testserver/api/accounts/callback"]
+        assert form["redirect_uri"] == ["http://localhost/api/accounts/callback"]
         return httpx.Response(
             200,
             json={
@@ -76,7 +76,7 @@ def connect(client: TestClient) -> httpx.Response:
     ]
     assert params["access_type"] == ["offline"]
     assert params["prompt"] == ["consent"]
-    assert params["redirect_uri"] == ["http://testserver/api/accounts/callback"]
+    assert params["redirect_uri"] == ["http://localhost/api/accounts/callback"]
     return client.get(
         "/api/accounts/callback",
         params={"state": params["state"][0], "code": "auth-code"},

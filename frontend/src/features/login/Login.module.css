@@ -82,3 +82,39 @@
 .demo strong {
   color: var(--ink);
 }
+
+.text,
+.note {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.note {
+  color: var(--muted);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.actions button {
+  flex: 1;
+}
+
+.deny {
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: transparent;
+  color: var(--ink);
+}
+
+.deny:hover {
+  background: var(--hover);
+}
+
+.deny:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

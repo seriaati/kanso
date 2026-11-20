@@ -378,3 +378,29 @@ class FcmToken(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     token: Mapped[str] = mapped_column(Text, unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class McpClient(Base):
+    """An MCP client (an AI agent) registered through OAuth dynamic client registration."""
+
+    __tablename__ = "mcp_clients"
+
+    client_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    # The mcp SDK's OAuthClientInformationFull, client secret included: the SDK compares it.
+    info: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class McpToken(Base):
+    """An MCP client's access or refresh token; each pair is issued and revoked as one."""
+
+    __tablename__ = "mcp_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token_hash: Mapped[str] = mapped_column(Text, unique=True)  # SHA-256
+    kind: Mapped[str] = mapped_column(String(7))  # "access" or "refresh"
+    pair: Mapped[str] = mapped_column(Text, index=True)
+    client_id: Mapped[str] = mapped_column(ForeignKey("mcp_clients.client_id", ondelete="CASCADE"))
+    scopes: Mapped[list[str]] = mapped_column(ARRAY(Text))
+    resource: Mapped[str | None] = mapped_column(Text)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

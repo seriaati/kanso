@@ -18,6 +18,7 @@ from kanso.api import (
     events,
     health,
     labels,
+    mcp,
     notifications,
     prefs,
     releases,
@@ -34,7 +35,8 @@ from kanso.db.session import engine
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
-    yield
+    async with mcp.running():
+        yield
     await engine.dispose()
     await redis.aclose()
 
@@ -63,9 +65,12 @@ for router in (
     assistant.router,
     prefs.router,
     notifications.router,
+    mcp.router,
 ):
     protected.include_router(router)
 app.include_router(protected)
+# The MCP endpoint and its OAuth routes, which take bearer tokens, not the session cookie.
+app.router.routes.extend(mcp.routes())
 
 
 # Slim images have no /etc/mime.types; fonts would go out as octet-stream and be gzipped again.

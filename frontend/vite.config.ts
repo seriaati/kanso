@@ -42,7 +42,8 @@ const pwa = VitePWA({
     globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}', 'assets/{zen-maru-gothic,shippori-mincho-b1}-latin-*.woff2'],
     globIgnores: ['**/fonts-full-*.css', 'pdfjs/**'],
     navigateFallback: '/index.html',
-    navigateFallbackDenylist: [/^\/api(\/|$)/],
+    // /authorize: the MCP server's OAuth endpoint, which the browser opens for an AI agent.
+    navigateFallbackDenylist: [/^\/api(\/|$)/, /^\/authorize$/],
     cleanupOutdatedCaches: true,
     importScripts: ['/push-sw.js'],
     runtimeCaching: [

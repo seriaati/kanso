@@ -13,6 +13,8 @@ from kanso.core.settings import settings
 CSRF_HEADER = "x-requested-with"
 CSRF_VALUE = "kanso"
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+# It takes an OAuth bearer token, never the session cookie, so CSRF can't reach it.
+MCP_PATH = "/api/mcp"
 
 CSP = "; ".join(
     [
@@ -67,6 +69,7 @@ class Hardening:
         if (
             (path == "/api" or path.startswith("/api/"))
             and scope["method"] not in SAFE_METHODS
+            and path != MCP_PATH
             and Headers(scope=scope).get(CSRF_HEADER) != CSRF_VALUE
         ):
             response = JSONResponse(

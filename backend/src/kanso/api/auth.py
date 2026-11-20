@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kanso.api import mcp
 from kanso.core.security import (
     clear_session_cookie,
     password_hash,
@@ -86,8 +87,8 @@ async def logout(response: Response) -> None:
 async def change_password(
     body: PasswordChange, request: Request, response: Response, db: DB
 ) -> None:
-    """Stored in the database (PASSWORD_HASH in .env is the starting value). Every session is
-    signed out, except this browser, which gets a new one."""
+    """Stored in the database (PASSWORD_HASH in .env is the starting value). Every session and
+    MCP agent is signed out, except this browser, which gets a new one."""
     if settings.demo_mode:  # visitors share the password shown on the login page
         raise HTTPException(status_code=403, detail="The demo's password can't be changed")
     try:
@@ -99,6 +100,7 @@ async def change_password(
         raise HTTPException(status_code=400, detail="The current password is wrong") from error
     new_hash = await asyncio.to_thread(PasswordHasher().hash, body.new)
     await prefs.put(db, prefs.PASSWORD_HASH, new_hash)
+    await mcp.sign_out_all(db)
     await db.commit()
     remember_password_hash(new_hash)
     set_session_cookie(response, new_hash, await session_epoch())
@@ -106,9 +108,11 @@ async def change_password(
 
 @router.post("/logout-everywhere", status_code=204, dependencies=[Depends(require_session)])
 async def logout_everywhere(response: Response, db: DB) -> None:
-    """The session generation goes up, so every cookie signed before no longer matches."""
+    """The session generation goes up, so every cookie signed before no longer matches. MCP
+    agents are signed out too."""
     epoch = await session_epoch() + 1
     await prefs.put(db, prefs.SESSION_EPOCH, epoch)
+    await mcp.sign_out_all(db)
     await db.commit()
     remember_session_epoch(epoch)
     clear_session_cookie(response)

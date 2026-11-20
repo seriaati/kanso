@@ -21,6 +21,7 @@ import { Composer } from '../features/compose/Composer'
 import { CommandBar } from '../features/command/CommandBar'
 import { ShortcutHelp } from '../features/help/ShortcutHelp'
 import { LabelPicker, type LabelOption } from '../features/labels/LabelPicker'
+import { Consent } from '../features/login/Consent'
 import { Login } from '../features/login/Login'
 import { Reader, type ThreadDraft } from '../features/reader/Reader'
 import { Selection } from '../features/reader/Selection'
@@ -60,6 +61,7 @@ import { applyUpdate, useUpdateReady } from './update'
 export function App() {
   const accounts = useAccounts()
   const route = useRoute()
+  const location = useLocation()
   useSystemBars()
   // Offline (the shell still starts from the service worker): retry once back online.
   const { isError, refetch } = accounts
@@ -85,6 +87,8 @@ export function App() {
       </div>
     )
   if (!accounts.data) return null
+  const signIn = location.pathname === '/oauth/authorize' && new URLSearchParams(location.search).get('request')
+  if (signIn) return <Consent request={signIn} />
   if (!route) return <Navigate to="/inbox" replace />
   return <Mail accounts={accounts.data} route={route} />
 }

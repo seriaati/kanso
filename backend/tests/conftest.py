@@ -13,7 +13,7 @@ PASSWORD = "correct horse battery staple"
 os.environ |= {
     "SECRET_KEY": "test-secret-key-0123456789abcdef0123456789",
     "PASSWORD_HASH": PasswordHasher(time_cost=1, memory_cost=1024).hash(PASSWORD),
-    "PUBLIC_URL": "http://testserver",
+    "PUBLIC_URL": "http://localhost",
     "GOOGLE_CLIENT_ID": "client-id",
     "GOOGLE_CLIENT_SECRET": "client-secret",
     # Env vars win over the repo's .env, so a real Pub/Sub config there can't leak in.

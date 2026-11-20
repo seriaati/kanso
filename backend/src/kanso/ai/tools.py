@@ -302,7 +302,7 @@ def _when(moment: datetime, zone: tzinfo) -> str:
     return moment.astimezone(zone).strftime("%a %d %b %Y %H:%M")
 
 
-def _demo_accounts() -> Any:
+def demo_accounts() -> Any:
     if settings.demo_mode:  # a demo instance: all of its mail is made up and may be sent
         return select(Account.id).where(false())
     return select(Account.id).where(Account.demo)
@@ -311,7 +311,7 @@ def _demo_accounts() -> Any:
 def real(account_id: int) -> Any:
     """The conversation's account's threads, outside the demo mailbox: demo mail is never sent to
     Claude."""
-    return (Thread.account_id == account_id) & Thread.account_id.not_in(_demo_accounts())
+    return (Thread.account_id == account_id) & Thread.account_id.not_in(demo_accounts())
 
 
 async def _label_names(db: AsyncSession, threads: list[Thread]) -> dict[int, str]:
@@ -415,7 +415,7 @@ async def list_labels(db: AsyncSession, data: Any, zone: tzinfo, account_id: int
         .where(
             Label.type == "user",
             Label.account_id == account_id,
-            Label.account_id.not_in(_demo_accounts()),
+            Label.account_id.not_in(demo_accounts()),
         )
         .order_by(func.lower(Label.name))
     )
